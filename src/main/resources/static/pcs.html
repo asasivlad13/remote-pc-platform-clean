@@ -5,6 +5,127 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote PC - My Computers</title>
     <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        .scenario-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.78);
+            backdrop-filter: blur(10px);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .scenario-modal {
+            width: min(920px, 100%);
+            background: rgba(15, 23, 42, 0.97);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 24px;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            padding: 24px;
+            color: white;
+        }
+
+        .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .scenario-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .scenario-subtitle {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 14px;
+        }
+
+        .scenario-close {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border-radius: 12px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 14px;
+        }
+
+        .scenario-card {
+            text-align: left;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06);
+            color: white;
+            border-radius: 18px;
+            padding: 16px;
+            cursor: pointer;
+            transition: 0.18s ease;
+            min-height: 160px;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.65);
+            background: rgba(59, 130, 246, 0.14);
+        }
+
+        .scenario-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .scenario-card.disabled:hover {
+            transform: none;
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .scenario-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .scenario-name {
+            font-size: 16px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .scenario-description {
+            color: rgba(255, 255, 255, 0.58);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .scenario-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            background: rgba(16, 185, 129, 0.16);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .scenario-badge.soon {
+            background: rgba(245, 158, 11, 0.14);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+    </style>
 </head>
 <body style="padding: 24px;">
 <div style="max-width: 1200px; margin: 0 auto;">
@@ -29,11 +150,64 @@
     </div>
 </div>
 
+<div id="scenarioModalBackdrop" class="scenario-modal-backdrop">
+    <div class="scenario-modal">
+        <div class="scenario-header">
+            <div>
+                <div class="scenario-title">Выберите сценарий подключения</div>
+                <div class="scenario-subtitle" id="scenarioPcName">ПК: —</div>
+            </div>
+
+            <button class="scenario-close" onclick="closeScenarioModal()">✕</button>
+        </div>
+
+        <div class="scenario-grid">
+            <button class="scenario-card" onclick="connectWithProfile('personal')">
+                <div class="scenario-icon">💻</div>
+                <div class="scenario-name">Личный доступ</div>
+                <div class="scenario-description">
+                    Полное подключение к своему ПК: экран, мышь, клавиатура, файлы, питание и история.
+                </div>
+                <span class="scenario-badge">Доступно</span>
+            </button>
+
+            <button class="scenario-card disabled" onclick="showScenarioInProgress('education_teacher')">
+                <div class="scenario-icon">🎓</div>
+                <div class="scenario-name">Режим обучения</div>
+                <div class="scenario-description">
+                    Преподаватель создаёт учебную сессию, ученики подключаются по коду и получают права по разрешению.
+                </div>
+                <span class="scenario-badge soon">Скоро</span>
+            </button>
+
+            <button class="scenario-card disabled" onclick="showScenarioInProgress('support_operator')">
+                <div class="scenario-icon">🛠</div>
+                <div class="scenario-name">Техподдержка</div>
+                <div class="scenario-description">
+                    Оператор подключается к клиенту по коду и получает управление только после подтверждения.
+                </div>
+                <span class="scenario-badge soon">Скоро</span>
+            </button>
+
+            <button class="scenario-card disabled" onclick="showScenarioInProgress('presentation_remote')">
+                <div class="scenario-icon">📱</div>
+                <div class="scenario-name">Презентация / пульт</div>
+                <div class="scenario-description">
+                    Мобильный интерфейс для управления презентацией, мультимедиа, тачпадом или джойстиком.
+                </div>
+                <span class="scenario-badge soon">Скоро</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/login.html';
 
     let pcsCache = [];
+    let selectedPcId = null;
+    let selectedPcName = null;
 
     function getStatusClass(status) {
         return status ? status.toLowerCase() : 'offline';
@@ -94,7 +268,7 @@
             }
 
             grid.innerHTML = pcs.map(pc => `
-                <div class="pc-card fade-in-up" onclick="connect(${pc.id}, '${escapeHtml(pc.name)}')">
+                <div class="pc-card fade-in-up" onclick="openScenarioModal(${pc.id}, '${escapeHtml(pc.name)}')">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                         <div style="width:48px;height:48px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border-radius:16px;display:flex;align-items:center;justify-content:center;">💻</div>
                         <span class="status-${getStatusClass(pc.status)}">${pc.status || 'OFFLINE'}</span>
@@ -115,7 +289,7 @@
 
                     <button class="btn-primary"
                             style="width:100%;justify-content:center;"
-                            onclick="event.stopPropagation(); connect(${pc.id}, '${escapeHtml(pc.name)}')">
+                            onclick="event.stopPropagation(); openScenarioModal(${pc.id}, '${escapeHtml(pc.name)}')">
                         🔌 Connect
                     </button>
 
@@ -128,6 +302,34 @@
         }
     }
 
+    function openScenarioModal(id, name) {
+        selectedPcId = id;
+        selectedPcName = name;
+
+        document.getElementById('scenarioPcName').innerText = 'ПК: ' + name;
+        document.getElementById('scenarioModalBackdrop').style.display = 'flex';
+    }
+
+    function closeScenarioModal() {
+        document.getElementById('scenarioModalBackdrop').style.display = 'none';
+        selectedPcId = null;
+        selectedPcName = null;
+    }
+
+    function connectWithProfile(profile) {
+        if (!selectedPcId || !selectedPcName) {
+            alert('ПК не выбран');
+            return;
+        }
+
+        window.location.href =
+            `/watch.html?pcId=${selectedPcId}&pcName=${encodeURIComponent(selectedPcName)}&profile=${encodeURIComponent(profile)}`;
+    }
+
+    function showScenarioInProgress(profile) {
+        alert('Этот сценарий будет реализован следующим этапом: ' + profile);
+    }
+
     function sendPowerCommand(pcId, action) {
         const confirmText = action === 'SOFT_SLEEP'
             ? 'Перевести ПК в умный сон?'
@@ -136,13 +338,15 @@
         if (!confirm(confirmText)) return;
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${wsProtocol}//${window.location.hostname}:8080/ws/client`);
+        const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+        const socket = new WebSocket(`${wsProtocol}//${window.location.hostname}:${wsPort}/ws/client`);
 
         socket.onopen = () => {
             socket.send(JSON.stringify({
                 type: 'command',
                 pcId: parseInt(pcId),
-                action: action
+                action: action,
+                profile: 'personal'
             }));
 
             setTimeout(() => {
@@ -167,14 +371,16 @@
         });
     }
 
-    function connect(id, name) {
-        window.location.href = `/watch.html?pcId=${id}&pcName=${encodeURIComponent(name)}`;
-    }
-
     function logout() {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
     }
+
+    document.getElementById('scenarioModalBackdrop').addEventListener('click', (e) => {
+        if (e.target.id === 'scenarioModalBackdrop') {
+            closeScenarioModal();
+        }
+    });
 
     loadPCs();
     setInterval(loadPCs, 10000);
