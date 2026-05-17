@@ -2,13 +2,15 @@ package com.remote.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.remote.config.JwtUtil;
 import com.remote.model.ConnectionLog;
 import com.remote.model.Pc;
 import com.remote.repository.ConnectionLogRepository;
 import com.remote.repository.PcRepository;
+import com.remote.service.EducationParticipantService;
+import com.remote.service.SessionPermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -26,6 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebSocketClientHandler extends TextWebSocketHandler {
 
     @Autowired
+    private EducationParticipantService educationParticipantService;
+
+    @Autowired
     private AgentWebSocketHandler agentWebSocketHandler;
 
     @Autowired
@@ -38,8 +43,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     private JwtUtil jwtUtil;
 
     @Autowired
-    @Lazy
-    private WebSocketClientHandler webSocketClientHandler;
+    private SessionPermissionService sessionPermissionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -48,6 +52,9 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     private final Map<Long, String> lastFrames = new ConcurrentHashMap<>();
 
     private final Map<String, Long> sessionLogIds = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionProfiles = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionUsernames = new ConcurrentHashMap<>();
+
     private final Map<String, Double> fpsSum = new ConcurrentHashMap<>();
     private final Map<String, Double> latencySum = new ConcurrentHashMap<>();
     private final Map<String, Integer> metricsCount = new ConcurrentHashMap<>();
@@ -88,13 +95,11 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
         if ("stop".equals(type)) {
             closeSessionLog(session);
-            clientWatching.remove(session.getId());
             return;
         }
 
         if ("command".equals(type)) {
-            Long pcId = json.get("pcId").asLong();
-            agentWebSocketHandler.sendCommandToAgent(pcId, json);
+            handleCommand(session, json);
             return;
         }
 
@@ -105,14 +110,83 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
     }
 
+    private void handleCommand(WebSocketSession session, JsonNode json) throws Exception {
+        if (!json.has("pcId") || !json.has("action")) {
+            session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Invalid command payload\"}"));
+            return;
+        }
+
+        Long pcId = json.get("pcId").asLong();
+        String action = json.get("action").asText();
+
+        String profile = sessionProfiles.getOrDefault(session.getId(), "personal");
+        profile = sessionPermissionService.normalizeProfile(profile);
+
+        boolean allowed;
+
+        if ("personal".equals(profile)) {
+            allowed = sessionPermissionService.isCommandAllowed(profile, action);
+
+        } else if ("education_student".equals(profile)) {
+            String educationCode = json.has("educationCode")
+                    ? json.get("educationCode").asText()
+                    : null;
+
+            String username = sessionUsernames.getOrDefault(session.getId(), "unknown");
+
+            allowed = educationCode != null
+                    && !educationCode.isBlank()
+                    && !"unknown".equals(username)
+                    && isRemoteControlAction(action)
+                    && educationParticipantService.hasControlInSession(username, educationCode);
+        } else {
+            allowed = false;
+        }
+
+        if (!allowed) {
+            String errorJson = objectMapper.createObjectNode()
+                    .put("type", "command_denied")
+                    .put("profile", profile)
+                    .put("action", action)
+                    .put("message", "Command is not allowed for current scenario")
+                    .toString();
+
+            session.sendMessage(new TextMessage(errorJson));
+
+            System.out.println("⛔ Command denied: profile=" + profile
+                    + ", action=" + action
+                    + ", username=" + sessionUsernames.getOrDefault(session.getId(), "unknown")
+                    + ", educationCode=" + (json.has("educationCode") ? json.get("educationCode").asText() : "none")
+                    + ", session=" + session.getId());
+
+            return;
+        }
+
+        ObjectNode command = json.deepCopy();
+        command.put("profile", profile);
+
+        agentWebSocketHandler.sendCommandToAgent(pcId, command);
+
+        System.out.println("✅ Command allowed: profile=" + profile
+                + ", action=" + action
+                + ", username=" + sessionUsernames.getOrDefault(session.getId(), "unknown")
+                + ", pcId=" + pcId);
+    }
+
     private void handleWatch(WebSocketSession session, JsonNode json) throws Exception {
         Long pcId = json.get("pcId").asLong();
         clientWatching.put(session.getId(), pcId);
 
         String username = extractUsernameFromJson(json);
+        sessionUsernames.put(session.getId(), username);
+
         String clientIp = extractClientIp(session);
         String clientInfo = extractClientInfo(json);
         String mode = json.has("mode") ? json.get("mode").asText() : "Control";
+        String profile = json.has("profile") ? json.get("profile").asText("personal") : "personal";
+        profile = sessionPermissionService.normalizeProfile(profile);
+
+        sessionProfiles.put(session.getId(), profile);
 
         Pc pc = pcRepository.findById(pcId).orElse(null);
 
@@ -124,7 +198,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             log.setAvgFps(0.0);
             log.setAvgLatency(0.0);
             log.setFilesSent(0);
-            log.setIssues("");
+            log.setIssues("profile=" + profile);
 
             ConnectionLog saved = connectionLogRepository.save(log);
             sessionLogIds.put(session.getId(), saved.getId());
@@ -136,12 +210,14 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             String notificationMessage =
                     "К вашему ПК \"" + pc.getName() + "\" подключился: "
                             + username
+                            + " | Сценарий: " + profile
                             + " | IP: " + clientIp
                             + " | Устройство: " + clientInfo;
 
             agentWebSocketHandler.sendNotificationToAgent(pcId, notificationMessage);
 
             System.out.println("📝 Logged connection: " + username + " -> " + pc.getName());
+            System.out.println("🎯 Connection profile: " + profile);
             System.out.println("🔔 Notification sent: " + notificationMessage);
         }
 
@@ -187,6 +263,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         Long logId = sessionLogIds.remove(session.getId());
 
         clientWatching.remove(session.getId());
+        sessionProfiles.remove(session.getId());
+        sessionUsernames.remove(session.getId());
         fpsSum.remove(session.getId());
         latencySum.remove(session.getId());
         metricsCount.remove(session.getId());
@@ -206,7 +284,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
             connectionLogRepository.save(log);
 
-            System.out.println("📝 Session closed: logId=" + logId + ", duration=" + log.getDurationSeconds() + " sec");
+            System.out.println("📝 Session closed: logId=" + logId
+                    + ", duration=" + log.getDurationSeconds() + " sec");
         });
     }
 
@@ -302,5 +381,14 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         closeSessionLog(session);
         sessions.remove(session.getId());
         System.out.println("Web client disconnected: " + session.getId());
+    }
+
+    private boolean isRemoteControlAction(String action) {
+        return "MOUSE_MOVE".equals(action)
+                || "MOUSE_CLICK".equals(action)
+                || "MOUSE_WHEEL".equals(action)
+                || "KEY_PRESS".equals(action)
+                || "KEY_RELEASE".equals(action)
+                || "KEY_COMBO".equals(action);
     }
 }

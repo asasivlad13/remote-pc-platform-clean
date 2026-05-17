@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Join Education Session</title>
+    <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        body {
+            padding: 24px;
+        }
+
+        .page {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+        }
+
+        .form-label {
+            display: block;
+            color: #93c5fd;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.08);
+            color: white;
+            outline: none;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin-bottom: 18px;
+        }
+
+        .result-card {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(16,185,129,0.35);
+            background: rgba(16,185,129,0.09);
+        }
+
+        .waiting-card {
+            border-color: rgba(245,158,11,0.35);
+            background: rgba(245,158,11,0.09);
+        }
+
+        .rejected-card {
+            border-color: rgba(239,68,68,0.4);
+            background: rgba(239,68,68,0.1);
+        }
+
+        .error-box {
+            display: none;
+            margin-top: 16px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: rgba(239,68,68,0.1);
+            color: #fecaca;
+            border-radius: 16px;
+            padding: 14px;
+            font-size: 14px;
+        }
+
+        .muted {
+            color: rgba(255,255,255,0.55);
+        }
+
+        .status-text {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .status-code {
+            color: #93c5fd;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+        <div>
+            <h1 style="font-size:32px;">🎓 Подключение к учебной сессии</h1>
+            <p class="muted">Введите код, который дал преподаватель.</p>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+            <button class="btn-glass" onclick="location.href='/pcs.html'">← Назад</button>
+            <button class="btn-glass" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <label class="form-label" for="sessionCodeInput">Код сессии</label>
+        <input id="sessionCodeInput" class="form-input" maxlength="6" placeholder="Например: 160198">
+
+        <label class="form-label" for="displayNameInput">Ваше имя в сессии</label>
+        <input id="displayNameInput" class="form-input" placeholder="Например: Анна Иванова">
+
+        <button id="joinBtn" class="btn-primary" onclick="joinSession()">
+            Подключиться
+        </button>
+
+        <button class="btn-glass" onclick="returnToActiveStudentSession()">
+            🔁 Вернуться в текущую сессию
+        </button>
+
+        <div id="errorBox" class="error-box"></div>
+
+        <div id="resultCard" class="result-card waiting-card">
+            <div id="statusTitle" class="status-text">⏳ Заявка отправлена преподавателю</div>
+
+            <p class="muted">
+                Ваш статус: <strong id="participantStatus">WAITING</strong>
+            </p>
+
+            <p id="statusDescription" class="muted">
+                Ожидаем подтверждения преподавателя. Страница будет обновлять статус автоматически.
+            </p>
+
+            <div id="sessionInfo" class="status-code"></div>
+
+            <div id="approvedActions" style="display:none;margin-top:18px;">
+                <button class="btn-primary" onclick="openStudentSession()">
+                    🎓 Войти в учебную сессию
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    let currentSessionCode = null;
+    let currentParticipantId = null;
+    let statusTimer = null;
+
+    async function joinSession() {
+        hideError();
+
+        const sessionCode = document.getElementById('sessionCodeInput').value.trim();
+        const displayName = document.getElementById('displayNameInput').value.trim();
+
+        if (!sessionCode || sessionCode.length !== 6) {
+            showError('Введите 6-значный код сессии');
+            return;
+        }
+
+        const btn = document.getElementById('joinBtn');
+        btn.disabled = true;
+        btn.innerText = 'Отправка заявки...';
+
+        try {
+            const response = await fetch('/api/education/participants/join', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionCode: sessionCode,
+                    displayName: displayName
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participant = await response.json();
+
+            currentSessionCode = participant.sessionCode;
+            currentParticipantId = participant.id;
+
+            document.getElementById('sessionInfo').innerText =
+                'Код сессии: ' + currentSessionCode;
+
+            renderStatus(participant.status);
+            document.getElementById('resultCard').style.display = 'block';
+
+            startStatusPolling();
+
+        } catch (e) {
+            showError(e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Подключиться';
+        }
+    }
+
+    async function checkMyStatus() {
+        if (!currentParticipantId) return;
+
+        try {
+            const response = await fetch('/api/education/participants/status/' + currentParticipantId, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participant = await response.json();
+
+            renderStatus(participant.status);
+
+            if (participant.status === 'APPROVED' || participant.status === 'REJECTED') {
+                stopStatusPolling();
+            }
+
+        } catch (e) {
+            showError(e.message);
+            stopStatusPolling();
+        }
+    }
+
+    function startStatusPolling() {
+        stopStatusPolling();
+
+        statusTimer = setInterval(checkMyStatus, 2000);
+    }
+
+    function stopStatusPolling() {
+        if (statusTimer) {
+            clearInterval(statusTimer);
+            statusTimer = null;
+        }
+    }
+
+    function renderStatus(status) {
+        const resultCard = document.getElementById('resultCard');
+        const statusTitle = document.getElementById('statusTitle');
+        const participantStatus = document.getElementById('participantStatus');
+        const statusDescription = document.getElementById('statusDescription');
+        const approvedActions = document.getElementById('approvedActions');
+
+        participantStatus.innerText = status;
+
+        resultCard.classList.remove('waiting-card', 'rejected-card');
+
+        if (status === 'WAITING') {
+            resultCard.classList.add('waiting-card');
+            statusTitle.innerText = '⏳ Заявка отправлена преподавателю';
+            statusDescription.innerText = 'Ожидаем подтверждения преподавателя. Страница будет обновлять статус автоматически.';
+            approvedActions.style.display = 'none';
+            return;
+        }
+
+        if (status === 'APPROVED') {
+            statusTitle.innerText = '✅ Преподаватель подтвердил подключение';
+            statusDescription.innerText = 'Теперь вы можете войти в учебную сессию.';
+            approvedActions.style.display = 'block';
+            return;
+        }
+
+        if (status === 'REJECTED') {
+            resultCard.classList.add('rejected-card');
+            statusTitle.innerText = '❌ Заявка отклонена';
+            statusDescription.innerText = 'Преподаватель отклонил подключение к учебной сессии.';
+            approvedActions.style.display = 'none';
+            return;
+        }
+
+        statusTitle.innerText = 'Статус заявки: ' + status;
+        statusDescription.innerText = 'Текущий статус подключения обновлён.';
+        approvedActions.style.display = 'none';
+    }
+
+    function openStudentSession() {
+        if (!currentSessionCode) return;
+
+        window.location.href =
+            '/education-student.html?code=' + encodeURIComponent(currentSessionCode);
+    }
+
+    function showError(message) {
+        const box = document.getElementById('errorBox');
+        box.innerText = message;
+        box.style.display = 'block';
+    }
+
+    function hideError() {
+        const box = document.getElementById('errorBox');
+        box.innerText = '';
+        box.style.display = 'none';
+    }
+
+    function logout() {
+        stopStatusPolling();
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    }
+
+    window.addEventListener('beforeunload', () => {
+        stopStatusPolling();
+    });
+
+    async function returnToActiveStudentSession() {
+        const response = await fetch('/api/education/sessions/my-active/student', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.status === 204) {
+            alert('Активной сессии нет');
+            return;
+        }
+
+        if (!response.ok) {
+            alert('Ошибка поиска активной сессии');
+            return;
+        }
+
+        const session = await response.json();
+
+        window.location.href =
+            '/education-student.html?code=' + encodeURIComponent(session.sessionCode);
+    }
+</script>
+</body>
+</html>

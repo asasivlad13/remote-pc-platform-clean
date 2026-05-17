@@ -235,9 +235,18 @@
         </div>
 
         <button id="settingsBtn" class="btn-glass">⚙️</button>
-        <button id="controlModeBtn" class="btn-glass" style="background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);">🎮 Control</button>
+        <button id="controlModeBtn"
+                class="btn-glass"
+                onclick="toggleControlMode()"
+                style="background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);">
+            🎮 Control
+        </button>
         <button id="fullscreenBtn" class="btn-glass">🖥️</button>
         <button id="disconnectBtn" class="btn-glass" style="background:rgba(239,68,68,0.2);border-color:rgba(239,68,68,0.5);">⏻</button>
+
+        <button id="educationBackBtn" class="btn-glass" style="display:none;" onclick="goBackToEducation()">
+            ← Назад к сессии
+        </button>
     </div>
 </div>
 
@@ -313,10 +322,30 @@
 </div>
 
 <script>
+
+    function goBackToEducation() {
+        const educationCode = urlParams.get('educationCode');
+
+        if (educationCode) {
+            window.location.href = '/education-student.html?code=' + encodeURIComponent(educationCode);
+        } else {
+            window.history.back();
+        }
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const pcId = urlParams.get('pcId');
     const pcName = decodeURIComponent(urlParams.get('pcName') || 'Unknown');
     document.getElementById('pcNameDisplay').innerText = pcName;
+
+    const profile = urlParams.get('profile') || 'personal';
+
+    const embeddedMode = urlParams.get('embedded') === '1';
+    const readonlyMode = urlParams.get('readonly') === '1';
+
+    let controlMode = profile !== 'education_student';
+    let educationStudentHasControl = false;
+    let educationControlAllowed = false;
 
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/login.html';
@@ -330,7 +359,7 @@
     const minimizeFileProgressBtn = document.getElementById('minimizeFileProgressBtn');
 
     let ws = null;
-    let controlMode = true;
+
 
     let remoteScreenWidth = 1920;
     let remoteScreenHeight = 1080;
@@ -362,6 +391,7 @@
     let isDraggingFileWindow = false;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
+
 
     const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
@@ -497,6 +527,97 @@
     }
 
     async function getPcInfo() {
+        if (profile === 'education_student') {
+            const educationCode = urlParams.get('educationCode');
+
+            if (!educationCode) {
+                throw new Error("Education session code is missing");
+            }
+
+            const response = await fetch('/api/education/sessions/' + encodeURIComponent(educationCode), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to load education session info");
+            }
+
+            const session = await response.json();
+
+            if (!session.teacherPcWebrtcUrl || !session.teacherPcStreamName) {
+                throw new Error("Teacher PC does not provide WebRTC stream info");
+            }
+
+            remoteScreenWidth = session.teacherPcScreenWidth || 1920;
+            remoteScreenHeight = session.teacherPcScreenHeight || 1080;
+
+            webrtcHost = session.teacherPcWebrtcUrl;
+            streamName = session.teacherPcStreamName;
+
+            const statusResponse = await fetch('/api/education/participants/status/' + encodeURIComponent(session.id), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (statusResponse.ok) {
+                const participant = await statusResponse.json();
+                educationStudentHasControl = participant.hasControl === true;
+            } else {
+                educationStudentHasControl = false;
+            }
+
+            educationControlAllowed = educationStudentHasControl === true;
+
+            const controlBtn = document.getElementById('controlModeBtn');
+            const backBtn = document.getElementById('educationBackBtn');
+            const indicator = document.getElementById('modeIndicator');
+
+            if (backBtn && !embeddedMode) {
+                backBtn.style.display = 'inline-flex';
+            }
+
+            if (embeddedMode) {
+                document.querySelector('.top-bar').style.display = 'none';
+                document.getElementById('statusBadge').style.display = 'none';
+                document.getElementById('modeIndicator').style.display = 'none';
+                document.getElementById('videoShell').style.top = '0';
+            }
+
+            if (educationControlAllowed && !readonlyMode) {
+                controlMode = false;
+
+                controlBtn.style.removeProperty('display');
+                controlBtn.style.display = 'inline-flex';
+                controlBtn.hidden = false;
+                controlBtn.innerHTML = '👁️ View';
+                controlBtn.style.background = 'rgba(245,158,11,0.2)';
+                controlBtn.style.borderColor = 'rgba(245,158,11,0.5)';
+
+                indicator.innerHTML = '👁️ Учебный режим: только просмотр. Нажмите View, чтобы перейти в управление.';
+                indicator.style.color = '#fbbf24';
+            } else {
+                controlMode = false;
+
+                if (controlBtn) {
+                    controlBtn.style.display = 'none';
+                }
+
+                indicator.innerHTML = readonlyMode
+                    ? '🎓 Предпросмотр: только просмотр'
+                    : '🎓 Учебный режим: только просмотр';
+
+                indicator.style.color = '#93c5fd';
+            }
+
+            console.log("EDUCATION MODE");
+            console.log("Teacher PC ID:", session.teacherPcId);
+            console.log("Teacher stream name:", streamName);
+            console.log("Student has control:", educationStudentHasControl);
+            console.log("Education control allowed:", educationControlAllowed);
+            console.log("Current control mode:", controlMode);
+
+            return;
+        }
+
         const response = await fetch(`/pcs/${pcId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -519,6 +640,7 @@
         webrtcHost = pcInfo.webrtcUrl;
         streamName = pcInfo.streamName;
 
+        console.log("PERSONAL MODE");
         console.log("Remote screen:", remoteScreenWidth, "x", remoteScreenHeight);
         console.log("WebRTC host:", webrtcHost);
         console.log("Stream name:", streamName);
@@ -691,7 +813,24 @@
                 }
             }
         }
+        if (data.type === "endSession") {
+            console.warn("GStreamer ended session:", data.sessionId);
 
+            document.getElementById('videoState').innerText = 'reconnecting';
+            document.getElementById('videoState').className = 'metric-warn';
+
+            try {
+                disconnectVideo();
+            } catch (e) {
+                console.warn("Disconnect before reconnect failed:", e);
+            }
+
+            setTimeout(() => {
+                connectVideo();
+            }, 1500);
+
+            return;
+        }
         if (data.type === "error") {
             console.error("Signalling server error:", data);
         }
@@ -710,16 +849,42 @@
                 ]
             });
 
-            pc.ontrack = (event) => {
+            pc.ontrack = async (event) => {
                 console.log("Received track:", event);
+
+                let stream;
+
                 if (event.streams && event.streams.length > 0) {
-                    video.srcObject = event.streams[0];
+                    stream = event.streams[0];
                 } else {
-                    const stream = new MediaStream([event.track]);
-                    video.srcObject = stream;
+                    stream = new MediaStream([event.track]);
+                }
+
+                video.srcObject = stream;
+                video.muted = true;
+                video.autoplay = true;
+                video.playsInline = true;
+
+                document.getElementById('videoState').innerText = 'track received';
+                document.getElementById('videoState').className = 'metric-warn';
+
+                document.getElementById('loadingOverlay').style.display = 'none';
+
+                try {
+                    await video.play();
+                    console.log("Video play started");
+
+                    document.getElementById('videoState').innerText = 'playing';
+                    document.getElementById('videoState').className = 'metric-good';
+
+                    startFpsCounter();
+                } catch (e) {
+                    console.warn("Video play failed:", e);
+
+                    document.getElementById('videoState').innerText = 'play blocked';
+                    document.getElementById('videoState').className = 'metric-warn';
                 }
             };
-
             pc.onicecandidate = (event) => {
                 if (!wsSignal || wsSignal.readyState !== WebSocket.OPEN) return;
                 if (!currentSessionId) return;
@@ -833,6 +998,7 @@
                 pcId: parseInt(pcId),
                 token: token,
                 pcName: pcName,
+                profile: profile,
                 platform: navigator.platform,
                 browser: navigator.userAgent,
                 mode: controlMode ? "Control" : "View"
@@ -965,14 +1131,27 @@
     }
 
     function sendCommand(action, data = {}, allowInViewMode = false) {
-        if (ws && ws.readyState === WebSocket.OPEN && (controlMode || allowInViewMode)) {
-            ws.send(JSON.stringify({
-                type: 'command',
-                pcId: parseInt(pcId),
-                action: action,
-                ...data
-            }));
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            return;
         }
+
+        if (!controlMode && !allowInViewMode) {
+            return;
+        }
+
+        const command = {
+            type: 'command',
+            pcId: parseInt(pcId),
+            action: action,
+            profile: profile,
+            ...data
+        };
+
+        if (profile === 'education_student') {
+            command.educationCode = urlParams.get('educationCode');
+        }
+
+        ws.send(JSON.stringify(command));
     }
 
     function sendFileControl(action) {
@@ -1057,7 +1236,13 @@
     }
 
     function toggleControlMode() {
+        if (profile === 'education_student' && !educationControlAllowed) {
+            alert('Управление ещё не разрешено преподавателем');
+            return;
+        }
+
         controlMode = !controlMode;
+
         const btn = document.getElementById('controlModeBtn');
         const indicator = document.getElementById('modeIndicator');
 
@@ -1065,13 +1250,25 @@
             btn.innerHTML = '🎮 Control';
             btn.style.background = 'rgba(16,185,129,0.2)';
             btn.style.borderColor = 'rgba(16,185,129,0.5)';
-            indicator.innerHTML = '🎮 Control Mode Active - Keyboard & Mouse enabled';
+
+            if (profile === 'education_student') {
+                indicator.innerHTML = '🎮 Учебный режим: управление активно';
+            } else {
+                indicator.innerHTML = '🎮 Control Mode Active - Keyboard & Mouse enabled';
+            }
+
             indicator.style.color = '#34d399';
         } else {
             btn.innerHTML = '👁️ View';
             btn.style.background = 'rgba(245,158,11,0.2)';
             btn.style.borderColor = 'rgba(245,158,11,0.5)';
-            indicator.innerHTML = '👁️ View Mode - Keyboard & Mouse disabled';
+
+            if (profile === 'education_student') {
+                indicator.innerHTML = '👁️ Учебный режим: только просмотр';
+            } else {
+                indicator.innerHTML = '👁️ View Mode - Keyboard & Mouse disabled';
+            }
+
             indicator.style.color = '#fbbf24';
         }
 
@@ -1336,12 +1533,50 @@
             await getPcInfo();
             connectWs();
             connectVideo();
+
+            if (profile === 'education_student') {
+                if (embeddedMode || readonlyMode || !educationControlAllowed) {
+                    controlMode = false;
+
+                    document.getElementById('controlModeBtn').style.display = 'none';
+
+                    document.getElementById('modeIndicator').innerHTML =
+                        readonlyMode
+                            ? '🎓 Предпросмотр: только просмотр'
+                            : '👁️ Учебный режим: только просмотр';
+
+                    document.getElementById('modeIndicator').style.color = '#93c5fd';
+                } else {
+                    controlMode = false;
+
+                    const controlBtn = document.getElementById('controlModeBtn');
+
+                    controlBtn.hidden = false;
+                    controlBtn.style.removeProperty('display');
+                    controlBtn.style.display = 'inline-flex';
+                    controlBtn.style.visibility = 'visible';
+                    controlBtn.style.opacity = '1';
+                    controlBtn.disabled = false;
+                    controlBtn.innerHTML = '👁️ View';
+                    controlBtn.onclick = toggleControlMode;
+                    controlBtn.style.background = 'rgba(245,158,11,0.2)';
+                    controlBtn.style.borderColor = 'rgba(245,158,11,0.5)';
+
+                    document.getElementById('modeIndicator').innerHTML =
+                        '👁️ Учебный режим: только просмотр. Нажмите View, чтобы перейти в управление.';
+
+                    document.getElementById('modeIndicator').style.color = '#fbbf24';
+                }
+            }
+
         } catch (e) {
             console.error(e);
             showLoadingError(e.message);
         }
+
+        console.log("Connection profile:", profile);
     }
-    cancelBtn.onclick
+
     init();
 </script>
 </body>

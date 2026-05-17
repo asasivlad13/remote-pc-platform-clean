@@ -127,8 +127,10 @@
         }
     </style>
 </head>
+
 <body style="padding: 24px;">
 <div style="max-width: 1200px; margin: 0 auto;">
+
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 16px;">
         <div class="fade-in-up">
             <h1 style="font-size: 32px;">My Computers</h1>
@@ -136,6 +138,12 @@
         </div>
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button onclick="returnToActiveTeacherSession()" class="btn-glass">
+                🔁 Вернуться в активную сессию
+            </button>
+            <button onclick="location.href='/education-join.html'" class="btn-glass">
+                🎓 Войти в учебную сессию
+            </button>
             <button onclick="location.href='/history.html'" class="btn-glass">📊 История</button>
             <button onclick="location.href='/change-password.html'" class="btn-glass">🔒 Change Password</button>
             <button onclick="logout()" class="btn-glass">🚪 Logout</button>
@@ -171,13 +179,13 @@
                 <span class="scenario-badge">Доступно</span>
             </button>
 
-            <button class="scenario-card disabled" onclick="showScenarioInProgress('education_teacher')">
+            <button class="scenario-card" onclick="location.href='/education-create.html'">
                 <div class="scenario-icon">🎓</div>
-                <div class="scenario-name">Режим обучения</div>
+                <div class="scenario-name">Создать учебную сессию</div>
                 <div class="scenario-description">
-                    Преподаватель создаёт учебную сессию, ученики подключаются по коду и получают права по разрешению.
+                    Создать новую учебную сессию для демонстрации экрана преподавателя и подключения учеников.
                 </div>
-                <span class="scenario-badge soon">Скоро</span>
+                <span class="scenario-badge">Доступно</span>
             </button>
 
             <button class="scenario-card disabled" onclick="showScenarioInProgress('support_operator')">
@@ -203,11 +211,41 @@
 
 <script>
     const token = localStorage.getItem('token');
-    if (!token) window.location.href = '/login.html';
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
 
     let pcsCache = [];
     let selectedPcId = null;
     let selectedPcName = null;
+
+    async function returnToActiveTeacherSession() {
+        try {
+            const response = await fetch('/api/education/sessions/my-active/teacher', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 204) {
+                alert('У вас нет активной учебной сессии');
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+
+            window.location.href =
+                '/education-teacher.html?code=' + encodeURIComponent(session.sessionCode);
+
+        } catch (e) {
+            alert('Ошибка возврата в активную сессию: ' + e.message);
+        }
+    }
 
     function getStatusClass(status) {
         return status ? status.toLowerCase() : 'offline';
@@ -248,7 +286,9 @@
     async function loadPCs() {
         try {
             const response = await fetch('/pcs', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
             if (response.status === 401 || response.status === 403) {
@@ -362,6 +402,7 @@
 
     function escapeHtml(str) {
         if (!str) return '';
+
         return String(str).replace(/[&<>']/g, function(m) {
             if (m === '&') return '&amp;';
             if (m === '<') return '&lt;';

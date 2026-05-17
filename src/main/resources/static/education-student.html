@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Education Session - Student</title>
+    <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        body {
+            padding: 24px;
+        }
+
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+        }
+
+        .muted {
+            color: rgba(255,255,255,0.55);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 11px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .code {
+            font-size: 30px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            color: #34d399;
+        }
+
+        .preview-frame-wrap {
+            height: 460px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: #000;
+        }
+
+        .preview-frame {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #000;
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        #controlStatus {
+            width: 100%;
+            margin-top: 4px;
+            color: #93c5fd;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+        <div>
+            <h1 style="font-size:32px;">🎓 Учебная сессия</h1>
+            <p class="muted">Режим ученика</p>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn-glass" onclick="location.href='/education-join.html'">← К подключению</button>
+            <button class="btn-glass" onclick="location.href='/pcs.html'">💻 Мои ПК</button>
+            <button class="btn-glass" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div id="errorBox" class="card" style="display:none;border-color:rgba(239,68,68,0.4);color:#fecaca;"></div>
+
+    <div class="card">
+        <h2 id="sessionTitle">Загрузка...</h2>
+        <p class="muted">Код сессии:</p>
+        <div id="sessionCode" class="code">------</div>
+
+        <div style="margin-top:18px;">
+            <div class="info-row">
+                <span class="muted">Статус</span>
+                <strong id="sessionStatus">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Преподаватель</span>
+                <strong id="teacherUsername">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">ПК преподавателя</span>
+                <strong id="teacherPc">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Управление</span>
+                <strong id="allowControl">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Передача файлов</span>
+                <strong id="allowFiles">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Демонстрация экрана</span>
+                <strong id="allowScreenShare">—</strong>
+            </div>
+        </div>
+    </div>
+
+    <div id="sessionFinishedOverlay"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;text-align:center;color:white;">
+        <div>
+            <div style="font-size:72px;margin-bottom:20px;">🏁</div>
+            <h1>Сессия завершена</h1>
+            <p class="muted">Преподаватель завершил учебную сессию.</p>
+            <button class="btn-primary" onclick="location.href='/education-join.html'">
+                Вернуться к подключению
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:14px;">🖥 Экран преподавателя</h3>
+
+        <div class="preview-frame-wrap">
+            <iframe id="teacherPreviewFrame"
+                    class="preview-frame"
+                    allow="autoplay; fullscreen">
+            </iframe>
+        </div>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="openTeacherScreen()">
+                👁️ Открыть экран отдельно
+            </button>
+
+            <button id="requestControlBtn" class="btn-primary" onclick="requestControl()">
+                🎮 Запросить управление
+            </button>
+
+            <button class="btn-glass" onclick="alert('Передачу файлов ученика добавим следующим шагом')">
+                📂 Передать файл преподавателю
+            </button>
+
+            <button class="btn-glass" onclick="alert('Демонстрацию экрана ученика добавим следующим шагом')">
+                📺 Показать свой экран
+            </button>
+
+            <button class="btn-glass"
+                    onclick="leaveSession()"
+                    style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);">
+                🚪 Выйти из сессии
+            </button>
+
+            <div id="controlStatus"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionCode = params.get('code');
+
+    if (!sessionCode) {
+        showError('Не указан код учебной сессии');
+    }
+
+    let currentSession = null;
+    let participantStatusTimer = null;
+
+    async function loadSession() {
+        try {
+            hideError();
+
+            const response = await fetch('/api/education/sessions/' + encodeURIComponent(sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            currentSession = await response.json();
+
+            if (currentSession.status === 'FINISHED') {
+                document.getElementById('sessionFinishedOverlay').style.display = 'flex';
+                return;
+            }
+
+            document.getElementById('sessionTitle').innerText = currentSession.title;
+            document.getElementById('sessionCode').innerText = currentSession.sessionCode;
+            document.getElementById('sessionStatus').innerText = currentSession.status;
+            document.getElementById('teacherUsername').innerText = currentSession.teacherUsername || '—';
+            document.getElementById('teacherPc').innerText = currentSession.teacherPcName || '—';
+            document.getElementById('allowControl').innerText = currentSession.allowStudentControl ? 'Разрешено' : 'Запрещено';
+            document.getElementById('allowFiles').innerText = currentSession.allowFileTransfer ? 'Разрешена' : 'Запрещена';
+            document.getElementById('allowScreenShare').innerText = currentSession.allowStudentScreenShare ? 'Разрешена' : 'Запрещена';
+
+            setupTeacherPreview();
+
+            if (!currentSession.allowStudentControl) {
+                const btn = document.getElementById('requestControlBtn');
+                btn.disabled = true;
+                btn.style.opacity = '0.55';
+                btn.innerText = '🎮 Управление запрещено';
+                document.getElementById('controlStatus').innerText =
+                    'В настройках этой учебной сессии управление учениками запрещено.';
+            }
+
+            await loadParticipantStatus();
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    function setupTeacherPreview() {
+        if (!currentSession || !currentSession.teacherPcId) {
+            return;
+        }
+
+        const frame = document.getElementById('teacherPreviewFrame');
+
+        frame.src =
+            '/watch.html?pcId=' + encodeURIComponent(currentSession.teacherPcId) +
+            '&pcName=' + encodeURIComponent(currentSession.teacherPcName || 'Teacher PC') +
+            '&profile=education_student' +
+            '&educationCode=' + encodeURIComponent(currentSession.sessionCode) +
+            '&embedded=1' +
+            '&readonly=1';
+    }
+
+    async function loadParticipantStatus() {
+        if (!currentSession || !currentSession.id) return;
+
+        try {
+            const response = await fetch('/api/education/participants/status/' + encodeURIComponent(currentSession.id), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const participant = await response.json();
+            updateControlUi(participant);
+
+        } catch (e) {
+            console.warn('Cannot load participant status:', e);
+        }
+    }
+
+    function updateControlUi(participant) {
+        const btn = document.getElementById('requestControlBtn');
+        const status = document.getElementById('controlStatus');
+
+        if (!currentSession || !currentSession.allowStudentControl) {
+            return;
+        }
+
+        if (participant.hasControl) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.innerText = '✅ Управление разрешено';
+            status.innerText = 'Преподаватель разрешил управление. Нажмите “Открыть экран отдельно”, чтобы включить управление.';
+            return;
+        }
+
+        if (participant.controlRequested) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.innerText = '⏳ Запрос отправлен';
+            status.innerText = 'Запрос управления отправлен преподавателю. Ожидайте подтверждения.';
+            return;
+        }
+
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerText = '🎮 Запросить управление';
+        status.innerText = '';
+    }
+
+    async function requestControl() {
+        try {
+            hideError();
+
+            const response = await fetch('/api/education/participants/control/request', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionCode: sessionCode
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participant = await response.json();
+
+            updateControlUi(participant);
+
+        } catch (e) {
+            alert('Ошибка запроса управления: ' + e.message);
+        }
+    }
+
+    function openTeacherScreen() {
+        if (!currentSession) {
+            showError('Сессия ещё не загружена');
+            return;
+        }
+
+        if (!currentSession.teacherPcId) {
+            showError('У сессии не указан ПК преподавателя');
+            return;
+        }
+
+        window.location.href =
+            '/watch.html?pcId=' + encodeURIComponent(currentSession.teacherPcId) +
+            '&pcName=' + encodeURIComponent(currentSession.teacherPcName || 'Teacher PC') +
+            '&profile=education_student' +
+            '&educationCode=' + encodeURIComponent(currentSession.sessionCode);
+    }
+
+    function showError(message) {
+        const box = document.getElementById('errorBox');
+        box.innerText = message;
+        box.style.display = 'block';
+    }
+
+    function hideError() {
+        const box = document.getElementById('errorBox');
+        box.innerText = '';
+        box.style.display = 'none';
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    }
+
+    async function init() {
+        await loadSession();
+
+        participantStatusTimer = setInterval(async () => {
+            await loadSession();
+            await loadParticipantStatus();
+        }, 3000);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (participantStatusTimer) {
+            clearInterval(participantStatusTimer);
+        }
+    });
+    async function leaveSession() {
+        if (!confirm('Выйти из учебной сессии?')) return;
+
+        const response = await fetch('/api/education/participants/leave', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sessionCode: sessionCode
+            })
+        });
+
+        if (!response.ok) {
+            alert('Ошибка выхода из сессии');
+            return;
+        }
+
+        window.location.href = '/education-join.html';
+    }
+
+    init();
+</script>
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Education Session - Teacher</title>
+    <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        body { padding: 24px; }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 24px;
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+
+        .code {
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: #34d399;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 10px 0;
+            gap: 16px;
+        }
+
+        .muted {
+            color: rgba(255,255,255,0.55);
+        }
+
+        .participant-card {
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            border-radius: 18px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .participant-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .participant-name {
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .status-badge {
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-WAITING {
+            background: rgba(245,158,11,0.18);
+            border: 1px solid rgba(245,158,11,0.35);
+            color: #fbbf24;
+        }
+
+        .status-APPROVED {
+            background: rgba(16,185,129,0.18);
+            border: 1px solid rgba(16,185,129,0.35);
+            color: #34d399;
+        }
+
+        .status-REJECTED {
+            background: rgba(239,68,68,0.18);
+            border: 1px solid rgba(239,68,68,0.35);
+            color: #f87171;
+        }
+
+        .status-DISCONNECTED {
+            background: rgba(148,163,184,0.18);
+            border: 1px solid rgba(148,163,184,0.35);
+            color: #cbd5e1;
+        }
+
+        .participant-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .participant-empty {
+            padding: 30px;
+            text-align: center;
+            color: rgba(255,255,255,0.55);
+            border: 1px dashed rgba(255,255,255,0.18);
+            border-radius: 18px;
+        }
+
+        .control-request-box {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(245,158,11,0.16);
+            border: 1px solid rgba(245,158,11,0.35);
+            color: #fde68a;
+        }
+
+        .control-active-box {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(16,185,129,0.16);
+            border: 1px solid rgba(16,185,129,0.35);
+            color: #bbf7d0;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+        <div>
+            <h1 style="font-size:32px;">🎓 Панель преподавателя</h1>
+            <p class="muted">Управление учебной сессией</p>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn-glass" onclick="location.href='/education-create.html'">← К созданию</button>
+            <button class="btn-glass" onclick="location.href='/pcs.html'">💻 Мои ПК</button>
+            <button class="btn-glass" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div id="errorBox" class="card" style="display:none;border-color:rgba(239,68,68,0.4);color:#fecaca;"></div>
+
+    <div class="grid">
+        <div class="card">
+            <h2 id="sessionTitle">Загрузка...</h2>
+            <p class="muted">Код для подключения учеников:</p>
+            <div id="sessionCode" class="code">------</div>
+
+            <div style="display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;">
+                <button class="btn-primary" onclick="copyCode()">📋 Скопировать код</button>
+                <button class="btn-glass" onclick="finishSession()" style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);">
+                    Завершить сессию
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Статус</h3>
+
+            <div class="info-row">
+                <span class="muted">Состояние</span>
+                <strong id="sessionStatus">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">ПК преподавателя</span>
+                <strong id="teacherPc">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Максимум учеников</span>
+                <strong id="maxStudents">—</strong>
+            </div>
+
+            <div class="info-row">
+                <span class="muted">Участников</span>
+                <strong id="participantsCount">0</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:14px;">⚙️ Настройки прав</h3>
+
+        <div class="info-row">
+            <span class="muted">Управление учениками</span>
+            <strong id="allowControl">—</strong>
+        </div>
+
+        <div class="info-row">
+            <span class="muted">Передача файлов</span>
+            <strong id="allowFiles">—</strong>
+        </div>
+
+        <div class="info-row">
+            <span class="muted">Демонстрация экрана учениками</span>
+            <strong id="allowScreenShare">—</strong>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+            <h3>👥 Участники и заявки</h3>
+            <button class="btn-glass" onclick="loadParticipants()">🔄 Обновить</button>
+        </div>
+
+        <div id="participantsList">
+            <div class="participant-empty">
+                Пока нет подключившихся учеников.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionCode = params.get('code');
+
+    if (!sessionCode) {
+        showError('Не указан код учебной сессии');
+    }
+
+    let currentSession = null;
+    let participantsTimer = null;
+
+    async function loadSession() {
+        try {
+            hideError();
+
+            const response = await fetch('/api/education/sessions/' + encodeURIComponent(sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            currentSession = await response.json();
+
+            document.getElementById('sessionTitle').innerText = currentSession.title;
+            document.getElementById('sessionCode').innerText = currentSession.sessionCode;
+            document.getElementById('sessionStatus').innerText = currentSession.status;
+            document.getElementById('teacherPc').innerText = currentSession.teacherPcName || '—';
+            document.getElementById('maxStudents').innerText = currentSession.maxStudents;
+
+            document.getElementById('allowControl').innerText = currentSession.allowStudentControl ? 'Разрешено' : 'Запрещено';
+            document.getElementById('allowFiles').innerText = currentSession.allowFileTransfer ? 'Разрешено' : 'Запрещено';
+            document.getElementById('allowScreenShare').innerText = currentSession.allowStudentScreenShare ? 'Разрешено' : 'Запрещено';
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    async function loadParticipants() {
+        try {
+            const response = await fetch('/api/education/participants/' + encodeURIComponent(sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participants = await response.json();
+            renderParticipants(participants);
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    function renderParticipants(participants) {
+        const list = document.getElementById('participantsList');
+        const count = document.getElementById('participantsCount');
+
+        const onlineCount = participants.filter(p => p.status !== 'DISCONNECTED').length;
+        count.innerText = onlineCount;
+
+        if (!participants || participants.length === 0) {
+            list.innerHTML = `
+                <div class="participant-empty">
+                    Пока нет подключившихся учеников.
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = participants.map(participant => {
+            const status = participant.status || 'WAITING';
+            const name = escapeHtml(participant.displayName || participant.username || 'Ученик');
+            const username = escapeHtml(participant.username || 'unknown');
+            const joinedAt = participant.joinedAt ? new Date(participant.joinedAt).toLocaleString() : '—';
+
+            let actions = '';
+
+            if (status === 'WAITING') {
+                actions = `
+                    <div class="participant-actions">
+                        <button class="btn-primary" onclick="approveParticipant(${participant.id})">
+                            ✅ Принять
+                        </button>
+
+                        <button class="btn-glass"
+                                style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                onclick="rejectParticipant(${participant.id})">
+                            ❌ Отклонить
+                        </button>
+                    </div>
+                `;
+            }
+
+            if (status === 'APPROVED') {
+                actions = `
+                    <div class="participant-actions">
+                        <button class="btn-glass" onclick="alert('Передачу файлов участникам добавим следующим шагом')">
+                            📂 Передать файл
+                        </button>
+                    </div>
+                `;
+
+                if (participant.controlRequested) {
+                    actions += `
+                        <div class="control-request-box">
+                            <div style="font-weight:800;">🎮 Ученик запрашивает управление</div>
+                            <div class="muted" style="font-size:12px;margin-top:4px;">
+                                Нажмите “Разрешить”, чтобы ученик смог управлять мышью и клавиатурой.
+                            </div>
+
+                            <div class="participant-actions">
+                                <button class="btn-primary" onclick="grantControl(${participant.id})">
+                                    ✅ Разрешить управление
+                                </button>
+
+                                <button class="btn-glass"
+                                        style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                        onclick="rejectControl(${participant.id})">
+                                    ❌ Отклонить
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (participant.hasControl) {
+                    actions += `
+                        <div class="control-active-box">
+                            <div style="font-weight:800;">✅ Ученик сейчас управляет ПК преподавателя</div>
+
+                            <div class="participant-actions">
+                                <button class="btn-glass"
+                                        style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                        onclick="revokeControl(${participant.id})">
+                                    Забрать управление
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            return `
+                <div class="participant-card">
+                    <div class="participant-header">
+                        <div>
+                            <div class="participant-name">👨‍🎓 ${name}</div>
+                            <div class="muted" style="font-size:12px;margin-top:4px;">
+                                username: ${username} · заявка: ${joinedAt}
+                            </div>
+                        </div>
+
+                        <span class="status-badge status-${status}">
+                            ${status}
+                        </span>
+                    </div>
+
+                    ${actions}
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function approveParticipant(participantId) {
+        await postParticipantAction('/api/education/participants/' + participantId + '/approve');
+    }
+
+    async function rejectParticipant(participantId) {
+        if (!confirm('Отклонить заявку ученика?')) return;
+        await postParticipantAction('/api/education/participants/' + participantId + '/reject');
+    }
+
+    async function grantControl(participantId) {
+        await postParticipantAction('/api/education/participants/' + participantId + '/control/grant');
+    }
+
+    async function rejectControl(participantId) {
+        await postParticipantAction('/api/education/participants/' + participantId + '/control/reject');
+    }
+
+    async function revokeControl(participantId) {
+        await postParticipantAction('/api/education/participants/' + participantId + '/control/revoke');
+    }
+
+    async function postParticipantAction(url) {
+        try {
+            hideError();
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            await loadParticipants();
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    async function finishSession() {
+        if (!confirm('Завершить учебную сессию?')) return;
+
+        try {
+            const response = await fetch('/api/education/sessions/' + encodeURIComponent(sessionCode) + '/finish', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            await loadSession();
+            alert('Сессия завершена');
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    function copyCode() {
+        if (!currentSession) return;
+
+        navigator.clipboard.writeText(currentSession.sessionCode)
+            .then(() => alert('Код скопирован: ' + currentSession.sessionCode))
+            .catch(() => alert('Код сессии: ' + currentSession.sessionCode));
+    }
+
+    function showError(message) {
+        const box = document.getElementById('errorBox');
+        box.innerText = message;
+        box.style.display = 'block';
+    }
+
+    function hideError() {
+        const box = document.getElementById('errorBox');
+        box.innerText = '';
+        box.style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+
+        return String(str).replace(/[&<>']/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === "'") return '&#39;';
+            return m;
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    }
+
+    async function init() {
+        await loadSession();
+        await loadParticipants();
+
+        participantsTimer = setInterval(loadParticipants, 3000);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (participantsTimer) {
+            clearInterval(participantsTimer);
+        }
+    });
+
+    init();
+</script>
+</body>
+</html>

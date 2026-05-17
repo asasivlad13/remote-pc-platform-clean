@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.remote.dto.StoredFileInfo;
 import com.remote.handler.AgentWebSocketHandler;
 import com.remote.service.FileStorageService;
+import com.remote.service.ServerUrlService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,22 +25,22 @@ public class FileTransferController {
 
     private final FileStorageService fileStorageService;
     private final AgentWebSocketHandler agentWebSocketHandler;
+    private final ServerUrlService serverUrlService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${remote.server.public-url:}")
-    private String publicUrl;
-
     public FileTransferController(FileStorageService fileStorageService,
-                                  AgentWebSocketHandler agentWebSocketHandler) {
+                                  AgentWebSocketHandler agentWebSocketHandler,
+                                  ServerUrlService serverUrlService) {
         this.fileStorageService = fileStorageService;
         this.agentWebSocketHandler = agentWebSocketHandler;
+        this.serverUrlService = serverUrlService;
     }
 
     @PostMapping("/upload")
     public StoredFileInfo uploadFile(@RequestParam("pcId") Long pcId,
                                      @RequestParam("file") MultipartFile file,
                                      HttpServletRequest request) throws Exception {
-        String baseUrl = resolveBaseUrl(request);
+        String baseUrl = serverUrlService.getBaseUrl(request);
 
         StoredFileInfo storedFileInfo = fileStorageService.storeEncrypted(file, baseUrl);
 
@@ -100,13 +100,5 @@ public class FileTransferController {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Download error: " + e.getMessage());
         }
-    }
-
-    private String resolveBaseUrl(HttpServletRequest request) {
-        if (publicUrl != null && !publicUrl.isBlank()) {
-            return publicUrl;
-        }
-
-        return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
     }
 }

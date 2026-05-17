@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote PC - Create Education Session</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+
+    <style>
+        body {
+            padding: 24px;
+        }
+
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 18px;
+        }
+
+        .form-label {
+            display: block;
+            color: #93c5fd;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 13px 15px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.08);
+            color: white;
+            outline: none;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
+        .form-select option {
+            background: #0f172a;
+            color: white;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .checkbox-row input {
+            margin-top: 3px;
+            transform: scale(1.15);
+        }
+
+        .checkbox-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .checkbox-desc {
+            color: rgba(255,255,255,0.52);
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 22px;
+            flex-wrap: wrap;
+        }
+
+        .result-card {
+            margin-top: 22px;
+            display: none;
+            border: 1px solid rgba(16,185,129,0.35);
+            background: rgba(16,185,129,0.09);
+            border-radius: 20px;
+            padding: 22px;
+        }
+
+        .session-code {
+            font-size: 42px;
+            letter-spacing: 8px;
+            font-weight: 900;
+            margin: 12px 0;
+            color: #34d399;
+        }
+
+        .hint {
+            color: rgba(255,255,255,0.55);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .error-box {
+            display: none;
+            margin-top: 16px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: rgba(239,68,68,0.1);
+            color: #fecaca;
+            border-radius: 16px;
+            padding: 14px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <div class="header">
+        <div>
+            <h1 style="font-size:32px;margin-bottom:6px;">
+                🎓 Создание учебной сессии
+            </h1>
+
+            <p style="color:rgba(255,255,255,0.55);">
+                Создайте сессию преподавателя и получите код для подключения учеников.
+            </p>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn-glass" onclick="location.href='/pcs.html'">
+                ← Назад
+            </button>
+
+            <button class="btn-glass" onclick="logout()">
+                🚪 Logout
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+
+        <div class="form-grid">
+
+            <div>
+                <label class="form-label" for="titleInput">
+                    Название занятия
+                </label>
+
+                <input
+                        id="titleInput"
+                        class="form-input"
+                        placeholder="Например: Лекция по GStreamer и WebRTC">
+            </div>
+
+            <div>
+                <label class="form-label" for="pcSelect">
+                    ПК преподавателя
+                </label>
+
+                <select id="pcSelect" class="form-select">
+                    <option value="">
+                        Загрузка ПК...
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label" for="maxStudentsInput">
+                    Максимальное количество учеников
+                </label>
+
+                <input
+                        id="maxStudentsInput"
+                        class="form-input"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value="30">
+            </div>
+
+            <label class="checkbox-row">
+                <input id="allowStudentControl" type="checkbox">
+
+                <div>
+                    <div class="checkbox-title">
+                        Разрешить ученикам управление ПК преподавателя
+                    </div>
+
+                    <div class="checkbox-desc">
+                        Ученик сможет управлять мышью и клавиатурой только после выдачи прав преподавателем.
+                    </div>
+                </div>
+            </label>
+
+            <label class="checkbox-row">
+                <input id="allowFileTransfer" type="checkbox">
+
+                <div>
+                    <div class="checkbox-title">
+                        Разрешить передачу файлов
+                    </div>
+
+                    <div class="checkbox-desc">
+                        Участники смогут передавать файлы через существующую защищённую систему AES/GCM + HTTPS/WSS.
+                    </div>
+                </div>
+            </label>
+
+            <label class="checkbox-row">
+                <input id="allowStudentScreenShare" type="checkbox">
+
+                <div>
+                    <div class="checkbox-title">
+                        Разрешить демонстрацию экрана учениками
+                    </div>
+
+                    <div class="checkbox-desc">
+                        Ученик с установленным агентом сможет показывать свой экран после разрешения преподавателя.
+                    </div>
+                </div>
+            </label>
+
+        </div>
+
+        <div class="actions">
+
+            <button
+                    id="createBtn"
+                    class="btn-primary"
+                    onclick="createEducationSession()">
+
+                🎓 Создать сессию
+
+            </button>
+
+            <button
+                    class="btn-glass"
+                    onclick="resetForm()">
+
+                Очистить
+
+            </button>
+
+        </div>
+
+        <div id="errorBox" class="error-box"></div>
+
+        <div id="resultCard" class="result-card">
+
+            <div style="font-size:18px;font-weight:800;">
+                ✅ Учебная сессия создана
+            </div>
+
+            <div class="hint" style="margin-top:6px;">
+                Передайте этот код ученикам для подключения:
+            </div>
+
+            <div id="sessionCode" class="session-code">
+                000000
+            </div>
+
+            <div class="hint">
+                Сессия активна. Теперь можно открыть панель преподавателя.
+            </div>
+
+            <div class="actions">
+
+                <button
+                        class="btn-primary"
+                        onclick="openTeacherPanel()">
+
+                    🎓 Открыть панель преподавателя
+
+                </button>
+
+                <button class="btn-glass" onclick="returnToActiveTeacherSession()">
+                    🔁 Вернуться в активную сессию
+                </button>
+
+                <button
+                        class="btn-glass"
+                        onclick="copySessionCode()">
+
+                    📋 Скопировать код
+
+                </button>
+
+                <button
+                        class="btn-glass"
+                        onclick="location.href='/pcs.html'">
+
+                    Вернуться к ПК
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    let createdSessionCode = null;
+
+    async function loadPcs() {
+
+        const pcSelect = document.getElementById('pcSelect');
+
+        try {
+
+            const response = await fetch('/pcs', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401 || response.status === 403) {
+
+                localStorage.removeItem('token');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить список ПК');
+            }
+
+            const pcs = await response.json();
+
+            const onlinePcs = pcs.filter(pc =>
+                String(pc.status || '').toUpperCase() === 'ONLINE'
+            );
+
+            if (onlinePcs.length === 0) {
+
+                pcSelect.innerHTML =
+                    '<option value="">Нет доступных ONLINE ПК</option>';
+
+                return;
+            }
+
+            pcSelect.innerHTML = onlinePcs.map(pc => {
+
+                const name = escapeHtml(pc.name || 'Unnamed PC');
+                const mac = escapeHtml(pc.macAddress || '');
+
+                return `
+                    <option value="${pc.id}">
+                        ${name} — ${mac}
+                    </option>
+                `;
+
+            }).join('');
+
+        } catch (e) {
+
+            pcSelect.innerHTML =
+                '<option value="">Ошибка загрузки ПК</option>';
+
+            showError(e.message);
+        }
+    }
+
+    async function createEducationSession() {
+
+        hideError();
+
+        const title =
+            document.getElementById('titleInput').value.trim();
+
+        const teacherPcId =
+            document.getElementById('pcSelect').value;
+
+        const maxStudents =
+            parseInt(document.getElementById('maxStudentsInput').value || '30');
+
+        if (!title) {
+            showError('Введите название занятия');
+            return;
+        }
+
+        if (!teacherPcId) {
+            showError('Выберите ПК преподавателя');
+            return;
+        }
+
+        const body = {
+
+            teacherPcId: parseInt(teacherPcId),
+
+            title: title,
+
+            maxStudents: maxStudents,
+
+            allowStudentControl:
+            document.getElementById('allowStudentControl').checked,
+
+            allowFileTransfer:
+            document.getElementById('allowFileTransfer').checked,
+
+            allowStudentScreenShare:
+            document.getElementById('allowStudentScreenShare').checked
+        };
+
+        const createBtn =
+            document.getElementById('createBtn');
+
+        createBtn.disabled = true;
+        createBtn.innerText = 'Создание...';
+
+        try {
+
+            const response = await fetch('/api/education/sessions', {
+
+                method: 'POST',
+
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+
+                const text = await response.text();
+
+                throw new Error(
+                    text || 'Ошибка создания учебной сессии'
+                );
+            }
+
+            const session = await response.json();
+
+            createdSessionCode = session.sessionCode;
+
+            document.getElementById('sessionCode').innerText =
+                createdSessionCode;
+
+            document.getElementById('resultCard').style.display =
+                'block';
+
+        } catch (e) {
+
+            showError(e.message);
+
+        } finally {
+
+            createBtn.disabled = false;
+            createBtn.innerText = '🎓 Создать сессию';
+        }
+    }
+
+    function openTeacherPanel() {
+
+        if (!createdSessionCode) return;
+
+        window.location.href =
+            '/education-teacher.html?code=' +
+            encodeURIComponent(createdSessionCode);
+    }
+
+    function resetForm() {
+
+        document.getElementById('titleInput').value = '';
+
+        document.getElementById('maxStudentsInput').value = '30';
+
+        document.getElementById('allowStudentControl').checked = false;
+
+        document.getElementById('allowFileTransfer').checked = false;
+
+        document.getElementById('allowStudentScreenShare').checked = false;
+
+        document.getElementById('resultCard').style.display = 'none';
+
+        createdSessionCode = null;
+
+        hideError();
+    }
+
+    function copySessionCode() {
+
+        if (!createdSessionCode) return;
+
+        navigator.clipboard.writeText(createdSessionCode)
+            .then(() => alert('Код скопирован: ' + createdSessionCode))
+            .catch(() => alert('Код сессии: ' + createdSessionCode));
+    }
+
+    function showError(message) {
+
+        const errorBox =
+            document.getElementById('errorBox');
+
+        errorBox.innerText = message;
+        errorBox.style.display = 'block';
+    }
+
+    function hideError() {
+
+        const errorBox =
+            document.getElementById('errorBox');
+
+        errorBox.innerText = '';
+        errorBox.style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+
+        if (!str) return '';
+
+        return String(str).replace(/[&<>']/g, function(m) {
+
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === "'") return '&#39;';
+
+            return m;
+        });
+    }
+
+    async function returnToActiveTeacherSession() {
+        const response = await fetch('/api/education/sessions/my-active/teacher', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.status === 204) {
+            alert('Активной сессии нет');
+            return;
+        }
+
+        if (!response.ok) {
+            alert('Ошибка поиска активной сессии');
+            return;
+        }
+
+        const session = await response.json();
+
+        window.location.href =
+            '/education-teacher.html?code=' + encodeURIComponent(session.sessionCode);
+    }
+
+    function logout() {
+
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    }
+
+    loadPcs();
+
+</script>
+
+</body>
+</html>
