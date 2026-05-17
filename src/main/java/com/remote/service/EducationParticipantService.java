@@ -15,16 +15,15 @@ import java.util.Map;
 
 @Service
 public class EducationParticipantService {
+
     private final EducationSessionRepository sessionRepository;
-    private final EducationSessionRepository educationSessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
 
-    public EducationParticipantService(EducationSessionRepository sessionRepository, EducationSessionRepository educationSessionRepository,
+    public EducationParticipantService(EducationSessionRepository sessionRepository,
                                        EducationSessionParticipantRepository participantRepository,
                                        UserRepository userRepository) {
         this.sessionRepository = sessionRepository;
-        this.educationSessionRepository = educationSessionRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
     }
@@ -45,7 +44,7 @@ public class EducationParticipantService {
     public EducationSessionParticipant joinSession(String username,
                                                    String sessionCode,
                                                    String displayName) {
-        EducationSession session = educationSessionRepository.findBySessionCode(sessionCode)
+        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
                 .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
 
         if (session.getStatus() != EducationSessionStatus.ACTIVE) {
@@ -59,6 +58,43 @@ public class EducationParticipantService {
             throw new IllegalArgumentException("Преподаватель не может подключиться как ученик");
         }
 
+        return participantRepository.findByEducationSessionAndStudent(session, student)
+                .map(existing -> reconnectExistingParticipant(existing, displayName, username))
+                .orElseGet(() -> createNewParticipant(session, student, displayName, username));
+    }
+
+    private EducationSessionParticipant reconnectExistingParticipant(EducationSessionParticipant participant,
+                                                                     String displayName,
+                                                                     String username) {
+        EducationSession session = participant.getEducationSession();
+
+        if (participant.getStatus() != EducationParticipantStatus.APPROVED) {
+            long approvedCount = participantRepository.countByEducationSessionAndStatus(
+                    session,
+                    EducationParticipantStatus.APPROVED
+            );
+
+            if (approvedCount >= session.getMaxStudents()) {
+                throw new IllegalArgumentException("В сессии уже максимальное количество учеников");
+            }
+        }
+
+        participant.setDisplayName(resolveDisplayName(displayName, username));
+        participant.setStatus(EducationParticipantStatus.WAITING);
+        participant.setHasControl(false);
+        participant.setControlRequested(false);
+        participant.setControlRequestedAt(null);
+        participant.setControlGrantedAt(null);
+        participant.setApprovedAt(null);
+        participant.setJoinedAt(LocalDateTime.now());
+
+        return participantRepository.save(participant);
+    }
+
+    private EducationSessionParticipant createNewParticipant(EducationSession session,
+                                                             User student,
+                                                             String displayName,
+                                                             String username) {
         long approvedCount = participantRepository.countByEducationSessionAndStatus(
                 session,
                 EducationParticipantStatus.APPROVED
@@ -68,25 +104,21 @@ public class EducationParticipantService {
             throw new IllegalArgumentException("В сессии уже максимальное количество учеников");
         }
 
-        return participantRepository.findByEducationSessionAndStudent(session, student)
-                .map(existing -> {
-                    existing.setDisplayName(resolveDisplayName(displayName, username));
-                    existing.setStatus(EducationParticipantStatus.WAITING);
-                    return participantRepository.save(existing);
-                })
-                .orElseGet(() -> {
-                    EducationSessionParticipant participant = new EducationSessionParticipant();
-                    participant.setEducationSession(session);
-                    participant.setStudent(student);
-                    participant.setDisplayName(resolveDisplayName(displayName, username));
-                    participant.setStatus(EducationParticipantStatus.WAITING);
-                    return participantRepository.save(participant);
-                });
+        EducationSessionParticipant participant = new EducationSessionParticipant();
+        participant.setEducationSession(session);
+        participant.setStudent(student);
+        participant.setDisplayName(resolveDisplayName(displayName, username));
+        participant.setStatus(EducationParticipantStatus.WAITING);
+        participant.setHasControl(false);
+        participant.setControlRequested(false);
+        participant.setJoinedAt(LocalDateTime.now());
+
+        return participantRepository.save(participant);
     }
 
     @Transactional(readOnly = true)
     public List<EducationSessionParticipant> getParticipants(String username, String sessionCode) {
-        EducationSession session = educationSessionRepository.findBySessionCode(sessionCode)
+        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
                 .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
 
         if (!session.getTeacher().getUsername().equals(username)) {
@@ -131,21 +163,6 @@ public class EducationParticipantService {
         return participantRepository.save(participant);
     }
 
-    private void checkTeacher(String username, EducationSessionParticipant participant) {
-        String teacherUsername = participant.getEducationSession().getTeacher().getUsername();
-
-        if (!teacherUsername.equals(username)) {
-            throw new IllegalArgumentException("Действие доступно только преподавателю");
-        }
-    }
-
-    private String resolveDisplayName(String displayName, String username) {
-        if (displayName != null && !displayName.isBlank()) {
-            return displayName.trim();
-        }
-
-        return username;
-    }
     @Transactional
     public EducationSessionParticipant requestControl(String username, String sessionCode) {
         User student = userRepository.findByUsername(username)
@@ -181,6 +198,10 @@ public class EducationParticipantService {
 
         if (!session.getAllowStudentControl()) {
             throw new IllegalArgumentException("В этой сессии управление ученикам запрещено");
+        }
+
+        if (participant.getStatus() != EducationParticipantStatus.APPROVED) {
+            throw new IllegalArgumentException("Управление можно выдать только подтверждённому ученику");
         }
 
         for (EducationSessionParticipant active : participantRepository.findByEducationSessionAndHasControlTrue(session)) {
@@ -233,7 +254,11 @@ public class EducationParticipantService {
     @Transactional(readOnly = true)
     public boolean hasControlInSession(String sessionCode) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return hasControlInSession(username, sessionCode);
+    }
 
+    @Transactional(readOnly = true)
+    public boolean hasControlInSession(String username, String sessionCode) {
         User student = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
@@ -265,38 +290,37 @@ public class EducationParticipantService {
         participant.setStatus(EducationParticipantStatus.DISCONNECTED);
         participant.setHasControl(false);
         participant.setControlRequested(false);
+        participant.setControlRequestedAt(null);
+        participant.setControlGrantedAt(null);
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
+        return toMap(saved);
+    }
+
+    private String resolveDisplayName(String displayName, String username) {
+        if (displayName != null && !displayName.isBlank()) {
+            return displayName.trim();
+        }
+
+        return username;
+    }
+
+    private Map<String, Object> toMap(EducationSessionParticipant participant) {
         Map<String, Object> response = new HashMap<>();
-        response.put("id", saved.getId());
-        response.put("displayName", saved.getDisplayName());
-        response.put("username", saved.getStudent().getUsername());
-        response.put("status", saved.getStatus());
-        response.put("joinedAt", saved.getJoinedAt());
-        response.put("approvedAt", saved.getApprovedAt());
-        response.put("controlRequested", saved.isControlRequested());
-        response.put("hasControl", saved.isHasControl());
-        response.put("controlRequestedAt", saved.getControlRequestedAt());
-        response.put("controlGrantedAt", saved.getControlGrantedAt());
+
+        response.put("id", participant.getId());
+        response.put("displayName", participant.getDisplayName());
+        response.put("username", participant.getStudent().getUsername());
+        response.put("studentId", participant.getStudent().getId());
+        response.put("status", participant.getStatus());
+        response.put("joinedAt", participant.getJoinedAt());
+        response.put("approvedAt", participant.getApprovedAt());
+        response.put("controlRequested", participant.isControlRequested());
+        response.put("hasControl", participant.isHasControl());
+        response.put("controlRequestedAt", participant.getControlRequestedAt());
+        response.put("controlGrantedAt", participant.getControlGrantedAt());
 
         return response;
     }
-
-    @Transactional(readOnly = true)
-    public boolean hasControlInSession(String username, String sessionCode) {
-        User student = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
-
-        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
-
-        return participantRepository.findByEducationSessionAndStudent(session, student)
-                .map(participant ->
-                        participant.getStatus() == EducationParticipantStatus.APPROVED
-                                && participant.isHasControl()
-                )
-                .orElse(false);
-    }
-
 }

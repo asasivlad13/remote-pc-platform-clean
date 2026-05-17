@@ -136,6 +136,66 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .chat-box {
+            height: 300px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.22);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.07);
+        }
+
+        .chat-message.me {
+            background: rgba(59,130,246,0.20);
+            border: 1px solid rgba(59,130,246,0.28);
+        }
+
+        .chat-meta {
+            font-size: 11px;
+            color: rgba(255,255,255,0.48);
+            margin-bottom: 4px;
+        }
+
+        .chat-text {
+            font-size: 14px;
+            line-height: 1.35;
+            color: white;
+            white-space: pre-wrap;
+        }
+
+        .chat-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.08);
+            color: white;
+            padding: 12px 14px;
+            outline: none;
+        }
+
+        .chat-select {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: #0f172a;
+            color: white;
+            padding: 12px 14px;
+            outline: none;
+        }
+
     </style>
 </head>
 
@@ -227,8 +287,36 @@
         </div>
     </div>
 </div>
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <h3>💬 Чат с учениками</h3>
+        <button class="btn-glass" onclick="loadChatMessages()">🔄 Обновить чат</button>
+    </div>
 
+    <div id="chatMessages" class="chat-box">
+        <div class="muted" style="text-align:center;padding:30px;">
+            Сообщений пока нет.
+        </div>
+    </div>
+
+    <div class="chat-form">
+        <select id="chatRecipient" class="chat-select">
+            <option value="">Всем ученикам</option>
+        </select>
+
+        <input id="chatInput"
+               class="chat-input"
+               type="text"
+               maxlength="2000"
+               placeholder="Написать сообщение...">
+
+        <button class="btn-primary" onclick="sendChatMessage()">
+            Отправить
+        </button>
+    </div>
+</div>
 <script>
+
     const token = localStorage.getItem('token');
 
     if (!token) {
@@ -244,6 +332,9 @@
 
     let currentSession = null;
     let participantsTimer = null;
+
+    let chatTimer = null;
+    let lastChatHtml = '';
 
     async function loadSession() {
         try {
@@ -404,6 +495,7 @@
                 </div>
             `;
         }).join('');
+        updateChatRecipients(participants);
     }
 
     async function approveParticipant(participantId) {
@@ -504,6 +596,143 @@
         });
     }
 
+    function updateChatRecipients(participants) {
+        const select = document.getElementById('chatRecipient');
+
+        if (!select) return;
+
+        const currentValue = select.value;
+
+        const approvedParticipants = (participants || [])
+            .filter(p => p.status === 'APPROVED')
+            .filter(p => p.studentId || p.userId || p.id);
+
+        let html = '<option value="">Всем ученикам</option>';
+
+        approvedParticipants.forEach(p => {
+            const recipientId = p.studentId || p.userId;
+            const name = escapeHtml(p.displayName || p.username || 'Ученик');
+
+            if (recipientId) {
+                html += `<option value="${recipientId}">${name}</option>`;
+            }
+        });
+
+        select.innerHTML = html;
+
+        if ([...select.options].some(option => option.value === currentValue)) {
+            select.value = currentValue;
+        }
+    }
+
+    async function loadChatMessages() {
+        if (!currentSession || !currentSession.sessionCode) return;
+
+        try {
+            const response = await fetch('/api/education/chat/' + encodeURIComponent(currentSession.sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const messages = await response.json();
+            renderChatMessages(messages);
+
+        } catch (e) {
+            console.warn('Ошибка загрузки чата:', e.message);
+        }
+    }
+
+    function renderChatMessages(messages) {
+        const box = document.getElementById('chatMessages');
+        if (!box) return;
+
+        if (!messages || messages.length === 0) {
+            box.innerHTML = `
+            <div class="muted" style="text-align:center;padding:30px;">
+                Сообщений пока нет.
+            </div>
+        `;
+            return;
+        }
+
+        const html = messages.map(message => {
+            const sender = escapeHtml(message.senderUsername || 'unknown');
+            const recipient = message.recipientUsername
+                ? ' → ' + escapeHtml(message.recipientUsername)
+                : ' → всем';
+
+            const text = escapeHtml(message.message || '');
+            const time = message.createdAt
+                ? new Date(message.createdAt).toLocaleTimeString()
+                : '';
+
+            const isTeacherMessage = currentSession &&
+                message.senderUsername === currentSession.teacherUsername;
+
+            return `
+            <div style="display:flex;justify-content:${isTeacherMessage ? 'flex-end' : 'flex-start'};margin-bottom:12px;">
+                <div class="chat-message ${isTeacherMessage ? 'me' : ''}" style="max-width:75%;">
+                    <div class="chat-meta">${sender}${recipient} · ${time}</div>
+                    <div class="chat-text">${text}</div>
+                </div>
+            </div>
+        `;
+        }).join('');
+
+        if (html !== lastChatHtml) {
+            box.innerHTML = html;
+            box.scrollTop = box.scrollHeight;
+            lastChatHtml = html;
+        }
+    }
+
+    async function sendChatMessage() {
+        if (!currentSession || !currentSession.sessionCode) {
+            showError('Сессия ещё не загружена');
+            return;
+        }
+
+        const input = document.getElementById('chatInput');
+        const recipientSelect = document.getElementById('chatRecipient');
+
+        const text = input.value.trim();
+
+        if (!text) return;
+
+        const recipientId = recipientSelect.value
+            ? parseInt(recipientSelect.value)
+            : null;
+
+        try {
+            const response = await fetch('/api/education/chat/' + encodeURIComponent(currentSession.sessionCode), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: text,
+                    recipientId: recipientId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            input.value = '';
+            await loadChatMessages();
+
+        } catch (e) {
+            alert('Ошибка отправки сообщения: ' + e.message);
+        }
+    }
+
     function logout() {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
@@ -512,13 +741,19 @@
     async function init() {
         await loadSession();
         await loadParticipants();
+        await loadChatMessages();
 
         participantsTimer = setInterval(loadParticipants, 3000);
+        chatTimer = setInterval(loadChatMessages, 2500);
     }
 
     window.addEventListener('beforeunload', () => {
         if (participantsTimer) {
             clearInterval(participantsTimer);
+        }
+
+        if (chatTimer) {
+            clearInterval(chatTimer);
         }
     });
 

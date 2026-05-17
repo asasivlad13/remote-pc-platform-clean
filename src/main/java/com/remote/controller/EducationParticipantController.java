@@ -15,55 +15,20 @@ import java.util.Map;
 @RequestMapping("/api/education/participants")
 public class EducationParticipantController {
 
-    private final EducationParticipantService educationParticipantService;
     private final EducationParticipantService participantService;
     private final JwtUtil jwtUtil;
 
-    public EducationParticipantController(EducationParticipantService educationParticipantService, EducationParticipantService participantService,
+    public EducationParticipantController(EducationParticipantService participantService,
                                           JwtUtil jwtUtil) {
-        this.educationParticipantService = educationParticipantService;
         this.participantService = participantService;
         this.jwtUtil = jwtUtil;
     }
 
-    @GetMapping("/status/{participantId}")
-    public ParticipantResponse getStatus(@PathVariable Long participantId,
+    @GetMapping("/status/{sessionId}")
+    public ParticipantResponse getStatus(@PathVariable Long sessionId,
                                          HttpServletRequest request) {
         String username = extractUsername(request);
-        return toResponse(participantService.getMyParticipantStatus(username, participantId));
-    }
-
-    @PostMapping("/control/request")
-    public ParticipantResponse requestControl(@RequestBody ControlRequest request,
-                                              HttpServletRequest httpRequest) {
-        String username = extractUsername(httpRequest);
-        return toResponse(participantService.requestControl(username, request.sessionCode()));
-    }
-
-    @PostMapping("/{participantId}/control/grant")
-    public ParticipantResponse grantControl(@PathVariable Long participantId,
-                                            HttpServletRequest request) {
-        String username = extractUsername(request);
-        return toResponse(participantService.grantControl(username, participantId));
-    }
-
-    @PostMapping("/{participantId}/control/reject")
-    public ParticipantResponse rejectControl(@PathVariable Long participantId,
-                                             HttpServletRequest request) {
-        String username = extractUsername(request);
-        return toResponse(participantService.rejectControl(username, participantId));
-    }
-
-    @PostMapping("/{participantId}/control/revoke")
-    public ParticipantResponse revokeControl(@PathVariable Long participantId,
-                                             HttpServletRequest request) {
-        String username = extractUsername(request);
-        return toResponse(participantService.revokeControl(username, participantId));
-    }
-
-    public record ControlRequest(
-            String sessionCode
-    ) {
+        return toResponse(participantService.getMyParticipantStatus(username, sessionId));
     }
 
     @PostMapping("/join")
@@ -104,16 +69,47 @@ public class EducationParticipantController {
         String username = extractUsername(request);
         return toResponse(participantService.rejectParticipant(username, participantId));
     }
+
+    @PostMapping("/control/request")
+    public ParticipantResponse requestControl(@RequestBody ControlRequest request,
+                                              HttpServletRequest httpRequest) {
+        String username = extractUsername(httpRequest);
+        return toResponse(participantService.requestControl(username, request.sessionCode()));
+    }
+
+    @PostMapping("/{participantId}/control/grant")
+    public ParticipantResponse grantControl(@PathVariable Long participantId,
+                                            HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.grantControl(username, participantId));
+    }
+
+    @PostMapping("/{participantId}/control/reject")
+    public ParticipantResponse rejectControl(@PathVariable Long participantId,
+                                             HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.rejectControl(username, participantId));
+    }
+
+    @PostMapping("/{participantId}/control/revoke")
+    public ParticipantResponse revokeControl(@PathVariable Long participantId,
+                                             HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.revokeControl(username, participantId));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<?> leaveSession(@RequestBody Map<String, String> body) {
         String sessionCode = body.get("sessionCode");
-        return ResponseEntity.ok(educationParticipantService.leaveSession(sessionCode));
+        return ResponseEntity.ok(participantService.leaveSession(sessionCode));
     }
+
     private ParticipantResponse toResponse(EducationSessionParticipant participant) {
         return new ParticipantResponse(
                 participant.getId(),
                 participant.getEducationSession().getSessionCode(),
                 participant.getDisplayName(),
+                participant.getStudent() != null ? participant.getStudent().getId() : null,
                 participant.getStudent() != null ? participant.getStudent().getUsername() : null,
                 participant.getStatus().name(),
                 participant.getJoinedAt(),
@@ -147,10 +143,16 @@ public class EducationParticipantController {
     ) {
     }
 
+    public record ControlRequest(
+            String sessionCode
+    ) {
+    }
+
     public record ParticipantResponse(
             Long id,
             String sessionCode,
             String displayName,
+            Long studentId,
             String username,
             String status,
             LocalDateTime joinedAt,

@@ -18,36 +18,57 @@
         <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Sign In</button>
     </form>
 
-    <div id="error" style="margin-top: 16px; color: #f87171; font-size: 14px; display: none;">❌ Invalid username or password</div>
+    <div id="error" style="margin-top: 16px; color: #f87171; font-size: 14px; display: none;">
+        ❌ Invalid username or password
+    </div>
 
     <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <p style="color: rgba(255,255,255,0.5); font-size: 14px;">Don't have an account? <a href="/register.html" style="color: #3b82f6;">Sign Up</a></p>
+        <p style="color: rgba(255,255,255,0.5); font-size: 14px;">
+            Don't have an account?
+            <a href="/register.html" style="color: #3b82f6;">Sign Up</a>
+        </p>
     </div>
 </div>
 
 <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+
         const errorDiv = document.getElementById('error');
         errorDiv.style.display = 'none';
 
-        const username = document.getElementById('username').value;
+        const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            errorDiv.innerText = '❌ Enter username and password';
+            errorDiv.style.display = 'block';
+            return;
+        }
 
         try {
             const response = await fetch('/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
             });
+
             if (response.ok) {
                 const data = await response.json();
+
                 localStorage.setItem('token', data.token);
+                localStorage.setItem('username', username);
+
                 window.location.href = '/pcs.html';
             } else {
+                errorDiv.innerText = '❌ Invalid username or password';
                 errorDiv.style.display = 'block';
             }
         } catch (error) {
+            errorDiv.innerText = '❌ Server connection error';
             errorDiv.style.display = 'block';
         }
     });
