@@ -4,5 +4,8 @@ public enum EducationParticipantStatus {
     WAITING,
     APPROVED,
     REJECTED,
-    DISCONNECTED
+    DISCONNECTED,
+    ONLINE,
+    LEFT,
+    RECONNECTED
 }

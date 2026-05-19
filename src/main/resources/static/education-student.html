@@ -360,10 +360,10 @@
     }
 
     async function loadParticipantStatus() {
-        if (!currentSession || !currentSession.id) return;
+        if (!currentSession || !currentSession.sessionCode) return;
 
         try {
-            const response = await fetch('/api/education/participants/status/' + encodeURIComponent(currentSession.id), {
+            const response = await fetch('/api/education/participants/my/' + encodeURIComponent(currentSession.sessionCode), {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -559,23 +559,39 @@
     async function leaveSession() {
         if (!confirm('Выйти из учебной сессии?')) return;
 
-        const response = await fetch('/api/education/participants/leave', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                sessionCode: sessionCode
-            })
-        });
+        try {
+            const response = await fetch('/api/education/participants/leave', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionCode: sessionCode
+                })
+            });
 
-        if (!response.ok) {
-            alert('Ошибка выхода из сессии');
-            return;
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            if (participantStatusTimer) {
+                clearInterval(participantStatusTimer);
+                participantStatusTimer = null;
+            }
+
+            if (chatTimer) {
+                clearInterval(chatTimer);
+                chatTimer = null;
+            }
+
+            localStorage.removeItem('activeEducationSessionCode');
+
+            window.location.href = '/pcs.html';
+
+        } catch (e) {
+            alert('Ошибка выхода из сессии: ' + e.message);
         }
-
-        window.location.href = '/education-join.html';
     }
 
     function showError(message) {

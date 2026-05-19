@@ -196,6 +196,116 @@
             outline: none;
         }
 
+        .status-ONLINE {
+            background: rgba(16,185,129,0.18);
+            border: 1px solid rgba(16,185,129,0.35);
+            color: #34d399;
+        }
+
+        .status-LEFT {
+            background: rgba(148,163,184,0.18);
+            border: 1px solid rgba(148,163,184,0.35);
+            color: #cbd5e1;
+        }
+
+        .status-RECONNECTED {
+            background: rgba(59,130,246,0.18);
+            border: 1px solid rgba(59,130,246,0.35);
+            color: #60a5fa;
+        }
+
+        .event-mini-panel {
+            position: sticky;
+            top: 12px;
+            z-index: 80;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1px solid rgba(59,130,246,0.28);
+            border-radius: 18px;
+            padding: 12px 14px;
+            margin-bottom: 18px;
+            box-shadow: 0 14px 32px rgba(0,0,0,0.28);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .event-mini-text {
+            min-width: 0;
+            font-size: 13px;
+            color: rgba(255,255,255,0.86);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .event-mini-meta {
+            display: block;
+            color: rgba(255,255,255,0.46);
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .event-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(8px);
+            z-index: 700;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .event-modal {
+            width: min(760px, 100%);
+            max-height: min(720px, 86vh);
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(59,130,246,0.35);
+            border-radius: 24px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .event-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .event-list {
+            overflow-y: auto;
+            background: rgba(0,0,0,0.22);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .event-item {
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.09);
+            margin-bottom: 10px;
+        }
+
+        .event-meta {
+            font-size: 11px;
+            color: rgba(255,255,255,0.48);
+            margin-bottom: 4px;
+        }
+
+        .event-text {
+            color: white;
+            font-size: 14px;
+        }
+
     </style>
 </head>
 
@@ -215,6 +325,18 @@
     </div>
 
     <div id="errorBox" class="card" style="display:none;border-color:rgba(239,68,68,0.4);color:#fecaca;"></div>
+
+    <div class="event-mini-panel">
+        <div class="event-mini-text" id="lastEventMini">
+            <span class="event-mini-meta">📋 Последнее событие журнала</span>
+            Событий пока нет.
+        </div>
+
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+            <button class="btn-glass" onclick="loadSessionEvents()">🔄</button>
+            <button class="btn-primary" onclick="openEventsModal()">📋 Журнал</button>
+        </div>
+    </div>
 
     <div class="grid">
         <div class="card">
@@ -285,36 +407,61 @@
                 Пока нет подключившихся учеников.
             </div>
         </div>
-    </div>
-</div>
-<div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-        <h3>💬 Чат с учениками</h3>
-        <button class="btn-glass" onclick="loadChatMessages()">🔄 Обновить чат</button>
+
     </div>
 
-    <div id="chatMessages" class="chat-box">
-        <div class="muted" style="text-align:center;padding:30px;">
-            Сообщений пока нет.
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+            <h3>💬 Чат с учениками</h3>
+            <button class="btn-glass" onclick="loadChatMessages()">🔄 Обновить чат</button>
+        </div>
+
+        <div id="chatMessages" class="chat-box">
+            <div class="muted" style="text-align:center;padding:30px;">
+                Сообщений пока нет.
+            </div>
+        </div>
+
+        <div class="chat-form">
+            <select id="chatRecipient" class="chat-select">
+                <option value="">Всем ученикам</option>
+            </select>
+
+            <input id="chatInput"
+                   class="chat-input"
+                   type="text"
+                   maxlength="2000"
+                   placeholder="Написать сообщение...">
+
+            <button class="btn-primary" onclick="sendChatMessage()">
+                Отправить
+            </button>
         </div>
     </div>
+</div>
 
-    <div class="chat-form">
-        <select id="chatRecipient" class="chat-select">
-            <option value="">Всем ученикам</option>
-        </select>
+<div id="eventsModalBackdrop" class="event-modal-backdrop" onclick="closeEventsModalOnBackdrop(event)">
+    <div class="event-modal">
+        <div class="event-modal-header">
+            <div>
+                <h3 style="margin:0;">📋 Журнал учебной сессии</h3>
+                <div class="muted" style="font-size:13px;margin-top:4px;">Все события сессии: заявки, входы, выходы, управление и действия преподавателя.</div>
+            </div>
 
-        <input id="chatInput"
-               class="chat-input"
-               type="text"
-               maxlength="2000"
-               placeholder="Написать сообщение...">
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button class="btn-glass" onclick="loadSessionEvents()">🔄 Обновить</button>
+                <button class="btn-glass" onclick="closeEventsModal()">✕</button>
+            </div>
+        </div>
 
-        <button class="btn-primary" onclick="sendChatMessage()">
-            Отправить
-        </button>
+        <div id="sessionEvents" class="event-list">
+            <div class="muted" style="text-align:center;padding:24px;">
+                Событий пока нет.
+            </div>
+        </div>
     </div>
 </div>
+
 <script>
 
     const token = localStorage.getItem('token');
@@ -335,6 +482,10 @@
 
     let chatTimer = null;
     let lastChatHtml = '';
+
+    let eventsTimer = null;
+    let lastEventsHtml = '';
+    let lastEventMiniHtml = '';
 
     async function loadSession() {
         try {
@@ -391,15 +542,15 @@
         const list = document.getElementById('participantsList');
         const count = document.getElementById('participantsCount');
 
-        const onlineCount = participants.filter(p => p.status !== 'DISCONNECTED').length;
-        count.innerText = onlineCount;
+        count.innerText = participants.length;
 
         if (!participants || participants.length === 0) {
             list.innerHTML = `
-                <div class="participant-empty">
-                    Пока нет подключившихся учеников.
-                </div>
-            `;
+            <div class="participant-empty">
+                Пока нет подключившихся учеников.
+            </div>
+        `;
+            updateChatRecipients([]);
             return;
         }
 
@@ -407,97 +558,102 @@
             const status = participant.status || 'WAITING';
             const name = escapeHtml(participant.displayName || participant.username || 'Ученик');
             const username = escapeHtml(participant.username || 'unknown');
-            const joinedAt = participant.joinedAt ? new Date(participant.joinedAt).toLocaleString() : '—';
+
+            const joinedAt = participant.joinedAt
+                ? new Date(participant.joinedAt).toLocaleString()
+                : '—';
+
+            const lastActivityAt = participant.lastActivityAt
+                ? new Date(participant.lastActivityAt).toLocaleString()
+                : '—';
 
             let actions = '';
 
-            if (status === 'WAITING') {
+            if (status === 'WAITING' || status === 'RECONNECTED') {
                 actions = `
-                    <div class="participant-actions">
-                        <button class="btn-primary" onclick="approveParticipant(${participant.id})">
-                            ✅ Принять
+                <div class="participant-actions">
+                    <button class="btn-primary" onclick="approveParticipant(${participant.id})">
+                        ✅ Принять
+                    </button>
+
+                    <button class="btn-glass"
+                            style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                            onclick="rejectParticipant(${participant.id})">
+                        ❌ Отклонить
+                    </button>
+                </div>
+            `;
+            } else if (status === 'APPROVED' || status === 'ONLINE') {
+                actions = `
+                <div class="participant-actions">
+                    ${participant.controlRequested ? `
+                        <button class="btn-primary" onclick="grantControl(${participant.id})">
+                            🎮 Разрешить управление
                         </button>
 
                         <button class="btn-glass"
                                 style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
-                                onclick="rejectParticipant(${participant.id})">
-                            ❌ Отклонить
+                                onclick="rejectControl(${participant.id})">
+                            ❌ Отклонить управление
                         </button>
-                    </div>
-                `;
-            }
+                    ` : ''}
 
-            if (status === 'APPROVED') {
+                    ${participant.hasControl ? `
+                        <button class="btn-glass"
+                                style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                onclick="revokeControl(${participant.id})">
+                            🛑 Забрать управление
+                        </button>
+                    ` : ''}
+
+                    <button class="btn-glass" onclick="alert('Файлы участникам добавим позже')">
+                        📂 Передать файл
+                    </button>
+                </div>
+            `;
+            } else if (status === 'LEFT') {
                 actions = `
-                    <div class="participant-actions">
-                        <button class="btn-glass" onclick="alert('Передачу файлов участникам добавим следующим шагом')">
-                            📂 Передать файл
-                        </button>
-                    </div>
-                `;
-
-                if (participant.controlRequested) {
-                    actions += `
-                        <div class="control-request-box">
-                            <div style="font-weight:800;">🎮 Ученик запрашивает управление</div>
-                            <div class="muted" style="font-size:12px;margin-top:4px;">
-                                Нажмите “Разрешить”, чтобы ученик смог управлять мышью и клавиатурой.
-                            </div>
-
-                            <div class="participant-actions">
-                                <button class="btn-primary" onclick="grantControl(${participant.id})">
-                                    ✅ Разрешить управление
-                                </button>
-
-                                <button class="btn-glass"
-                                        style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
-                                        onclick="rejectControl(${participant.id})">
-                                    ❌ Отклонить
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                if (participant.hasControl) {
-                    actions += `
-                        <div class="control-active-box">
-                            <div style="font-weight:800;">✅ Ученик сейчас управляет ПК преподавателя</div>
-
-                            <div class="participant-actions">
-                                <button class="btn-glass"
-                                        style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
-                                        onclick="revokeControl(${participant.id})">
-                                    Забрать управление
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }
+                <div class="muted" style="font-size:13px;margin-top:10px;">
+                    Ученик вышел из сессии.
+                </div>
+            `;
+            } else if (status === 'DISCONNECTED') {
+                actions = `
+                <div class="muted" style="font-size:13px;margin-top:10px;">
+                    Ученик потерял соединение.
+                </div>
+            `;
+            } else if (status === 'REJECTED') {
+                actions = `
+                <div class="muted" style="font-size:13px;margin-top:10px;color:#f87171;">
+                    Заявка отклонена.
+                </div>
+            `;
             }
 
             return `
-                <div class="participant-card">
-                    <div class="participant-header">
-                        <div>
-                            <div class="participant-name">👨‍🎓 ${name}</div>
-                            <div class="muted" style="font-size:12px;margin-top:4px;">
-                                username: ${username} · заявка: ${joinedAt}
-                            </div>
+            <div class="participant-card">
+                <div class="participant-header">
+                    <div>
+                        <div class="participant-name">👨‍🎓 ${name}</div>
+                        <div class="muted" style="font-size:12px;margin-top:4px;line-height:1.45;">
+                            username: ${username} · заявка: ${joinedAt}<br>
+                            последняя активность: ${lastActivityAt}
                         </div>
-
-                        <span class="status-badge status-${status}">
-                            ${status}
-                        </span>
                     </div>
 
-                    ${actions}
+                    <span class="status-badge status-${status}">
+                        ${status}
+                    </span>
                 </div>
-            `;
+
+                ${actions}
+            </div>
+        `;
         }).join('');
+
         updateChatRecipients(participants);
     }
-
     async function approveParticipant(participantId) {
         await postParticipantAction('/api/education/participants/' + participantId + '/approve');
     }
@@ -508,16 +664,65 @@
     }
 
     async function grantControl(participantId) {
-        await postParticipantAction('/api/education/participants/' + participantId + '/control/grant');
+        try {
+            const response = await fetch('/api/education/participants/' + participantId + '/control/grant', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            await loadParticipants();
+
+        } catch (e) {
+            showError(e.message);
+        }
     }
 
     async function rejectControl(participantId) {
-        await postParticipantAction('/api/education/participants/' + participantId + '/control/reject');
+        try {
+            const response = await fetch('/api/education/participants/' + participantId + '/control/reject', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            await loadParticipants();
+
+        } catch (e) {
+            showError(e.message);
+        }
     }
 
     async function revokeControl(participantId) {
-        await postParticipantAction('/api/education/participants/' + participantId + '/control/revoke');
+        try {
+            const response = await fetch('/api/education/participants/' + participantId + '/control/revoke', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            await loadParticipants();
+
+        } catch (e) {
+            showError(e.message);
+        }
     }
+
 
     async function postParticipantAction(url) {
         try {
@@ -733,6 +938,112 @@
         }
     }
 
+    async function loadSessionEvents() {
+        if (!currentSession || !currentSession.sessionCode) return;
+
+        try {
+            const response = await fetch('/api/education/events/' + encodeURIComponent(currentSession.sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const events = await response.json();
+            renderSessionEvents(events);
+
+        } catch (e) {
+            console.warn('Ошибка загрузки журнала:', e.message);
+        }
+    }
+
+    function renderSessionEvents(events) {
+        const box = document.getElementById('sessionEvents');
+        const mini = document.getElementById('lastEventMini');
+
+        if (!events || events.length === 0) {
+            if (box) {
+                box.innerHTML = `
+                    <div class="muted" style="text-align:center;padding:24px;">
+                        Событий пока нет.
+                    </div>
+                `;
+            }
+
+            if (mini) {
+                mini.innerHTML = `
+                    <span class="event-mini-meta">📋 Последнее событие журнала</span>
+                    Событий пока нет.
+                `;
+            }
+
+            lastEventsHtml = '';
+            lastEventMiniHtml = '';
+            return;
+        }
+
+        const latest = events[0];
+        const latestTime = latest.createdAt
+            ? new Date(latest.createdAt).toLocaleString()
+            : '—';
+
+        const latestMiniHtml = `
+            <span class="event-mini-meta">📋 Последнее событие · ${latestTime} · ${escapeHtml(latest.type || 'EVENT')}</span>
+            ${escapeHtml(latest.message || '')}
+        `;
+
+        if (mini && latestMiniHtml !== lastEventMiniHtml) {
+            mini.innerHTML = latestMiniHtml;
+            lastEventMiniHtml = latestMiniHtml;
+        }
+
+        const html = events.map(event => {
+            const type = escapeHtml(event.type || 'EVENT');
+            const message = escapeHtml(event.message || '');
+            const actor = escapeHtml(event.actorUsername || 'system');
+            const time = event.createdAt
+                ? new Date(event.createdAt).toLocaleString()
+                : '—';
+
+            return `
+                <div class="event-item">
+                    <div class="event-meta">${time} · ${type} · ${actor}</div>
+                    <div class="event-text">${message}</div>
+                </div>
+            `;
+        }).join('');
+
+        if (box && html !== lastEventsHtml) {
+            box.innerHTML = html;
+            lastEventsHtml = html;
+        }
+    }
+
+    function openEventsModal() {
+        const modal = document.getElementById('eventsModalBackdrop');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+
+        loadSessionEvents();
+    }
+
+    function closeEventsModal() {
+        const modal = document.getElementById('eventsModalBackdrop');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function closeEventsModalOnBackdrop(event) {
+        if (event.target && event.target.id === 'eventsModalBackdrop') {
+            closeEventsModal();
+        }
+    }
+
     function logout() {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
@@ -742,9 +1053,11 @@
         await loadSession();
         await loadParticipants();
         await loadChatMessages();
+        await loadSessionEvents();
 
-        participantsTimer = setInterval(loadParticipants, 3000);
+        participantsTimer = setInterval(loadParticipants, 2000);
         chatTimer = setInterval(loadChatMessages, 2500);
+        eventsTimer = setInterval(loadSessionEvents, 2000);
     }
 
     window.addEventListener('beforeunload', () => {
@@ -754,6 +1067,10 @@
 
         if (chatTimer) {
             clearInterval(chatTimer);
+        }
+
+        if (eventsTimer) {
+            clearInterval(eventsTimer);
         }
     });
 

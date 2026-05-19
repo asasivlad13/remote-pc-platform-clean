@@ -19,16 +19,19 @@ public class EducationParticipantService {
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
+    private final com.remote.service.EducationSessionEventService eventService;
 
     public EducationParticipantService(EducationSessionRepository sessionRepository,
                                        EducationSessionParticipantRepository participantRepository,
-                                       UserRepository userRepository) {
+                                       UserRepository userRepository,
+                                       com.remote.service.EducationSessionEventService eventService) {
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
+        this.eventService = eventService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public EducationSessionParticipant getMyParticipantStatus(String username, Long sessionId) {
         User student = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
@@ -36,8 +39,12 @@ public class EducationParticipantService {
         EducationSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
 
-        return participantRepository.findByEducationSessionAndStudent(session, student)
+        EducationSessionParticipant participant = participantRepository.findByEducationSessionAndStudent(session, student)
                 .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        return participantRepository.save(participant);
     }
 
     @Transactional
@@ -87,8 +94,18 @@ public class EducationParticipantService {
         participant.setControlGrantedAt(null);
         participant.setApprovedAt(null);
         participant.setJoinedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                saved.getStudent(),
+                EducationSessionEventType.STUDENT_JOINED,
+                "Ученик " + saved.getDisplayName() + " повторно отправил заявку на подключение"
+        );
+
+        return saved;
     }
 
     private EducationSessionParticipant createNewParticipant(EducationSession session,
@@ -112,8 +129,18 @@ public class EducationParticipantService {
         participant.setHasControl(false);
         participant.setControlRequested(false);
         participant.setJoinedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                student,
+                EducationSessionEventType.STUDENT_JOINED,
+                "Ученик " + saved.getDisplayName() + " отправил заявку на подключение"
+        );
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -141,8 +168,18 @@ public class EducationParticipantService {
 
         participant.setStatus(EducationParticipantStatus.APPROVED);
         participant.setApprovedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.STUDENT_APPROVED,
+                "Преподаватель подтвердил ученика " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -159,8 +196,18 @@ public class EducationParticipantService {
         participant.setStatus(EducationParticipantStatus.REJECTED);
         participant.setControlRequested(false);
         participant.setHasControl(false);
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.STUDENT_REJECTED,
+                "Преподаватель отклонил заявку ученика " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -181,8 +228,18 @@ public class EducationParticipantService {
 
         participant.setControlRequested(true);
         participant.setControlRequestedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                student,
+                EducationSessionEventType.CONTROL_REQUESTED,
+                "Ученик " + saved.getDisplayName() + " запросил управление ПК преподавателя"
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -207,14 +264,25 @@ public class EducationParticipantService {
         for (EducationSessionParticipant active : participantRepository.findByEducationSessionAndHasControlTrue(session)) {
             active.setHasControl(false);
             active.setControlRequested(false);
+            active.setLastActivityAt(LocalDateTime.now());
             participantRepository.save(active);
         }
 
         participant.setHasControl(true);
         participant.setControlRequested(false);
         participant.setControlGrantedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.CONTROL_GRANTED,
+                "Преподаватель разрешил управление ученику " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -230,8 +298,18 @@ public class EducationParticipantService {
 
         participant.setControlRequested(false);
         participant.setHasControl(false);
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.CONTROL_REJECTED,
+                "Преподаватель отклонил запрос управления ученика " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -247,8 +325,18 @@ public class EducationParticipantService {
 
         participant.setHasControl(false);
         participant.setControlRequested(false);
+        participant.setLastActivityAt(LocalDateTime.now());
 
-        return participantRepository.save(participant);
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.CONTROL_REVOKED,
+                "Преподаватель забрал управление у ученика " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -274,9 +362,7 @@ public class EducationParticipantService {
     }
 
     @Transactional
-    public Map<String, Object> leaveSession(String sessionCode) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-
+    public EducationSessionParticipant getMyParticipantStatusBySessionCode(String username, String sessionCode) {
         User student = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
@@ -287,13 +373,38 @@ public class EducationParticipantService {
                 .findByEducationSessionAndStudent(session, student)
                 .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
 
-        participant.setStatus(EducationParticipantStatus.DISCONNECTED);
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        return participantRepository.save(participant);
+    }
+
+    @Transactional
+    public Map<String, Object> leaveSession(String username, String sessionCode) {
+        User student = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
+                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+
+        EducationSessionParticipant participant = participantRepository
+                .findByEducationSessionAndStudent(session, student)
+                .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        participant.setStatus(EducationParticipantStatus.LEFT);
         participant.setHasControl(false);
         participant.setControlRequested(false);
         participant.setControlRequestedAt(null);
         participant.setControlGrantedAt(null);
+        participant.setLastActivityAt(LocalDateTime.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                student,
+                EducationSessionEventType.STUDENT_LEFT,
+                "Ученик " + saved.getDisplayName() + " вышел из учебной сессии"
+        );
 
         return toMap(saved);
     }
@@ -320,6 +431,7 @@ public class EducationParticipantService {
         response.put("hasControl", participant.isHasControl());
         response.put("controlRequestedAt", participant.getControlRequestedAt());
         response.put("controlGrantedAt", participant.getControlGrantedAt());
+        response.put("lastActivityAt", participant.getLastActivityAt());
 
         return response;
     }

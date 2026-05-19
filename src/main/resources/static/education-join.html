@@ -210,10 +210,10 @@
     }
 
     async function checkMyStatus() {
-        if (!currentParticipantId) return;
+        if (!currentSessionCode) return;
 
         try {
-            const response = await fetch('/api/education/participants/status/' + currentParticipantId, {
+            const response = await fetch('/api/education/participants/my/' + encodeURIComponent(currentSessionCode), {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

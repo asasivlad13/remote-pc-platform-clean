@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+
+
 @Entity
 @Table(name = "education_session_participants")
 public class EducationSessionParticipant {
@@ -37,6 +39,9 @@ public class EducationSessionParticipant {
 
     @Column(nullable = false)
     private boolean hasControl = false;
+
+    @Column(name = "last_activity_at")
+    private LocalDateTime lastActivityAt;
 
     private LocalDateTime controlRequestedAt;
 
@@ -124,5 +129,13 @@ public class EducationSessionParticipant {
 
     public void setControlGrantedAt(LocalDateTime controlGrantedAt) {
         this.controlGrantedAt = controlGrantedAt;
+    }
+
+    public LocalDateTime getLastActivityAt() {
+        return lastActivityAt;
+    }
+
+    public void setLastActivityAt(LocalDateTime lastActivityAt) {
+        this.lastActivityAt = lastActivityAt;
     }
 }

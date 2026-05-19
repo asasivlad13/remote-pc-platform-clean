@@ -1,0 +1,14 @@
+package com.remote.model;
+
+public enum EducationSessionEventType {
+    STUDENT_JOINED,
+    STUDENT_APPROVED,
+    STUDENT_REJECTED,
+    STUDENT_LEFT,
+    CONTROL_REQUESTED,
+    CONTROL_GRANTED,
+    CONTROL_REJECTED,
+    CONTROL_REVOKED,
+    SESSION_FINISHED,
+    CHAT_MESSAGE_SENT
+}

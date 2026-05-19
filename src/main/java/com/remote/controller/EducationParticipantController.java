@@ -24,6 +24,13 @@ public class EducationParticipantController {
         this.jwtUtil = jwtUtil;
     }
 
+    @GetMapping("/my/{sessionCode}")
+    public ParticipantResponse getMyStatusBySessionCode(@PathVariable String sessionCode,
+                                                        HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.getMyParticipantStatusBySessionCode(username, sessionCode));
+    }
+
     @GetMapping("/status/{sessionId}")
     public ParticipantResponse getStatus(@PathVariable Long sessionId,
                                          HttpServletRequest request) {
@@ -99,9 +106,12 @@ public class EducationParticipantController {
     }
 
     @PostMapping("/leave")
-    public ResponseEntity<?> leaveSession(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> leaveSession(@RequestBody Map<String, String> body,
+                                          HttpServletRequest request) {
+        String username = extractUsername(request);
         String sessionCode = body.get("sessionCode");
-        return ResponseEntity.ok(participantService.leaveSession(sessionCode));
+
+        return ResponseEntity.ok(participantService.leaveSession(username, sessionCode));
     }
 
     private ParticipantResponse toResponse(EducationSessionParticipant participant) {
@@ -117,7 +127,8 @@ public class EducationParticipantController {
                 participant.isControlRequested(),
                 participant.isHasControl(),
                 participant.getControlRequestedAt(),
-                participant.getControlGrantedAt()
+                participant.getControlGrantedAt(),
+                participant.getLastActivityAt()
         );
     }
 
@@ -160,7 +171,8 @@ public class EducationParticipantController {
             Boolean controlRequested,
             Boolean hasControl,
             LocalDateTime controlRequestedAt,
-            LocalDateTime controlGrantedAt
+            LocalDateTime controlGrantedAt,
+            LocalDateTime lastActivityAt
     ) {
     }
 }
