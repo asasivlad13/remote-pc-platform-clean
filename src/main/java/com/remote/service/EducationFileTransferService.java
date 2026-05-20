@@ -5,15 +5,16 @@ import com.remote.repository.EducationFileTransferRepository;
 import com.remote.repository.EducationSessionParticipantRepository;
 import com.remote.repository.EducationSessionRepository;
 import com.remote.repository.UserRepository;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,18 +28,21 @@ public class EducationFileTransferService {
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final EducationSessionEventService eventService;
+    private final com.remote.service.EducationSessionEventService eventService;
+    private final EducationCryptoService cryptoService;
 
     public EducationFileTransferService(EducationFileTransferRepository fileRepository,
                                         EducationSessionRepository sessionRepository,
                                         EducationSessionParticipantRepository participantRepository,
                                         UserRepository userRepository,
-                                        EducationSessionEventService eventService) {
+                                        com.remote.service.EducationSessionEventService eventService,
+                                        EducationCryptoService cryptoService) {
         this.fileRepository = fileRepository;
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.eventService = eventService;
+        this.cryptoService = cryptoService;
     }
 
     @Transactional
@@ -89,10 +93,14 @@ public class EducationFileTransferService {
             Files.createDirectories(STORAGE_DIR);
 
             String originalFilename = safeFilename(file.getOriginalFilename());
-            String storedFilename = UUID.randomUUID() + "_" + originalFilename;
+            String storedFilename = UUID.randomUUID() + "_" + originalFilename + ".enc";
 
             Path target = STORAGE_DIR.resolve(storedFilename);
-            Files.copy(file.getInputStream(), target);
+
+            try (InputStream inputStream = file.getInputStream();
+                 var outputStream = Files.newOutputStream(target)) {
+                cryptoService.encryptStream(inputStream, outputStream);
+            }
 
             EducationFileTransfer transfer = new EducationFileTransfer();
             transfer.setEducationSession(session);
@@ -174,13 +182,19 @@ public class EducationFileTransferService {
     public Resource loadResource(EducationFileTransfer file) {
         try {
             Path path = STORAGE_DIR.resolve(file.getStoredFilename()).normalize();
-            Resource resource = new UrlResource(path.toUri());
 
-            if (!resource.exists() || !resource.isReadable()) {
+            if (!Files.exists(path) || !Files.isReadable(path)) {
                 throw new IllegalArgumentException("Файл недоступен");
             }
 
-            return resource;
+            if (file.getStoredFilename() != null && file.getStoredFilename().endsWith(".enc")) {
+                InputStream encryptedInputStream = Files.newInputStream(path);
+                InputStream decryptedInputStream = cryptoService.decryptStream(encryptedInputStream);
+                return new InputStreamResource(decryptedInputStream);
+            }
+
+            return new UrlResource(path.toUri());
+
         } catch (Exception e) {
             throw new IllegalArgumentException("Не удалось прочитать файл: " + e.getMessage());
         }

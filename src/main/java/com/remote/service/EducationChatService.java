@@ -20,13 +20,16 @@ public class EducationChatService {
     private final EducationChatMessageRepository chatRepository;
     private final EducationSessionRepository sessionRepository;
     private final UserRepository userRepository;
+    private final EducationCryptoService cryptoService;
 
     public EducationChatService(EducationChatMessageRepository chatRepository,
                                 EducationSessionRepository sessionRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                EducationCryptoService cryptoService) {
         this.chatRepository = chatRepository;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
+        this.cryptoService = cryptoService;
     }
 
     @Transactional(readOnly = true)
@@ -79,11 +82,13 @@ public class EducationChatService {
             recipient = session.getTeacher();
         }
 
+        String encryptedText = cryptoService.encryptText(text.trim());
+
         EducationChatMessage message = new EducationChatMessage();
         message.setEducationSession(session);
         message.setSender(sender);
         message.setRecipient(recipient);
-        message.setMessage(text.trim());
+        message.setMessage(encryptedText);
 
         EducationChatMessage saved = chatRepository.save(message);
 
@@ -119,9 +124,21 @@ public class EducationChatService {
         response.put("senderUsername", message.getSender().getUsername());
         response.put("recipientId", message.getRecipient() != null ? message.getRecipient().getId() : null);
         response.put("recipientUsername", message.getRecipient() != null ? message.getRecipient().getUsername() : null);
-        response.put("message", message.getMessage());
+        response.put("message", decryptMessageSafe(message.getMessage()));
         response.put("createdAt", message.getCreatedAt());
 
         return response;
+    }
+
+    private String decryptMessageSafe(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        try {
+            return cryptoService.decryptText(value);
+        } catch (Exception e) {
+            return value;
+        }
     }
 }
