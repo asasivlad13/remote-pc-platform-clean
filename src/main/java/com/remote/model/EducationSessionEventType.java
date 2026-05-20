@@ -10,5 +10,6 @@ public enum EducationSessionEventType {
     CONTROL_REJECTED,
     CONTROL_REVOKED,
     SESSION_FINISHED,
-    CHAT_MESSAGE_SENT
+    CHAT_MESSAGE_SENT,
+    FILE_SENT
 }

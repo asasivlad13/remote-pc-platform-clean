@@ -306,6 +306,93 @@
             font-size: 14px;
         }
 
+        .files-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(8px);
+            z-index: 760;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .files-modal {
+            width: min(820px, 100%);
+            max-height: min(760px, 88vh);
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(59,130,246,0.35);
+            border-radius: 24px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .files-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .files-upload {
+            display: grid;
+            grid-template-columns: 220px 1fr auto;
+            gap: 10px;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+
+        .files-select,
+        .files-input {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: #0f172a;
+            color: white;
+            padding: 12px 14px;
+            outline: none;
+        }
+
+        .files-list {
+            overflow-y: auto;
+            background: rgba(0,0,0,0.22);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .file-card {
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.09);
+            margin-bottom: 10px;
+        }
+
+        .file-name {
+            font-weight: 800;
+            margin-bottom: 5px;
+            color: white;
+            word-break: break-word;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: rgba(255,255,255,0.55);
+            line-height: 1.45;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 760px) {
+            .files-upload {
+                grid-template-columns: 1fr;
+            }
+        }
+
     </style>
 </head>
 
@@ -334,6 +421,7 @@
 
         <div style="display:flex;gap:8px;flex-shrink:0;">
             <button class="btn-glass" onclick="loadSessionEvents()">🔄</button>
+            <button class="btn-glass" onclick="openFilesModal()">📁 Файлы</button>
             <button class="btn-primary" onclick="openEventsModal()">📋 Журнал</button>
         </div>
     </div>
@@ -346,6 +434,7 @@
 
             <div style="display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;">
                 <button class="btn-primary" onclick="copyCode()">📋 Скопировать код</button>
+                <button class="btn-glass" onclick="openFilesModal()">📁 Файлы сессии</button>
                 <button class="btn-glass" onclick="finishSession()" style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);">
                     Завершить сессию
                 </button>
@@ -462,6 +551,42 @@
     </div>
 </div>
 
+<div id="filesModalBackdrop" class="files-modal-backdrop" onclick="closeFilesModalOnBackdrop(event)">
+    <div class="files-modal">
+        <div class="files-modal-header">
+            <div>
+                <h3 style="margin:0;">📁 Файлы учебной сессии</h3>
+                <div class="muted" style="font-size:13px;margin-top:4px;">
+                    Отправляйте файл всем ученикам или конкретному участнику. Полученные файлы можно скачать из списка.
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button class="btn-glass" onclick="loadFiles()">🔄 Обновить</button>
+                <button class="btn-glass" onclick="closeFilesModal()">✕</button>
+            </div>
+        </div>
+
+        <div class="files-upload">
+            <select id="fileRecipient" class="files-select">
+                <option value="">Всем ученикам</option>
+            </select>
+
+            <input id="educationFileInput" class="files-input" type="file">
+
+            <button class="btn-primary" onclick="uploadEducationFile()">
+                Отправить
+            </button>
+        </div>
+
+        <div id="filesList" class="files-list">
+            <div class="muted" style="text-align:center;padding:24px;">
+                Файлов пока нет.
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 
     const token = localStorage.getItem('token');
@@ -486,6 +611,11 @@
     let eventsTimer = null;
     let lastEventsHtml = '';
     let lastEventMiniHtml = '';
+
+    let filesTimer = null;
+    let filesPanelOpened = false;
+    let lastFilesHtml = '';
+    let lastParticipants = [];
 
     async function loadSession() {
         try {
@@ -531,6 +661,7 @@
             }
 
             const participants = await response.json();
+            lastParticipants = participants;
             renderParticipants(participants);
 
         } catch (e) {
@@ -606,7 +737,7 @@
                         </button>
                     ` : ''}
 
-                    <button class="btn-glass" onclick="alert('Файлы участникам добавим позже')">
+                    <button class="btn-glass" onclick="openFilesModalForStudent(${participant.studentId || participant.userId || ''})">
                         📂 Передать файл
                     </button>
                 </div>
@@ -653,6 +784,7 @@
         }).join('');
 
         updateChatRecipients(participants);
+        updateFileRecipients(participants);
     }
     async function approveParticipant(participantId) {
         await postParticipantAction('/api/education/participants/' + participantId + '/approve');
@@ -1044,6 +1176,241 @@
         }
     }
 
+
+    function openFilesModal() {
+        const modal = document.getElementById('filesModalBackdrop');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+
+        filesPanelOpened = true;
+        updateFileRecipients(lastParticipants || []);
+        loadFiles();
+    }
+
+    function openFilesModalForStudent(studentId) {
+        openFilesModal();
+
+        const select = document.getElementById('fileRecipient');
+        if (select && studentId) {
+            select.value = String(studentId);
+        }
+    }
+
+    function closeFilesModal() {
+        const modal = document.getElementById('filesModalBackdrop');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+
+        filesPanelOpened = false;
+    }
+
+    function closeFilesModalOnBackdrop(event) {
+        if (event.target && event.target.id === 'filesModalBackdrop') {
+            closeFilesModal();
+        }
+    }
+
+    function updateFileRecipients(participants) {
+        const select = document.getElementById('fileRecipient');
+        if (!select) return;
+
+        const currentValue = select.value;
+
+        const approvedParticipants = (participants || [])
+            .filter(p => p.status === 'APPROVED' || p.status === 'ONLINE')
+            .filter(p => p.studentId || p.userId);
+
+        let html = '<option value="">Всем ученикам</option>';
+
+        approvedParticipants.forEach(p => {
+            const recipientId = p.studentId || p.userId;
+            const name = escapeHtml(p.displayName || p.username || 'Ученик');
+
+            html += `<option value="${recipientId}">${name}</option>`;
+        });
+
+        select.innerHTML = html;
+
+        if ([...select.options].some(option => option.value === currentValue)) {
+            select.value = currentValue;
+        }
+    }
+
+    async function uploadEducationFile() {
+        if (!currentSession || !currentSession.sessionCode) {
+            showError('Сессия ещё не загружена');
+            return;
+        }
+
+        if (!currentSession.allowFileTransfer) {
+            alert('Передача файлов запрещена в настройках этой сессии');
+            return;
+        }
+
+        const input = document.getElementById('educationFileInput');
+        const recipientSelect = document.getElementById('fileRecipient');
+
+        if (!input || !input.files || input.files.length === 0) {
+            alert('Выберите файл');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+
+        if (recipientSelect && recipientSelect.value) {
+            formData.append('recipientId', recipientSelect.value);
+        }
+
+        try {
+            const response = await fetch('/api/education/files/' + encodeURIComponent(currentSession.sessionCode), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            input.value = '';
+            await loadFiles();
+            await loadSessionEvents();
+            await loadFiles();
+
+        } catch (e) {
+            alert('Ошибка отправки файла: ' + e.message);
+        }
+    }
+
+    async function loadFiles() {
+        if (!currentSession || !currentSession.sessionCode) return;
+
+        try {
+            const response = await fetch('/api/education/files/' + encodeURIComponent(currentSession.sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const files = await response.json();
+            renderFiles(files);
+
+        } catch (e) {
+            console.warn('Ошибка загрузки файлов:', e.message);
+        }
+    }
+
+    function renderFiles(files) {
+        const box = document.getElementById('filesList');
+        if (!box) return;
+
+        if (!files || files.length === 0) {
+            box.innerHTML = `
+                <div class="muted" style="text-align:center;padding:24px;">
+                    Файлов пока нет.
+                </div>
+            `;
+            lastFilesHtml = '';
+            return;
+        }
+
+        const html = files.map(file => {
+            const name = escapeHtml(file.originalFilename || 'file');
+            const sender = escapeHtml(file.senderUsername || 'unknown');
+            const recipient = file.recipientUsername
+                ? escapeHtml(file.recipientUsername)
+                : 'всем ученикам';
+
+            const size = formatFileSize(file.sizeBytes || 0);
+            const time = file.createdAt
+                ? new Date(file.createdAt).toLocaleString()
+                : '—';
+
+            return `
+                <div class="file-card">
+                    <div class="file-name">📄 ${name}</div>
+                    <div class="file-meta">
+                        От: ${sender}<br>
+                        Кому: ${recipient}<br>
+                        Размер: ${size}<br>
+                        Время: ${time}
+                    </div>
+
+                    <button class="btn-primary" onclick="downloadEducationFile(${file.id}, '${escapeJsString(name)}')">
+                        Скачать
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        if (html !== lastFilesHtml) {
+            box.innerHTML = html;
+            lastFilesHtml = html;
+        }
+    }
+
+    async function downloadEducationFile(fileId, filename) {
+        try {
+            const response = await fetch('/api/education/files/download/' + encodeURIComponent(fileId), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'file';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            window.URL.revokeObjectURL(url);
+
+        } catch (e) {
+            alert('Ошибка скачивания файла: ' + e.message);
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes || bytes <= 0) return '0 B';
+
+        if (bytes < 1024) return bytes + ' B';
+
+        const kb = bytes / 1024;
+        if (kb < 1024) return kb.toFixed(1) + ' KB';
+
+        const mb = kb / 1024;
+        if (mb < 1024) return mb.toFixed(2) + ' MB';
+
+        const gb = mb / 1024;
+        return gb.toFixed(2) + ' GB';
+    }
+
+    function escapeJsString(str) {
+        return String(str || '')
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/\n/g, ' ')
+            .replace(/\r/g, ' ');
+    }
+
+
     function logout() {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
@@ -1058,6 +1425,11 @@
         participantsTimer = setInterval(loadParticipants, 2000);
         chatTimer = setInterval(loadChatMessages, 2500);
         eventsTimer = setInterval(loadSessionEvents, 2000);
+        filesTimer = setInterval(() => {
+            if (filesPanelOpened) {
+                loadFiles();
+            }
+        }, 2500);
     }
 
     window.addEventListener('beforeunload', () => {
@@ -1071,6 +1443,10 @@
 
         if (eventsTimer) {
             clearInterval(eventsTimer);
+        }
+
+        if (filesTimer) {
+            clearInterval(filesTimer);
         }
     });
 
