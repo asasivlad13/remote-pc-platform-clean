@@ -914,9 +914,11 @@
     }
 
     async function finishSession() {
-        if (!confirm('Завершить учебную сессию?')) return;
+        if (!confirm('Завершить учебную сессию? Все участники будут отключены.')) return;
 
         try {
+            hideError();
+
             const response = await fetch('/api/education/sessions/' + encodeURIComponent(sessionCode) + '/finish', {
                 method: 'POST',
                 headers: {
@@ -928,8 +930,14 @@
                 throw new Error(await response.text());
             }
 
-            await loadSession();
+            stopPageTimers();
+
+            localStorage.removeItem('currentEducationSessionCode');
+            localStorage.removeItem('educationSessionCode');
+
             alert('Сессия завершена');
+
+            window.location.href = '/pcs.html';
 
         } catch (e) {
             showError(e.message);
@@ -1467,22 +1475,30 @@
         }, 2500);
     }
 
-    window.addEventListener('beforeunload', () => {
+    function stopPageTimers() {
         if (participantsTimer) {
             clearInterval(participantsTimer);
+            participantsTimer = null;
         }
 
         if (chatTimer) {
             clearInterval(chatTimer);
+            chatTimer = null;
         }
 
         if (eventsTimer) {
             clearInterval(eventsTimer);
+            eventsTimer = null;
         }
 
         if (filesTimer) {
             clearInterval(filesTimer);
+            filesTimer = null;
         }
+    }
+
+    window.addEventListener('beforeunload', () => {
+        stopPageTimers();
     });
     async function grantScreenShare(participantId) {
         await postParticipantAction('/api/education/participants/' + participantId + '/screen-share/grant');

@@ -138,9 +138,13 @@
         </div>
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button onclick="returnToActiveTeacherSession()" class="btn-glass">
+            <button id="returnToActiveTeacherSessionBtn"
+                    onclick="returnToActiveTeacherSession()"
+                    class="btn-glass"
+                    style="display:none;">
                 🔁 Вернуться в активную сессию
             </button>
+
             <button onclick="location.href='/education-join.html'" class="btn-glass">
                 🎓 Войти в учебную сессию
             </button>
@@ -219,6 +223,56 @@
     let pcsCache = [];
     let selectedPcId = null;
     let selectedPcName = null;
+    let activeTeacherSession = null;
+
+    async function checkActiveTeacherSession() {
+        const btn = document.getElementById('returnToActiveTeacherSessionBtn');
+
+        if (!btn) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/education/sessions/my-active/teacher', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('token');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            if (response.status === 204) {
+                activeTeacherSession = null;
+                btn.style.display = 'none';
+                return;
+            }
+
+            if (!response.ok) {
+                activeTeacherSession = null;
+                btn.style.display = 'none';
+                return;
+            }
+
+            const session = await response.json();
+
+            if (!session || session.status !== 'ACTIVE') {
+                activeTeacherSession = null;
+                btn.style.display = 'none';
+                return;
+            }
+
+            activeTeacherSession = session;
+            btn.style.display = 'inline-flex';
+
+        } catch (e) {
+            activeTeacherSession = null;
+            btn.style.display = 'none';
+        }
+    }
 
     async function returnToActiveTeacherSession() {
         try {
@@ -229,6 +283,8 @@
             });
 
             if (response.status === 204) {
+                activeTeacherSession = null;
+                document.getElementById('returnToActiveTeacherSessionBtn').style.display = 'none';
                 alert('У вас нет активной учебной сессии');
                 return;
             }
@@ -238,6 +294,13 @@
             }
 
             const session = await response.json();
+
+            if (!session || session.status !== 'ACTIVE') {
+                activeTeacherSession = null;
+                document.getElementById('returnToActiveTeacherSessionBtn').style.display = 'none';
+                alert('Учебная сессия уже завершена');
+                return;
+            }
 
             window.location.href =
                 '/education-teacher.html?code=' + encodeURIComponent(session.sessionCode);
@@ -414,6 +477,8 @@
 
     function logout() {
         localStorage.removeItem('token');
+        localStorage.removeItem('currentEducationSessionCode');
+        localStorage.removeItem('educationSessionCode');
         window.location.href = '/login.html';
     }
 
@@ -424,7 +489,10 @@
     });
 
     loadPCs();
+    checkActiveTeacherSession();
+
     setInterval(loadPCs, 10000);
+    setInterval(checkActiveTeacherSession, 10000);
 </script>
 </body>
 </html>
