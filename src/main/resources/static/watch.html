@@ -618,6 +618,72 @@
             return;
         }
 
+
+        if (profile === 'education_teacher_view_student') {
+            const participantId = urlParams.get('participantId');
+
+            if (!participantId) {
+                throw new Error("Participant ID is missing");
+            }
+
+            const response = await fetch('/api/education/screen-share/participant/' + encodeURIComponent(participantId), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to load student screen info");
+            }
+
+            const agent = await response.json();
+
+            if (!agent.hasAgent) {
+                throw new Error("Student has no agent");
+            }
+
+            if (!agent.canShareScreen) {
+                throw new Error("Student agent is offline");
+            }
+
+            if (!agent.webrtcUrl || !agent.streamName) {
+                throw new Error("Student PC does not provide WebRTC stream info");
+            }
+
+            remoteScreenWidth = agent.screenWidth || 1920;
+            remoteScreenHeight = agent.screenHeight || 1080;
+
+            webrtcHost = agent.webrtcUrl;
+            streamName = agent.streamName;
+
+            controlMode = false;
+
+            const controlBtn = document.getElementById('controlModeBtn');
+            const backBtn = document.getElementById('educationBackBtn');
+            const indicator = document.getElementById('modeIndicator');
+
+            if (backBtn && !embeddedMode) {
+                backBtn.style.display = 'inline-flex';
+            }
+
+            if (controlBtn) {
+                controlBtn.style.display = 'none';
+            }
+
+            if (indicator) {
+                indicator.innerHTML = '🎓 Просмотр экрана ученика: только просмотр';
+                indicator.style.color = '#93c5fd';
+            }
+
+            console.log("TEACHER VIEW STUDENT MODE");
+            console.log("Student participant ID:", participantId);
+            console.log("Student PC ID:", agent.pcId);
+            console.log("Student PC:", agent.pcName);
+            console.log("Remote screen:", remoteScreenWidth, "x", remoteScreenHeight);
+            console.log("WebRTC host:", webrtcHost);
+            console.log("Stream name:", streamName);
+
+            return;
+        }
+
         const response = await fetch(`/pcs/${pcId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });

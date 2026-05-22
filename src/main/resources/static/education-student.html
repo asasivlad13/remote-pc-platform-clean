@@ -316,7 +316,7 @@
     </div>
 
     <div class="card">
-        <h3 style="margin-bottom:14px;">🖥 Экран преподавателя</h3>
+        <h3 id="previewTitle" style="margin-bottom:14px;">🖥 Экран преподавателя</h3>
 
         <div class="preview-frame-wrap">
             <iframe id="teacherPreviewFrame"
@@ -339,7 +339,7 @@
             </button>
 
 
-            <button class="btn-glass" onclick="alert('Демонстрацию экрана ученика добавим следующим шагом')">
+            <button id="screenShareBtn" class="btn-glass" onclick="checkAndStartScreenShare()">
                 📺 Показать свой экран
             </button>
 
@@ -457,10 +457,8 @@
             document.getElementById('allowFiles').innerText = currentSession.allowFileTransfer ? 'Разрешена' : 'Запрещена';
             document.getElementById('allowScreenShare').innerText = currentSession.allowStudentScreenShare ? 'Разрешена' : 'Запрещена';
 
-            if (!previewInitialized) {
-                setupTeacherPreview();
-                previewInitialized = true;
-            }
+            await refreshActiveScreenShare();
+            previewInitialized = true;
 
             if (!currentSession.allowStudentControl) {
                 const btn = document.getElementById('requestControlBtn');
@@ -484,14 +482,73 @@
         }
 
         const frame = document.getElementById('teacherPreviewFrame');
-
-        frame.src =
+        const nextSrc =
             '/watch.html?pcId=' + encodeURIComponent(currentSession.teacherPcId) +
             '&pcName=' + encodeURIComponent(currentSession.teacherPcName || 'Teacher PC') +
             '&profile=education_student' +
             '&educationCode=' + encodeURIComponent(currentSession.sessionCode) +
             '&embedded=1' +
             '&readonly=1';
+
+        if (frame.src.indexOf(nextSrc) === -1) {
+            frame.src = nextSrc;
+        }
+
+        const title = document.getElementById('previewTitle');
+        if (title) {
+            title.innerText = '🖥 Экран преподавателя';
+        }
+    }
+
+    function setupStudentPreview(agent, displayName) {
+        if (!agent || !agent.pcId) {
+            return;
+        }
+
+        const frame = document.getElementById('teacherPreviewFrame');
+        const nextSrc =
+            '/watch.html?pcId=' + encodeURIComponent(agent.pcId) +
+            '&pcName=' + encodeURIComponent(agent.pcName || 'Student PC') +
+            '&profile=education_student_watch_peer' +
+            '&educationCode=' + encodeURIComponent(currentSession.sessionCode) +
+            '&embedded=1' +
+            '&readonly=1';
+
+        if (frame.src.indexOf(nextSrc) === -1) {
+            frame.src = nextSrc;
+        }
+
+        const title = document.getElementById('previewTitle');
+        if (title) {
+            title.innerText = '📺 Демонстрация ученика: ' + (displayName || agent.pcName || 'Student PC');
+        }
+    }
+
+    async function refreshActiveScreenShare() {
+        if (!currentSession || !currentSession.sessionCode) return;
+
+        try {
+            const response = await fetch('/api/education/screen-share/active/' + encodeURIComponent(currentSession.sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const active = await response.json();
+
+            if (active.active && active.agent && active.agent.hasAgent && active.agent.canShareScreen) {
+                setupStudentPreview(active.agent, active.displayName);
+            } else {
+                setupTeacherPreview();
+            }
+
+        } catch (e) {
+            console.warn('Cannot refresh active screen share:', e.message);
+        }
     }
 
     async function loadParticipantStatus() {
@@ -517,15 +574,37 @@
     }
 
     function updateControlUi(participant) {
-        if (participant && participant.username) {
+        if (!participant) {
+            return;
+        }
+
+        if (participant.username) {
             currentStudentUsername = participant.username;
             localStorage.setItem('username', participant.username);
         }
 
+        updateScreenShareButton(participant);
+
         const btn = document.getElementById('requestControlBtn');
         const status = document.getElementById('controlStatus');
 
+        if (!btn || !status) {
+            return;
+        }
+
         if (!currentSession || !currentSession.allowStudentControl) {
+            btn.disabled = true;
+            btn.style.opacity = '0.55';
+            btn.innerText = '🎮 Управление запрещено';
+            status.innerText = 'В настройках этой учебной сессии управление учениками запрещено.';
+            return;
+        }
+
+        if (participant.status !== 'APPROVED' && participant.status !== 'ONLINE') {
+            btn.disabled = true;
+            btn.style.opacity = '0.55';
+            btn.innerText = '🎮 Управление недоступно';
+            status.innerText = 'Управление можно запросить только после подтверждения преподавателем.';
             return;
         }
 
@@ -1002,6 +1081,8 @@
 
         chatTimer = setInterval(loadChatMessages, 2500);
 
+        setInterval(refreshActiveScreenShare, 3000);
+
         filesTimer = setInterval(() => {
             if (filesPanelOpened) {
                 loadStudentFiles();
@@ -1023,12 +1104,172 @@
         }
     });
 
+    let studentScreenShareActive = false;
+    let studentAgentInfo = null;
+
+    async function checkAndStartScreenShare() {
+        if (studentScreenShareActive) {
+            await stopMyScreenShare();
+            return;
+        }
+
+        try {
+            const agentResponse = await fetch('/api/education/screen-share/my-agent', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!agentResponse.ok) {
+                throw new Error(await agentResponse.text());
+            }
+
+            const agent = await agentResponse.json();
+            studentAgentInfo = agent;
+
+            if (!agent.hasAgent) {
+                alert(
+                    'Для демонстрации своего экрана нужно установить и запустить агент Remote PC.\n\n' +
+                    'Сейчас агент для вашего аккаунта не найден.'
+                );
+                return;
+            }
+
+            if (!agent.canShareScreen) {
+                alert(
+                    'Агент найден, но сейчас он не подключён.\n\n' +
+                    'Запустите агент на этом ПК и обновите страницу.\n\n' +
+                    'ПК: ' + agent.pcName + '\n' +
+                    'Статус: ' + agent.status
+                );
+                return;
+            }
+
+            const response = await fetch('/api/education/participants/screen-share/request', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionCode: sessionCode
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participant = await response.json();
+            updateControlUi(participant);
+            await refreshActiveScreenShare();
+
+            alert(
+                'Запрос демонстрации экрана отправлен преподавателю.\n\n' +
+                'ПК: ' + agent.pcName + '\n' +
+                'Статус: ' + agent.status + '\n\n' +
+                'Экран станет виден всем участникам только после разрешения преподавателя.'
+            );
+
+        } catch (e) {
+            alert('Ошибка запроса демонстрации экрана: ' + e.message);
+        }
+    }
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'chatInput') {
             e.preventDefault();
             sendChatMessage();
         }
     });
+
+    function updateScreenShareButton(participant) {
+        const btn = document.getElementById('screenShareBtn');
+        if (!btn || !participant) return;
+
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.background = '';
+        btn.style.borderColor = '';
+
+        if (!currentSession || !currentSession.allowStudentScreenShare) {
+            studentScreenShareActive = false;
+            btn.innerText = '📺 Демонстрация запрещена';
+            btn.onclick = null;
+            btn.disabled = true;
+            btn.style.opacity = '0.55';
+            return;
+        }
+
+        if (participant.status !== 'APPROVED' && participant.status !== 'ONLINE') {
+            studentScreenShareActive = false;
+            btn.innerText = '📺 Демонстрация недоступна';
+            btn.onclick = null;
+            btn.disabled = true;
+            btn.style.opacity = '0.55';
+            return;
+        }
+
+        if (participant.screenShareActive) {
+            studentScreenShareActive = true;
+            btn.innerText = '🛑 Остановить показ экрана';
+            btn.onclick = stopMyScreenShare;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.background = 'rgba(239,68,68,0.22)';
+            btn.style.borderColor = 'rgba(239,68,68,0.55)';
+            return;
+        }
+
+        if (participant.screenShareRequested) {
+            studentScreenShareActive = false;
+            btn.innerText = '⏳ Запрос демонстрации отправлен';
+            btn.onclick = null;
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.style.background = 'rgba(245,158,11,0.18)';
+            btn.style.borderColor = 'rgba(245,158,11,0.45)';
+            return;
+        }
+
+        studentScreenShareActive = false;
+        btn.innerText = '📺 Показать свой экран';
+        btn.onclick = checkAndStartScreenShare;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.background = '';
+        btn.style.borderColor = '';
+    }
+
+    async function stopMyScreenShare() {
+        if (!confirm('Остановить демонстрацию своего экрана?')) return;
+
+        try {
+            const response = await fetch('/api/education/participants/screen-share/stop-my', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionCode: sessionCode
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const participant = await response.json();
+            updateControlUi(participant);
+            await refreshActiveScreenShare();
+
+            alert('Демонстрация экрана остановлена.');
+
+        } catch (e) {
+            alert('Ошибка остановки демонстрации: ' + e.message);
+        }
+    }
 
     init();
 </script>

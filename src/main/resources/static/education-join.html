@@ -161,14 +161,16 @@
 
         const sessionCode = document.getElementById('sessionCodeInput').value.trim();
         const displayName = document.getElementById('displayNameInput').value.trim();
+        const btn = document.getElementById('joinBtn');
 
         if (!sessionCode || sessionCode.length !== 6) {
             showError('Введите 6-значный код сессии');
             return;
         }
 
-        const btn = document.getElementById('joinBtn');
         btn.disabled = true;
+        btn.style.display = 'inline-flex';
+        btn.style.opacity = '0.65';
         btn.innerText = 'Отправка заявки...';
 
         try {
@@ -193,6 +195,8 @@
             currentSessionCode = participant.sessionCode;
             currentParticipantId = participant.id;
 
+            localStorage.setItem('activeEducationSessionCode', currentSessionCode);
+
             document.getElementById('sessionInfo').innerText =
                 'Код сессии: ' + currentSessionCode;
 
@@ -202,10 +206,8 @@
             startStatusPolling();
 
         } catch (e) {
+            resetJoinButton();
             showError(e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = 'Подключиться';
         }
     }
 
@@ -227,7 +229,7 @@
 
             renderStatus(participant.status);
 
-            if (participant.status === 'APPROVED' || participant.status === 'REJECTED') {
+            if (participant.status === 'APPROVED' || participant.status === 'REJECTED' || participant.status === 'RECONNECTED' || participant.status === 'ONLINE') {
                 stopStatusPolling();
             }
 
@@ -256,6 +258,7 @@
         const participantStatus = document.getElementById('participantStatus');
         const statusDescription = document.getElementById('statusDescription');
         const approvedActions = document.getElementById('approvedActions');
+        const joinBtn = document.getElementById('joinBtn');
 
         participantStatus.innerText = status;
 
@@ -266,27 +269,70 @@
             statusTitle.innerText = '⏳ Заявка отправлена преподавателю';
             statusDescription.innerText = 'Ожидаем подтверждения преподавателя. Страница будет обновлять статус автоматически.';
             approvedActions.style.display = 'none';
+
+            joinBtn.style.display = 'inline-flex';
+            joinBtn.disabled = true;
+            joinBtn.style.opacity = '0.65';
+            joinBtn.innerText = '⏳ Заявка отправлена';
             return;
         }
 
-        if (status === 'APPROVED') {
+        if (status === 'APPROVED' || status === 'RECONNECTED' || status === 'ONLINE') {
             statusTitle.innerText = '✅ Преподаватель подтвердил подключение';
             statusDescription.innerText = 'Теперь вы можете войти в учебную сессию.';
             approvedActions.style.display = 'block';
+
+            joinBtn.style.display = 'none';
+            joinBtn.disabled = true;
             return;
         }
 
         if (status === 'REJECTED') {
             resultCard.classList.add('rejected-card');
             statusTitle.innerText = '❌ Заявка отклонена';
-            statusDescription.innerText = 'Преподаватель отклонил подключение к учебной сессии.';
+            statusDescription.innerText = 'Преподаватель отклонил подключение к учебной сессии. Можно отправить заявку повторно.';
             approvedActions.style.display = 'none';
+
+            joinBtn.style.display = 'inline-flex';
+            joinBtn.disabled = false;
+            joinBtn.style.opacity = '1';
+            joinBtn.innerText = 'Отправить заявку повторно';
+            return;
+        }
+
+        if (status === 'LEFT' || status === 'DISCONNECTED') {
+            statusTitle.innerText = 'Статус заявки: ' + status;
+            statusDescription.innerText = 'Можно подключиться к учебной сессии повторно.';
+            approvedActions.style.display = 'none';
+
+            joinBtn.style.display = 'inline-flex';
+            joinBtn.disabled = false;
+            joinBtn.style.opacity = '1';
+            joinBtn.innerText = 'Подключиться повторно';
             return;
         }
 
         statusTitle.innerText = 'Статус заявки: ' + status;
         statusDescription.innerText = 'Текущий статус подключения обновлён.';
         approvedActions.style.display = 'none';
+
+        joinBtn.style.display = 'inline-flex';
+        joinBtn.disabled = false;
+        joinBtn.style.opacity = '1';
+        joinBtn.innerText = 'Подключиться';
+    }
+
+    function resetJoinButton() {
+        const btn = document.getElementById('joinBtn');
+
+        if (!btn) {
+            return;
+        }
+
+        btn.style.display = 'inline-flex';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerText = 'Подключиться';
     }
 
     function openStudentSession() {

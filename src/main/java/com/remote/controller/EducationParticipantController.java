@@ -105,6 +105,42 @@ public class EducationParticipantController {
         return toResponse(participantService.revokeControl(username, participantId));
     }
 
+
+    @PostMapping("/screen-share/stop-my")
+    public ParticipantResponse stopMyScreenShare(@RequestBody ControlRequest request,
+                                                 HttpServletRequest httpRequest) {
+        String username = extractUsername(httpRequest);
+        return toResponse(participantService.stopMyScreenShare(username, request.sessionCode()));
+    }
+
+    @PostMapping("/screen-share/request")
+    public ParticipantResponse requestScreenShare(@RequestBody ControlRequest request,
+                                                  HttpServletRequest httpRequest) {
+        String username = extractUsername(httpRequest);
+        return toResponse(participantService.requestScreenShare(username, request.sessionCode()));
+    }
+
+    @PostMapping("/{participantId}/screen-share/grant")
+    public ParticipantResponse grantScreenShare(@PathVariable Long participantId,
+                                                HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.grantScreenShare(username, participantId));
+    }
+
+    @PostMapping("/{participantId}/screen-share/reject")
+    public ParticipantResponse rejectScreenShare(@PathVariable Long participantId,
+                                                 HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.rejectScreenShare(username, participantId));
+    }
+
+    @PostMapping("/{participantId}/screen-share/stop")
+    public ParticipantResponse stopScreenShare(@PathVariable Long participantId,
+                                               HttpServletRequest request) {
+        String username = extractUsername(request);
+        return toResponse(participantService.stopScreenShare(username, participantId));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<?> leaveSession(@RequestBody Map<String, String> body,
                                           HttpServletRequest request) {
@@ -128,7 +164,11 @@ public class EducationParticipantController {
                 participant.isHasControl(),
                 participant.getControlRequestedAt(),
                 participant.getControlGrantedAt(),
-                participant.getLastActivityAt()
+                participant.getLastActivityAt(),
+                participant.isScreenShareRequested(),
+                participant.isScreenShareActive(),
+                participant.getScreenShareRequestedAt(),
+                participant.getScreenShareStartedAt()
         );
     }
 
@@ -172,7 +212,11 @@ public class EducationParticipantController {
             Boolean hasControl,
             LocalDateTime controlRequestedAt,
             LocalDateTime controlGrantedAt,
-            LocalDateTime lastActivityAt
+            LocalDateTime lastActivityAt,
+            Boolean screenShareRequested,
+            Boolean screenShareActive,
+            LocalDateTime screenShareRequestedAt,
+            LocalDateTime screenShareStartedAt
     ) {
     }
 }

@@ -92,6 +92,10 @@ public class EducationParticipantService {
         participant.setControlRequested(false);
         participant.setControlRequestedAt(null);
         participant.setControlGrantedAt(null);
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
         participant.setApprovedAt(null);
         participant.setJoinedAt(LocalDateTime.now());
         participant.setLastActivityAt(LocalDateTime.now());
@@ -128,6 +132,8 @@ public class EducationParticipantService {
         participant.setStatus(EducationParticipantStatus.WAITING);
         participant.setHasControl(false);
         participant.setControlRequested(false);
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
         participant.setJoinedAt(LocalDateTime.now());
         participant.setLastActivityAt(LocalDateTime.now());
 
@@ -196,6 +202,10 @@ public class EducationParticipantService {
         participant.setStatus(EducationParticipantStatus.REJECTED);
         participant.setControlRequested(false);
         participant.setHasControl(false);
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
         participant.setLastActivityAt(LocalDateTime.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
@@ -395,6 +405,10 @@ public class EducationParticipantService {
         participant.setControlRequested(false);
         participant.setControlRequestedAt(null);
         participant.setControlGrantedAt(null);
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
         participant.setLastActivityAt(LocalDateTime.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
@@ -407,6 +421,149 @@ public class EducationParticipantService {
         );
 
         return toMap(saved);
+    }
+
+
+    @Transactional
+    public EducationSessionParticipant requestScreenShare(String username, String sessionCode) {
+        User student = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
+                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+
+        if (!session.getAllowStudentScreenShare()) {
+            throw new IllegalArgumentException("В этой сессии демонстрация экрана учениками запрещена");
+        }
+
+        EducationSessionParticipant participant = participantRepository
+                .findByEducationSessionAndStudent(session, student)
+                .orElseThrow(() -> new IllegalArgumentException("Вы не являетесь участником этой сессии"));
+
+        if (participant.getStatus() != EducationParticipantStatus.APPROVED) {
+            throw new IllegalArgumentException("Демонстрацию может запросить только подтверждённый ученик");
+        }
+
+        participant.setScreenShareRequested(true);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(LocalDateTime.now());
+        participant.setScreenShareStartedAt(null);
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                student,
+                EducationSessionEventType.SCREEN_SHARE_REQUESTED,
+                "Ученик " + saved.getDisplayName() + " запросил демонстрацию своего экрана"
+        );
+
+        return saved;
+    }
+
+    @Transactional
+    public EducationSessionParticipant grantScreenShare(String teacherUsername, Long participantId) {
+        EducationSessionParticipant participant = participantRepository.findWithDetailsById(participantId)
+                .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        EducationSession session = participant.getEducationSession();
+
+        if (!session.getTeacher().getUsername().equals(teacherUsername)) {
+            throw new IllegalArgumentException("Только преподаватель может разрешить демонстрацию экрана");
+        }
+
+        if (!session.getAllowStudentScreenShare()) {
+            throw new IllegalArgumentException("В этой сессии демонстрация экрана учениками запрещена");
+        }
+
+        if (participant.getStatus() != EducationParticipantStatus.APPROVED) {
+            throw new IllegalArgumentException("Демонстрацию можно разрешить только подтверждённому ученику");
+        }
+
+        for (EducationSessionParticipant active : participantRepository.findByEducationSessionOrderByJoinedAtAsc(session)) {
+            if (active.isScreenShareActive() || active.isScreenShareRequested()) {
+                active.setScreenShareActive(false);
+                active.setScreenShareRequested(false);
+                active.setScreenShareStartedAt(null);
+                active.setLastActivityAt(LocalDateTime.now());
+                participantRepository.save(active);
+            }
+        }
+
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(true);
+        participant.setScreenShareStartedAt(LocalDateTime.now());
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.SCREEN_SHARE_GRANTED,
+                "Преподаватель включил демонстрацию экрана ученика " + saved.getDisplayName()
+        );
+
+        return saved;
+    }
+
+    @Transactional
+    public EducationSessionParticipant rejectScreenShare(String teacherUsername, Long participantId) {
+        EducationSessionParticipant participant = participantRepository.findWithDetailsById(participantId)
+                .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        EducationSession session = participant.getEducationSession();
+
+        if (!session.getTeacher().getUsername().equals(teacherUsername)) {
+            throw new IllegalArgumentException("Только преподаватель может отклонить демонстрацию экрана");
+        }
+
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.SCREEN_SHARE_REJECTED,
+                "Преподаватель отклонил демонстрацию экрана ученика " + saved.getDisplayName()
+        );
+
+        return saved;
+    }
+
+    @Transactional
+    public EducationSessionParticipant stopScreenShare(String teacherUsername, Long participantId) {
+        EducationSessionParticipant participant = participantRepository.findWithDetailsById(participantId)
+                .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        EducationSession session = participant.getEducationSession();
+
+        if (!session.getTeacher().getUsername().equals(teacherUsername)) {
+            throw new IllegalArgumentException("Только преподаватель может остановить демонстрацию экрана");
+        }
+
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                session.getTeacher(),
+                EducationSessionEventType.SCREEN_SHARE_STOPPED,
+                "Преподаватель остановил демонстрацию экрана ученика " + saved.getDisplayName()
+        );
+
+        return saved;
     }
 
     private String resolveDisplayName(String displayName, String username) {
@@ -432,7 +589,41 @@ public class EducationParticipantService {
         response.put("controlRequestedAt", participant.getControlRequestedAt());
         response.put("controlGrantedAt", participant.getControlGrantedAt());
         response.put("lastActivityAt", participant.getLastActivityAt());
+        response.put("screenShareRequested", participant.isScreenShareRequested());
+        response.put("screenShareActive", participant.isScreenShareActive());
+        response.put("screenShareRequestedAt", participant.getScreenShareRequestedAt());
+        response.put("screenShareStartedAt", participant.getScreenShareStartedAt());
 
         return response;
+    }
+
+    @Transactional
+    public EducationSessionParticipant stopMyScreenShare(String username, String sessionCode) {
+        User student = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
+                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+
+        EducationSessionParticipant participant = participantRepository
+                .findByEducationSessionAndStudent(session, student)
+                .orElseThrow(() -> new IllegalArgumentException("Участник не найден"));
+
+        participant.setScreenShareRequested(false);
+        participant.setScreenShareActive(false);
+        participant.setScreenShareRequestedAt(null);
+        participant.setScreenShareStartedAt(null);
+        participant.setLastActivityAt(LocalDateTime.now());
+
+        EducationSessionParticipant saved = participantRepository.save(participant);
+
+        eventService.log(
+                session,
+                student,
+                EducationSessionEventType.SCREEN_SHARE_STOPPED,
+                "Ученик " + saved.getDisplayName() + " остановил демонстрацию своего экрана"
+        );
+
+        return saved;
     }
 }

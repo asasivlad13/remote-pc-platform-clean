@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
-
-
 @Entity
 @Table(name = "education_session_participants")
 public class EducationSessionParticipant {
@@ -47,95 +45,75 @@ public class EducationSessionParticipant {
 
     private LocalDateTime controlGrantedAt;
 
-    public Long getId() {
-        return id;
-    }
+    @Column(nullable = false)
+    private boolean screenShareRequested = false;
 
-    public EducationSession getEducationSession() {
-        return educationSession;
-    }
+    @Column(nullable = false)
+    private boolean screenShareActive = false;
 
-    public void setEducationSession(EducationSession educationSession) {
-        this.educationSession = educationSession;
-    }
+    private LocalDateTime screenShareRequestedAt;
 
-    public User getStudent() {
-        return student;
-    }
+    private LocalDateTime screenShareStartedAt;
 
-    public void setStudent(User student) {
-        this.student = student;
-    }
+    public Long getId() { return id; }
 
-    public String getDisplayName() {
-        return displayName;
-    }
+    public EducationSession getEducationSession() { return educationSession; }
 
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
+    public void setEducationSession(EducationSession educationSession) { this.educationSession = educationSession; }
 
-    public EducationParticipantStatus getStatus() {
-        return status;
-    }
+    public User getStudent() { return student; }
 
-    public void setStatus(EducationParticipantStatus status) {
-        this.status = status;
-    }
+    public void setStudent(User student) { this.student = student; }
 
-    public LocalDateTime getJoinedAt() {
-        return joinedAt;
-    }
+    public String getDisplayName() { return displayName; }
 
-    public void setJoinedAt(LocalDateTime joinedAt) {
-        this.joinedAt = joinedAt;
-    }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
 
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
-    }
+    public EducationParticipantStatus getStatus() { return status; }
 
-    public void setApprovedAt(LocalDateTime approvedAt) {
-        this.approvedAt = approvedAt;
-    }
+    public void setStatus(EducationParticipantStatus status) { this.status = status; }
 
-    public boolean isControlRequested() {
-        return controlRequested;
-    }
+    public LocalDateTime getJoinedAt() { return joinedAt; }
 
-    public void setControlRequested(boolean controlRequested) {
-        this.controlRequested = controlRequested;
-    }
+    public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
 
-    public boolean isHasControl() {
-        return hasControl;
-    }
+    public LocalDateTime getApprovedAt() { return approvedAt; }
 
-    public void setHasControl(boolean hasControl) {
-        this.hasControl = hasControl;
-    }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
 
-    public LocalDateTime getControlRequestedAt() {
-        return controlRequestedAt;
-    }
+    public boolean isControlRequested() { return controlRequested; }
 
-    public void setControlRequestedAt(LocalDateTime controlRequestedAt) {
-        this.controlRequestedAt = controlRequestedAt;
-    }
+    public void setControlRequested(boolean controlRequested) { this.controlRequested = controlRequested; }
 
-    public LocalDateTime getControlGrantedAt() {
-        return controlGrantedAt;
-    }
+    public boolean isHasControl() { return hasControl; }
 
-    public void setControlGrantedAt(LocalDateTime controlGrantedAt) {
-        this.controlGrantedAt = controlGrantedAt;
-    }
+    public void setHasControl(boolean hasControl) { this.hasControl = hasControl; }
 
-    public LocalDateTime getLastActivityAt() {
-        return lastActivityAt;
-    }
+    public LocalDateTime getControlRequestedAt() { return controlRequestedAt; }
 
-    public void setLastActivityAt(LocalDateTime lastActivityAt) {
-        this.lastActivityAt = lastActivityAt;
-    }
+    public void setControlRequestedAt(LocalDateTime controlRequestedAt) { this.controlRequestedAt = controlRequestedAt; }
+
+    public LocalDateTime getControlGrantedAt() { return controlGrantedAt; }
+
+    public void setControlGrantedAt(LocalDateTime controlGrantedAt) { this.controlGrantedAt = controlGrantedAt; }
+
+    public LocalDateTime getLastActivityAt() { return lastActivityAt; }
+
+    public void setLastActivityAt(LocalDateTime lastActivityAt) { this.lastActivityAt = lastActivityAt; }
+
+    public boolean isScreenShareRequested() { return screenShareRequested; }
+
+    public void setScreenShareRequested(boolean screenShareRequested) { this.screenShareRequested = screenShareRequested; }
+
+    public boolean isScreenShareActive() { return screenShareActive; }
+
+    public void setScreenShareActive(boolean screenShareActive) { this.screenShareActive = screenShareActive; }
+
+    public LocalDateTime getScreenShareRequestedAt() { return screenShareRequestedAt; }
+
+    public void setScreenShareRequestedAt(LocalDateTime screenShareRequestedAt) { this.screenShareRequestedAt = screenShareRequestedAt; }
+
+    public LocalDateTime getScreenShareStartedAt() { return screenShareStartedAt; }
+
+    public void setScreenShareStartedAt(LocalDateTime screenShareStartedAt) { this.screenShareStartedAt = screenShareStartedAt; }
 }

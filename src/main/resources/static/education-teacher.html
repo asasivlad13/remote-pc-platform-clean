@@ -410,7 +410,6 @@
             <button class="btn-glass" onclick="logout()">🚪 Logout</button>
         </div>
     </div>
-
     <div id="errorBox" class="card" style="display:none;border-color:rgba(239,68,68,0.4);color:#fecaca;"></div>
 
     <div class="event-mini-panel">
@@ -737,6 +736,30 @@
                         </button>
                     ` : ''}
 
+                    ${participant.screenShareRequested ? `
+                        <button class="btn-primary" onclick="grantScreenShare(${participant.id})">
+                            📺 Разрешить демонстрацию
+                        </button>
+
+                        <button class="btn-glass"
+                                style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                onclick="rejectScreenShare(${participant.id})">
+                            ❌ Отклонить демонстрацию
+                        </button>
+                    ` : ''}
+
+                    ${participant.screenShareActive ? `
+                        <button class="btn-primary" onclick="watchStudentScreen(${participant.id})">
+                            👁 Смотреть экран ученика
+                        </button>
+
+                        <button class="btn-glass"
+                                style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);"
+                                onclick="stopScreenShare(${participant.id})">
+                            🛑 Остановить демонстрацию
+                        </button>
+                    ` : ''}
+
                     <button class="btn-glass" onclick="openFilesModalForStudent(${participant.studentId || participant.userId || ''})">
                         📂 Передать файл
                     </button>
@@ -777,6 +800,18 @@
                         ${status}
                     </span>
                 </div>
+
+                ${participant.screenShareRequested ? `
+                    <div class="control-request-box">
+                        📺 Ученик запросил демонстрацию своего экрана.
+                    </div>
+                ` : ''}
+
+                ${participant.screenShareActive ? `
+                    <div class="control-active-box">
+                        🟢 Сейчас в сессии демонстрируется экран этого ученика.
+                    </div>
+                ` : ''}
 
                 ${actions}
             </div>
@@ -1449,6 +1484,64 @@
             clearInterval(filesTimer);
         }
     });
+    async function grantScreenShare(participantId) {
+        await postParticipantAction('/api/education/participants/' + participantId + '/screen-share/grant');
+        await loadParticipants();
+        await loadSessionEvents();
+    }
+
+    async function rejectScreenShare(participantId) {
+        if (!confirm('Отклонить запрос демонстрации экрана ученика?')) return;
+        await postParticipantAction('/api/education/participants/' + participantId + '/screen-share/reject');
+        await loadParticipants();
+        await loadSessionEvents();
+    }
+
+    async function stopScreenShare(participantId) {
+        if (!confirm('Остановить демонстрацию экрана ученика и вернуть экран преподавателя?')) return;
+        await postParticipantAction('/api/education/participants/' + participantId + '/screen-share/stop');
+        await loadParticipants();
+        await loadSessionEvents();
+    }
+
+    async function watchStudentScreen(participantId) {
+        try {
+            const response = await fetch('/api/education/screen-share/participant/' + participantId, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const agent = await response.json();
+
+            if (!agent.hasAgent) {
+                alert('У этого ученика нет подключённого агента Remote PC.');
+                return;
+            }
+
+            if (!agent.canShareScreen) {
+                alert('Агент ученика найден, но сейчас offline.\n\nПК: ' + agent.pcName + '\nСтатус: ' + agent.status);
+                return;
+            }
+
+            window.open(
+                '/watch.html?pcId=' + encodeURIComponent(agent.pcId) +
+                '&pcName=' + encodeURIComponent(agent.pcName || 'Student PC') +
+                '&profile=education_teacher_view_student' +
+                '&participantId=' + encodeURIComponent(participantId) +
+                '&educationCode=' + encodeURIComponent(sessionCode) +
+                '&readonly=1',
+                '_blank'
+            );
+
+        } catch (e) {
+            alert('Ошибка открытия экрана ученика: ' + e.message);
+        }
+    }
 
     init();
 </script>
