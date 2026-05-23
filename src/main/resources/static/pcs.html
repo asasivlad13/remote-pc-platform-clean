@@ -138,16 +138,22 @@
         </div>
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button id="returnToActiveTeacherSessionBtn"
-                    onclick="returnToActiveTeacherSession()"
-                    class="btn-glass"
-                    style="display:none;">
-                🔁 Вернуться в активную сессию
+            <button id="returnTeacherSessionBtn" onclick="returnToActiveTeacherSession()" class="btn-glass" style="display:none;">
+                🔁 Вернуться в учебную сессию
+            </button>
+
+            <button id="returnSupportSessionBtn" class="btn-glass" style="display:none;">
+                🛠 Вернуться в техподдержку
             </button>
 
             <button onclick="location.href='/education-join.html'" class="btn-glass">
                 🎓 Войти в учебную сессию
             </button>
+
+            <button onclick="location.href='/support-join.html'" class="btn-glass">
+                🛠 Войти в техподдержку
+            </button>
+
             <button onclick="location.href='/history.html'" class="btn-glass">📊 История</button>
             <button onclick="location.href='/change-password.html'" class="btn-glass">🔒 Change Password</button>
             <button onclick="logout()" class="btn-glass">🚪 Logout</button>
@@ -192,13 +198,13 @@
                 <span class="scenario-badge">Доступно</span>
             </button>
 
-            <button class="scenario-card disabled" onclick="showScenarioInProgress('support_operator')">
+            <button class="scenario-card" onclick="openSupportCreatePage()">
                 <div class="scenario-icon">🛠</div>
                 <div class="scenario-name">Техподдержка</div>
                 <div class="scenario-description">
-                    Оператор подключается к клиенту по коду и получает управление только после подтверждения.
+                    Создать код помощи. Клиент войдёт по коду, а его ПК определится автоматически.
                 </div>
-                <span class="scenario-badge soon">Скоро</span>
+                <span class="scenario-badge">Доступно</span>
             </button>
 
             <button class="scenario-card disabled" onclick="showScenarioInProgress('presentation_remote')">
@@ -223,56 +229,6 @@
     let pcsCache = [];
     let selectedPcId = null;
     let selectedPcName = null;
-    let activeTeacherSession = null;
-
-    async function checkActiveTeacherSession() {
-        const btn = document.getElementById('returnToActiveTeacherSessionBtn');
-
-        if (!btn) {
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/education/sessions/my-active/teacher', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.status === 401 || response.status === 403) {
-                localStorage.removeItem('token');
-                window.location.href = '/login.html';
-                return;
-            }
-
-            if (response.status === 204) {
-                activeTeacherSession = null;
-                btn.style.display = 'none';
-                return;
-            }
-
-            if (!response.ok) {
-                activeTeacherSession = null;
-                btn.style.display = 'none';
-                return;
-            }
-
-            const session = await response.json();
-
-            if (!session || session.status !== 'ACTIVE') {
-                activeTeacherSession = null;
-                btn.style.display = 'none';
-                return;
-            }
-
-            activeTeacherSession = session;
-            btn.style.display = 'inline-flex';
-
-        } catch (e) {
-            activeTeacherSession = null;
-            btn.style.display = 'none';
-        }
-    }
 
     async function returnToActiveTeacherSession() {
         try {
@@ -283,8 +239,6 @@
             });
 
             if (response.status === 204) {
-                activeTeacherSession = null;
-                document.getElementById('returnToActiveTeacherSessionBtn').style.display = 'none';
                 alert('У вас нет активной учебной сессии');
                 return;
             }
@@ -295,19 +249,104 @@
 
             const session = await response.json();
 
-            if (!session || session.status !== 'ACTIVE') {
-                activeTeacherSession = null;
-                document.getElementById('returnToActiveTeacherSessionBtn').style.display = 'none';
-                alert('Учебная сессия уже завершена');
-                return;
-            }
-
             window.location.href =
                 '/education-teacher.html?code=' + encodeURIComponent(session.sessionCode);
 
         } catch (e) {
             alert('Ошибка возврата в активную сессию: ' + e.message);
         }
+    }
+
+    async function checkActiveTeacherSession() {
+        const btn = document.getElementById('returnTeacherSessionBtn');
+
+        if (!btn) {
+            return;
+        }
+
+        btn.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/education/sessions/my-active/teacher', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok && response.status !== 204) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        } catch (e) {
+            console.warn('Teacher session check failed:', e);
+            btn.style.display = 'none';
+        }
+    }
+
+    async function checkActiveSupportSession() {
+        const btn = document.getElementById('returnSupportSessionBtn');
+
+        if (!btn) {
+            console.warn('returnSupportSessionBtn not found');
+            return;
+        }
+
+        btn.style.display = 'none';
+        btn.onclick = null;
+
+        // 1. Проверяем, есть ли активная сессия у текущего пользователя как у оператора
+        try {
+            const operatorResponse = await fetch('/api/support/sessions/my-active/operator', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (operatorResponse.ok && operatorResponse.status !== 204) {
+                const session = await operatorResponse.json();
+
+                if (session && session.sessionCode) {
+                    btn.style.display = 'inline-flex';
+                    btn.innerText = '🛠 Вернуться в техподдержку';
+                    btn.onclick = function () {
+                        window.location.href =
+                            '/support-operator.html?code=' + encodeURIComponent(session.sessionCode);
+                    };
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Support operator session check failed:', e);
+        }
+
+        // 2. Проверяем, есть ли активная сессия у текущего пользователя как у клиента
+        try {
+            const clientResponse = await fetch('/api/support/sessions/my-active/client', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (clientResponse.ok && clientResponse.status !== 204) {
+                const session = await clientResponse.json();
+
+                if (session && session.sessionCode) {
+                    btn.style.display = 'inline-flex';
+                    btn.innerText = '🛠 Вернуться в техподдержку';
+                    btn.onclick = function () {
+                        window.location.href =
+                            '/support-client.html?code=' + encodeURIComponent(session.sessionCode);
+                    };
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Support client session check failed:', e);
+        }
+
+        btn.style.display = 'none';
+        btn.onclick = null;
     }
 
     function getStatusClass(status) {
@@ -429,6 +468,10 @@
             `/watch.html?pcId=${selectedPcId}&pcName=${encodeURIComponent(selectedPcName)}&profile=${encodeURIComponent(profile)}`;
     }
 
+    function openSupportCreatePage() {
+        window.location.href = '/support-create.html';
+    }
+
     function showScenarioInProgress(profile) {
         alert('Этот сценарий будет реализован следующим этапом: ' + profile);
     }
@@ -466,10 +509,11 @@
     function escapeHtml(str) {
         if (!str) return '';
 
-        return String(str).replace(/[&<>']/g, function(m) {
+        return String(str).replace(/[&<>"']/g, function(m) {
             if (m === '&') return '&amp;';
             if (m === '<') return '&lt;';
             if (m === '>') return '&gt;';
+            if (m === '"') return '&quot;';
             if (m === "'") return '&#39;';
             return m;
         });
@@ -477,8 +521,6 @@
 
     function logout() {
         localStorage.removeItem('token');
-        localStorage.removeItem('currentEducationSessionCode');
-        localStorage.removeItem('educationSessionCode');
         window.location.href = '/login.html';
     }
 
@@ -490,9 +532,11 @@
 
     loadPCs();
     checkActiveTeacherSession();
+    checkActiveSupportSession();
 
     setInterval(loadPCs, 10000);
-    setInterval(checkActiveTeacherSession, 10000);
+    setInterval(checkActiveTeacherSession, 5000);
+    setInterval(checkActiveSupportSession, 5000);
 </script>
 </body>
 </html>

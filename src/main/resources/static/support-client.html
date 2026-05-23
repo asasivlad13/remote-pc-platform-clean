@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Remote PC - Support Client</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body style="padding: 24px;">
+<div style="max-width: 1000px; margin: 0 auto;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
+        <div>
+            <h1 style="font-size:32px;">🛠 Клиент техподдержки</h1>
+            <p style="color:rgba(255,255,255,0.55);">Оператор подключён для помощи</p>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button onclick="finishSession()" class="btn-glass"
+                    style="background:rgba(239,68,68,0.18); border-color:rgba(239,68,68,0.45);">
+                Завершить помощь
+            </button>
+            <button onclick="location.href='/pcs.html'" class="btn-glass">
+                ← На рабочий стол
+            </button>
+        </div>
+    </div>
+
+    <div class="glass-card fade-in-up" style="padding:28px; margin-bottom:24px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+            <div>
+                <div style="color:rgba(255,255,255,0.45); font-size:13px;">Код сессии</div>
+                <div id="sessionCode" style="font-size:34px; font-weight:900; letter-spacing:6px;">------</div>
+            </div>
+
+            <div>
+                <div style="color:rgba(255,255,255,0.45); font-size:13px;">Статус</div>
+                <div id="sessionStatus" style="font-size:22px; font-weight:800;">—</div>
+            </div>
+
+            <div>
+                <div style="color:rgba(255,255,255,0.45); font-size:13px;">Оператор</div>
+                <div id="operatorName" style="font-size:22px; font-weight:800;">—</div>
+            </div>
+
+            <div>
+                <div style="color:rgba(255,255,255,0.45); font-size:13px;">Ваш ПК</div>
+                <div id="clientPcName" style="font-size:22px; font-weight:800;">—</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card fade-in-up" style="padding:28px;">
+        <h2 style="font-size:24px; margin-bottom:16px;">Разрешения клиента</h2>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px;">
+            <button id="allowControlBtn" onclick="allowControl()" class="btn-primary" style="justify-content:center;" disabled>
+                ⏳ Нет запроса управления
+            </button>
+
+            <button id="denyControlBtn" onclick="denyControl()" class="btn-glass" style="justify-content:center;" disabled>
+                ❌ Запретить управление
+            </button>
+
+            <button onclick="alert('Чат добавим следующим шагом')" class="btn-glass" style="justify-content:center;">
+                💬 Чат с оператором
+            </button>
+
+            <button onclick="alert('Файлы добавим после управления')" class="btn-glass" style="justify-content:center;">
+                📁 Файлы от оператора
+            </button>
+        </div>
+
+        <div id="hintBox" style="margin-top:22px; padding:16px; border-radius:16px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:rgba(255,255,255,0.72);">
+            Вы подключены к сессии техподдержки. Оператор может смотреть ваш экран, но управление будет доступно только после вашего разрешения.
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionCode = params.get('code');
+
+    if (!sessionCode) {
+        alert('Не указан код сессии');
+        window.location.href = '/pcs.html';
+    }
+
+    async function loadSession() {
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+            renderSession(session);
+
+        } catch (e) {
+            alert('Ошибка загрузки сессии: ' + e.message);
+            window.location.href = '/pcs.html';
+        }
+    }
+
+    function renderSession(session) {
+        document.getElementById('sessionCode').innerText = session.sessionCode;
+        document.getElementById('sessionStatus').innerText = translateStatus(session.status);
+        document.getElementById('operatorName').innerText = session.operatorUsername || '—';
+        document.getElementById('clientPcName').innerText = session.clientPcName || '—';
+
+        const allowControlBtn = document.getElementById('allowControlBtn');
+        const denyControlBtn = document.getElementById('denyControlBtn');
+
+        if (session.status === 'ACTIVE') {
+            if (session.controlAllowed) {
+                allowControlBtn.disabled = true;
+                allowControlBtn.innerText = '✅ Управление разрешено';
+
+                denyControlBtn.disabled = false;
+                denyControlBtn.innerText = '❌ Запретить управление';
+
+                document.getElementById('hintBox').innerText =
+                    'Вы разрешили оператору управление этим ПК. Вы можете запретить управление в любой момент.';
+            } else if (session.controlRequested) {
+                allowControlBtn.disabled = false;
+                allowControlBtn.innerText = '✅ Разрешить управление';
+
+                denyControlBtn.disabled = false;
+                denyControlBtn.innerText = '❌ Отклонить запрос';
+
+                document.getElementById('hintBox').innerText =
+                    'Оператор запросил управление вашим ПК. Разрешите управление только если доверяете оператору.';
+            } else {
+                allowControlBtn.disabled = true;
+                allowControlBtn.innerText = '⏳ Нет запроса управления';
+
+                denyControlBtn.disabled = true;
+                denyControlBtn.innerText = '❌ Запретить управление';
+
+                document.getElementById('hintBox').innerText =
+                    'Оператор может смотреть ваш экран. Управление появится только после вашего разрешения.';
+            }
+        }
+
+        if (session.status === 'FINISHED' || session.status === 'CANCELLED') {
+            document.getElementById('hintBox').innerText =
+                'Сессия техподдержки завершена. Возврат на рабочий стол...';
+
+            setTimeout(() => {
+                window.location.href = '/pcs.html';
+            }, 1200);
+        }
+    }
+
+    function translateStatus(status) {
+        if (status === 'WAITING_CLIENT') return 'Ожидание клиента';
+        if (status === 'ACTIVE') return 'Активна';
+        if (status === 'FINISHED') return 'Завершена';
+        if (status === 'CANCELLED') return 'Отменена';
+        return status || '—';
+    }
+
+    async function allowControl() {
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/control/allow', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+            renderSession(session);
+
+            alert('Управление разрешено');
+
+        } catch (e) {
+            alert('Ошибка разрешения управления: ' + e.message);
+        }
+    }
+
+    async function denyControl() {
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/control/deny', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+            renderSession(session);
+
+            alert('Управление запрещено');
+
+        } catch (e) {
+            alert('Ошибка запрета управления: ' + e.message);
+        }
+    }
+
+    async function finishSession() {
+        if (!confirm('Завершить сессию технической поддержки?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/finish', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            window.location.href = '/pcs.html';
+
+        } catch (e) {
+            alert('Ошибка завершения сессии: ' + e.message);
+        }
+    }
+
+    loadSession();
+    setInterval(loadSession, 2500);
+</script>
+</body>
+</html>

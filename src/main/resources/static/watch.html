@@ -247,6 +247,10 @@
         <button id="educationBackBtn" class="btn-glass" style="display:none;" onclick="goBackToEducation()">
             ← Назад к сессии
         </button>
+
+        <button id="supportBackBtn" class="btn-glass" style="display:none;" onclick="goBackToSupportOperator()">
+            🛠 Вернуться в рабочее место оператора
+        </button>
     </div>
 </div>
 
@@ -333,6 +337,16 @@
         }
     }
 
+    function goBackToSupportOperator() {
+        const supportCode = urlParams.get('supportCode') || urlParams.get('code');
+
+        if (supportCode) {
+            window.location.href = '/support-operator.html?code=' + encodeURIComponent(supportCode);
+        } else {
+            window.history.back();
+        }
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const pcId = urlParams.get('pcId');
     const pcName = decodeURIComponent(urlParams.get('pcName') || 'Unknown');
@@ -343,9 +357,11 @@
     const embeddedMode = urlParams.get('embedded') === '1';
     const readonlyMode = urlParams.get('readonly') === '1';
 
-    let controlMode = profile !== 'education_student';
+    let controlMode = profile !== 'education_student' && profile !== 'support_operator_view_client';
     let educationStudentHasControl = false;
     let educationControlAllowed = false;
+    let supportControlAllowed = false;
+    let supportSession = null;
 
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/login.html';
@@ -433,6 +449,57 @@
             '<p style="color:#f87171;font-size:18px;">Connection failed</p>' +
             '<p style="margin-top:10px;">' + message + '</p>' +
             '</div>';
+    }
+
+    function toPositiveInt(value) {
+        const number = Number(value);
+        return Number.isFinite(number) && number > 0 ? Math.round(number) : null;
+    }
+
+    function applyRemoteScreenSize(width, height, source) {
+        const parsedWidth = toPositiveInt(width);
+        const parsedHeight = toPositiveInt(height);
+
+        if (!parsedWidth || !parsedHeight) {
+            return false;
+        }
+
+        remoteScreenWidth = parsedWidth;
+        remoteScreenHeight = parsedHeight;
+
+        console.log("Remote control screen size from " + source + ":", remoteScreenWidth, "x", remoteScreenHeight);
+
+        return true;
+    }
+
+    async function tryLoadPcScreenSize(targetPcId) {
+        if (!targetPcId) {
+            return false;
+        }
+
+        try {
+            const response = await fetch('/pcs/' + encodeURIComponent(targetPcId), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                console.warn("Could not load PC screen size:", response.status);
+                return false;
+            }
+
+            const pcInfo = await response.json();
+
+            return applyRemoteScreenSize(
+                pcInfo.screenWidth,
+                pcInfo.screenHeight,
+                '/pcs/' + targetPcId
+            );
+        } catch (e) {
+            console.warn("PC screen size load failed:", e);
+            return false;
+        }
     }
 
     function showFileProgressWindow() {
@@ -680,6 +747,104 @@
             console.log("Remote screen:", remoteScreenWidth, "x", remoteScreenHeight);
             console.log("WebRTC host:", webrtcHost);
             console.log("Stream name:", streamName);
+
+            return;
+        }
+
+
+
+        if (profile === 'support_operator_view_client') {
+            const supportCode = urlParams.get('supportCode');
+
+            if (!supportCode) {
+                throw new Error("Support session code is missing");
+            }
+
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(supportCode), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to load support session info");
+            }
+
+            const session = await response.json();
+            supportSession = session;
+
+            if (session.status !== 'ACTIVE') {
+                throw new Error("Support session is not active");
+            }
+
+            if (!session.clientPcWebrtcUrl || !session.clientPcStreamName) {
+                throw new Error("Client PC does not provide WebRTC stream info");
+            }
+
+            const supportSizeApplied = applyRemoteScreenSize(
+                session.clientPcScreenWidth || session.clientScreenWidth || session.screenWidth,
+                session.clientPcScreenHeight || session.clientScreenHeight || session.screenHeight,
+                'support session client PC'
+            );
+
+            if (!supportSizeApplied) {
+                await tryLoadPcScreenSize(session.clientPcId || pcId);
+            }
+
+            webrtcHost = session.clientPcWebrtcUrl;
+            streamName = session.clientPcStreamName;
+
+            supportControlAllowed = session.controlAllowed === true;
+
+            const controlBtn = document.getElementById('controlModeBtn');
+            const indicator = document.getElementById('modeIndicator');
+            const supportBackBtn = document.getElementById('supportBackBtn');
+
+            if (supportBackBtn && !embeddedMode) {
+                supportBackBtn.style.display = 'inline-flex';
+            }
+
+            if (readonlyMode || !supportControlAllowed) {
+                controlMode = false;
+
+                if (controlBtn) {
+                    controlBtn.style.display = 'none';
+                }
+
+                if (indicator) {
+                    indicator.innerHTML = supportControlAllowed
+                        ? '🛠 Техподдержка: только просмотр'
+                        : '🛠 Техподдержка: клиент ещё не разрешил управление';
+
+                    indicator.style.color = '#93c5fd';
+                }
+            } else {
+                controlMode = true;
+
+                if (controlBtn) {
+                    controlBtn.hidden = false;
+                    controlBtn.style.removeProperty('display');
+                    controlBtn.style.display = 'inline-flex';
+                    controlBtn.style.visibility = 'visible';
+                    controlBtn.style.opacity = '1';
+                    controlBtn.disabled = false;
+                    controlBtn.innerHTML = '🎮 Control';
+                    controlBtn.style.background = 'rgba(16,185,129,0.2)';
+                    controlBtn.style.borderColor = 'rgba(16,185,129,0.5)';
+                }
+
+                if (indicator) {
+                    indicator.innerHTML = '🎮 Техподдержка: управление разрешено клиентом';
+                    indicator.style.color = '#34d399';
+                }
+            }
+
+            console.log("SUPPORT OPERATOR MODE");
+            console.log("Support code:", supportCode);
+            console.log("Client PC ID:", session.clientPcId);
+            console.log("Client stream name:", streamName);
+            console.log("Support control allowed:", supportControlAllowed);
+            console.log("Current control mode:", controlMode);
+            console.log("Initial control target size:", getActualRemoteSize());
+            console.log("Control target PC ID:", getControlTargetPcId());
 
             return;
         }
@@ -1065,6 +1230,8 @@
                 token: token,
                 pcName: pcName,
                 profile: profile,
+                educationCode: urlParams.get('educationCode'),
+                supportCode: urlParams.get('supportCode') || urlParams.get('code'),
                 platform: navigator.platform,
                 browser: navigator.userAgent,
                 mode: controlMode ? "Control" : "View"
@@ -1157,7 +1324,7 @@
 
             ws.send(JSON.stringify({
                 type: "metrics",
-                pcId: parseInt(pcId),
+                pcId: getControlTargetPcId(),
                 fps: fpsText === "-" ? 0 : parseFloat(fpsText),
                 latency: pingText === "-" ? 0 : parseFloat(pingText),
                 mode: controlMode ? "Control" : "View"
@@ -1207,7 +1374,7 @@
 
         const command = {
             type: 'command',
-            pcId: parseInt(pcId),
+            pcId: getControlTargetPcId(),
             action: action,
             profile: profile,
             ...data
@@ -1215,6 +1382,10 @@
 
         if (profile === 'education_student') {
             command.educationCode = urlParams.get('educationCode');
+        }
+
+        if (profile === 'support_operator_view_client') {
+            command.supportCode = urlParams.get('supportCode') || urlParams.get('code');
         }
 
         ws.send(JSON.stringify(command));
@@ -1234,7 +1405,7 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: "settings",
-                pcId: parseInt(pcId),
+                pcId: getControlTargetPcId(),
                 resolution: resolution
             }));
         }
@@ -1269,7 +1440,7 @@
         updateFileProgress('Загрузка на сервер: ' + file.name, 1, 'Подготовка...');
 
         const formData = new FormData();
-        formData.append('pcId', pcId);
+        formData.append('pcId', getControlTargetPcId());
         formData.append('file', file);
 
         try {
@@ -1307,6 +1478,11 @@
             return;
         }
 
+        if (profile === 'support_operator_view_client' && !supportControlAllowed) {
+            alert('Клиент ещё не разрешил управление');
+            return;
+        }
+
         controlMode = !controlMode;
 
         const btn = document.getElementById('controlModeBtn');
@@ -1319,6 +1495,8 @@
 
             if (profile === 'education_student') {
                 indicator.innerHTML = '🎮 Учебный режим: управление активно';
+            } else if (profile === 'support_operator_view_client') {
+                indicator.innerHTML = '🎮 Техподдержка: управление активно';
             } else {
                 indicator.innerHTML = '🎮 Control Mode Active - Keyboard & Mouse enabled';
             }
@@ -1331,6 +1509,8 @@
 
             if (profile === 'education_student') {
                 indicator.innerHTML = '👁️ Учебный режим: только просмотр';
+            } else if (profile === 'support_operator_view_client') {
+                indicator.innerHTML = '👁️ Техподдержка: только просмотр';
             } else {
                 indicator.innerHTML = '👁️ View Mode - Keyboard & Mouse disabled';
             }
@@ -1349,25 +1529,110 @@
         }
     }
 
+    function isSupportOperatorMode() {
+        return profile === 'support_operator_view_client';
+    }
+
+    function getControlTargetPcId() {
+        if (isSupportOperatorMode() && supportSession && supportSession.clientPcId) {
+            return parseInt(supportSession.clientPcId);
+        }
+
+        return parseInt(pcId);
+    }
+
+    function getActualRemoteSize() {
+        /*
+         * Важно: для техподдержки делаем ТАК ЖЕ, как в сценарии
+         * «преподаватель смотрит экран студента». Управление считается
+         * по РЕАЛЬНОМУ размеру экрана удалённого ПК, который хранится
+         * в Pc.screenWidth / Pc.screenHeight и приходит с backend.
+         *
+         * Нельзя брать video.videoWidth/video.videoHeight первым источником,
+         * потому что WebRTC/GStreamer может отдавать поток 1280x720, а
+         * реальный экран клиента при этом 2560x1440. Именно это и давало
+         * сильный сдвиг мыши влево и вверх.
+         */
+        const savedWidth = toPositiveInt(remoteScreenWidth);
+        const savedHeight = toPositiveInt(remoteScreenHeight);
+
+        if (savedWidth && savedHeight) {
+            return {
+                width: savedWidth,
+                height: savedHeight,
+                source: 'saved remote screen size'
+            };
+        }
+
+        if (isSupportOperatorMode() && supportSession) {
+            const sessionWidth = toPositiveInt(
+                supportSession.clientPcScreenWidth ||
+                supportSession.clientScreenWidth ||
+                supportSession.screenWidth
+            );
+
+            const sessionHeight = toPositiveInt(
+                supportSession.clientPcScreenHeight ||
+                supportSession.clientScreenHeight ||
+                supportSession.screenHeight
+            );
+
+            if (sessionWidth && sessionHeight) {
+                return {
+                    width: sessionWidth,
+                    height: sessionHeight,
+                    source: 'support session screen size'
+                };
+            }
+        }
+
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+            return {
+                width: video.videoWidth,
+                height: video.videoHeight,
+                source: 'WebRTC video metadata fallback'
+            };
+        }
+
+        return {
+            width: 1920,
+            height: 1080,
+            source: 'default fallback'
+        };
+    }
+
+    function syncSupportScreenSizeFromVideo(reason) {
+        /*
+         * Ничего не перезаписываем из video.videoWidth/video.videoHeight.
+         * Для поддержки это может быть размер кодированного потока,
+         * а не размер экрана клиента. Оставлено как no-op, чтобы не
+         * ломать вызовы ниже.
+         */
+    }
+
     function getRenderedVideoRect() {
         const outer = video.getBoundingClientRect();
+        const size = getActualRemoteSize();
 
-        const vw = video.videoWidth || remoteScreenWidth;
-        const vh = video.videoHeight || remoteScreenHeight;
+        const sourceWidth = size.width;
+        const sourceHeight = size.height;
 
-        const videoAspect = vw / vh;
+        const sourceAspect = sourceWidth / sourceHeight;
         const boxAspect = outer.width / outer.height;
 
-        let width, height, left, top;
+        let width;
+        let height;
+        let left;
+        let top;
 
-        if (boxAspect > videoAspect) {
+        if (boxAspect > sourceAspect) {
             height = outer.height;
-            width = height * videoAspect;
+            width = height * sourceAspect;
             left = outer.left + (outer.width - width) / 2;
             top = outer.top;
         } else {
             width = outer.width;
-            height = width / videoAspect;
+            height = width / sourceAspect;
             left = outer.left;
             top = outer.top + (outer.height - height) / 2;
         }
@@ -1376,22 +1641,45 @@
     }
 
     function translateMouseCoords(e) {
+        syncSupportScreenSizeFromVideo('mouse event');
+
         const rect = getRenderedVideoRect();
 
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
 
-        if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+        if (localX < 0 || localY < 0 || localX > rect.width || localY > rect.height) {
             return null;
         }
 
-        const remoteX = Math.round((x / rect.width) * remoteScreenWidth);
-        const remoteY = Math.round((y / rect.height) * remoteScreenHeight);
+        const targetSize = getActualRemoteSize();
+        const targetWidth = targetSize.width;
+        const targetHeight = targetSize.height;
 
-        return {
-            x: Math.max(0, Math.min(remoteX, remoteScreenWidth - 1)),
-            y: Math.max(0, Math.min(remoteY, remoteScreenHeight - 1))
+        const remoteX = Math.round((localX / rect.width) * targetWidth);
+        const remoteY = Math.round((localY / rect.height) * targetHeight);
+
+        const point = {
+            x: Math.max(0, Math.min(remoteX, targetWidth - 1)),
+            y: Math.max(0, Math.min(remoteY, targetHeight - 1)),
+            screenWidth: targetWidth,
+            screenHeight: targetHeight,
+            relativeX: localX / rect.width,
+            relativeY: localY / rect.height
         };
+
+        if (isSupportOperatorMode() && window.__debugSupportMouse === true) {
+            console.log('Support mouse translate:', {
+                localX, localY,
+                renderedWidth: rect.width,
+                renderedHeight: rect.height,
+                targetWidth, targetHeight,
+                targetSource: targetSize.source,
+                point
+            });
+        }
+
+        return point;
     }
 
     let lastMouseMove = 0;
@@ -1492,6 +1780,11 @@
         e.preventDefault();
         dropOverlay.style.display = 'none';
 
+        if (readonlyMode || (profile === 'support_operator_view_client' && !supportControlAllowed)) {
+            alert('Передача файлов сейчас недоступна');
+            return;
+        }
+
         const files = e.dataTransfer.files;
 
         if (!files || files.length === 0) {
@@ -1568,6 +1861,7 @@
 
     video.addEventListener('loadedmetadata', () => {
         console.log("Video metadata loaded:", video.videoWidth, video.videoHeight);
+        syncSupportScreenSizeFromVideo('loadedmetadata');
         document.getElementById('videoState').innerText = 'playing';
         document.getElementById('videoState').className = 'metric-good';
         document.getElementById('loadingOverlay').style.display = 'none';
@@ -1576,6 +1870,7 @@
 
     video.addEventListener('playing', () => {
         console.log("Video playing");
+        syncSupportScreenSizeFromVideo('playing');
         document.getElementById('videoState').innerText = 'playing';
         document.getElementById('videoState').className = 'metric-good';
         document.getElementById('loadingOverlay').style.display = 'none';
@@ -1632,6 +1927,51 @@
                         '👁️ Учебный режим: только просмотр. Нажмите View, чтобы перейти в управление.';
 
                     document.getElementById('modeIndicator').style.color = '#fbbf24';
+                }
+            }
+
+
+            if (profile === 'support_operator_view_client') {
+                const supportBackBtn = document.getElementById('supportBackBtn');
+                if (supportBackBtn && !embeddedMode) {
+                    supportBackBtn.style.display = 'inline-flex';
+                }
+
+                if (readonlyMode || !supportControlAllowed) {
+                    controlMode = false;
+
+                    const controlBtn = document.getElementById('controlModeBtn');
+
+                    if (controlBtn) {
+                        controlBtn.style.display = 'none';
+                    }
+
+                    document.getElementById('modeIndicator').innerHTML =
+                        supportControlAllowed
+                            ? '🛠 Техподдержка: только просмотр'
+                            : '🛠 Техподдержка: клиент ещё не разрешил управление';
+
+                    document.getElementById('modeIndicator').style.color = '#93c5fd';
+                } else {
+                    controlMode = true;
+
+                    const controlBtn = document.getElementById('controlModeBtn');
+
+                    controlBtn.hidden = false;
+                    controlBtn.style.removeProperty('display');
+                    controlBtn.style.display = 'inline-flex';
+                    controlBtn.style.visibility = 'visible';
+                    controlBtn.style.opacity = '1';
+                    controlBtn.disabled = false;
+                    controlBtn.innerHTML = '🎮 Control';
+                    controlBtn.onclick = toggleControlMode;
+                    controlBtn.style.background = 'rgba(16,185,129,0.2)';
+                    controlBtn.style.borderColor = 'rgba(16,185,129,0.5)';
+
+                    document.getElementById('modeIndicator').innerHTML =
+                        '🎮 Техподдержка: управление разрешено клиентом';
+
+                    document.getElementById('modeIndicator').style.color = '#34d399';
                 }
             }
 

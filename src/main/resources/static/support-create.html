@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Remote PC - Create Support Session</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body style="padding:24px;">
+<div style="max-width:800px;margin:0 auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+        <div>
+            <h1 style="font-size:32px;">🛠 Техническая поддержка</h1>
+            <p style="color:rgba(255,255,255,0.55);">Создание сессии помощи для клиента</p>
+        </div>
+
+        <button onclick="location.href='/pcs.html'" class="btn-glass">← Назад</button>
+    </div>
+
+    <div class="glass-card fade-in-up" style="padding:28px;margin-bottom:24px;">
+        <h2 style="font-size:24px;margin-bottom:14px;">Новая сессия</h2>
+
+        <div style="padding:16px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);color:rgba(255,255,255,0.75);margin-bottom:22px;">
+            Оператор создаёт код сессии. Клиент войдёт по этому коду со своего ПК, и система автоматически определит его подключённый агент.
+        </div>
+
+        <label style="display:block;margin-bottom:8px;color:rgba(255,255,255,0.75);">Название обращения</label>
+        <input id="titleInput"
+               class="input-field"
+               placeholder="Например: Помощь с настройкой программы"
+               style="width:100%;margin-bottom:20px;">
+
+        <button onclick="createSupportSession()" class="btn-primary" style="justify-content:center;">
+            🛠 Создать сессию техподдержки
+        </button>
+    </div>
+
+    <div id="resultBox" class="glass-card fade-in-up" style="display:none;padding:28px;">
+        <h2 style="font-size:24px;margin-bottom:10px;">Сессия создана</h2>
+        <p style="color:rgba(255,255,255,0.55);margin-bottom:16px;">Передайте клиенту этот код:</p>
+
+        <div id="createdCode" style="font-size:42px;font-weight:900;letter-spacing:8px;margin-bottom:22px;">------</div>
+
+        <button onclick="openOperatorSession()" class="btn-primary" style="justify-content:center;">
+            Перейти в рабочее место оператора
+        </button>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    let createdSessionCode = null;
+
+    async function createSupportSession() {
+        const title = document.getElementById('titleInput').value.trim();
+
+        try {
+            const response = await fetch('/api/support/sessions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+            createdSessionCode = session.sessionCode;
+
+            document.getElementById('createdCode').innerText = session.sessionCode;
+            document.getElementById('resultBox').style.display = 'block';
+
+        } catch (e) {
+            alert('Ошибка создания сессии техподдержки: ' + e.message);
+        }
+    }
+
+    function openOperatorSession() {
+        if (!createdSessionCode) {
+            alert('Сессия ещё не создана');
+            return;
+        }
+
+        window.location.href = '/support-operator.html?code=' + encodeURIComponent(createdSessionCode);
+    }
+</script>
+</body>
+</html>

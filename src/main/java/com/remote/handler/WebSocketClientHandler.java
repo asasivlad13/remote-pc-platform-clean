@@ -10,6 +10,7 @@ import com.remote.repository.ConnectionLogRepository;
 import com.remote.repository.PcRepository;
 import com.remote.service.EducationParticipantService;
 import com.remote.service.SessionPermissionService;
+import com.remote.service.SupportSessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
@@ -44,6 +45,9 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
     @Autowired
     private SessionPermissionService sessionPermissionService;
+
+    @Autowired
+    private SupportSessionService supportSessionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -119,8 +123,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         Long pcId = json.get("pcId").asLong();
         String action = json.get("action").asText();
 
-        String profile = sessionProfiles.getOrDefault(session.getId(), "personal");
-        profile = sessionPermissionService.normalizeProfile(profile);
+        String profile = normalizeConnectionProfile(sessionProfiles.getOrDefault(session.getId(), "personal"));
 
         boolean allowed;
 
@@ -139,6 +142,19 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                     && !"unknown".equals(username)
                     && isRemoteControlAction(action)
                     && educationParticipantService.hasControlInSession(username, educationCode);
+
+        } else if ("support_operator_view_client".equals(profile)) {
+            String supportCode = json.has("supportCode")
+                    ? json.get("supportCode").asText()
+                    : null;
+
+            String username = sessionUsernames.getOrDefault(session.getId(), "unknown");
+
+            allowed = supportCode != null
+                    && !supportCode.isBlank()
+                    && !"unknown".equals(username)
+                    && isRemoteControlAction(action)
+                    && supportSessionService.hasOperatorControl(username, supportCode, pcId);
         } else {
             allowed = false;
         }
@@ -157,6 +173,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                     + ", action=" + action
                     + ", username=" + sessionUsernames.getOrDefault(session.getId(), "unknown")
                     + ", educationCode=" + (json.has("educationCode") ? json.get("educationCode").asText() : "none")
+                    + ", supportCode=" + (json.has("supportCode") ? json.get("supportCode").asText() : "none")
                     + ", session=" + session.getId());
 
             return;
@@ -184,7 +201,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         String clientInfo = extractClientInfo(json);
         String mode = json.has("mode") ? json.get("mode").asText() : "Control";
         String profile = json.has("profile") ? json.get("profile").asText("personal") : "personal";
-        profile = sessionPermissionService.normalizeProfile(profile);
+        profile = normalizeConnectionProfile(profile);
 
         sessionProfiles.put(session.getId(), profile);
 
@@ -381,6 +398,14 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         closeSessionLog(session);
         sessions.remove(session.getId());
         System.out.println("Web client disconnected: " + session.getId());
+    }
+
+    private String normalizeConnectionProfile(String profile) {
+        if ("support_operator_view_client".equals(profile)) {
+            return profile;
+        }
+
+        return sessionPermissionService.normalizeProfile(profile);
     }
 
     private boolean isRemoteControlAction(String action) {

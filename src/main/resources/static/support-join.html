@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Remote PC - Support Join</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;">
+<div class="glass-card fade-in-up" style="max-width: 480px; width:100%; padding: 36px; text-align:center;">
+
+    <div style="font-size: 52px; margin-bottom: 16px;">🛠</div>
+
+    <h1 style="font-size: 28px; margin-bottom: 8px;">Вход в техподдержку</h1>
+
+    <p style="color: rgba(255,255,255,0.55); margin-bottom: 28px;">
+        Введите код, который сообщил оператор
+    </p>
+
+    <input id="codeInput"
+           class="input-field"
+           type="text"
+           maxlength="6"
+           placeholder="Код сессии"
+           style="text-align:center; font-size:24px; letter-spacing:6px; margin-bottom: 18px;">
+
+    <button onclick="joinSupportSession()" class="btn-primary" style="width:100%; justify-content:center;">
+        Подключиться
+    </button>
+
+    <button onclick="location.href='/pcs.html'" class="btn-glass" style="width:100%; justify-content:center; margin-top: 12px;">
+        ← Назад
+    </button>
+
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    async function joinSupportSession() {
+        const code = document.getElementById('codeInput').value.trim();
+
+        if (!code) {
+            alert('Введите код сессии');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(code) + '/join', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const session = await response.json();
+
+            window.location.href =
+                '/support-client.html?code=' + encodeURIComponent(session.sessionCode);
+
+        } catch (e) {
+            alert('Ошибка подключения к техподдержке: ' + e.message);
+        }
+    }
+</script>
+</body>
+</html>
