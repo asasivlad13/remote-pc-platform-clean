@@ -386,12 +386,13 @@
             return;
         }
 
+        const currentUsername = localStorage.getItem('username');
         const shouldScroll = box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
 
         box.innerHTML = messages.map(message => {
-            const mine = message.mine;
-            const sender = mine ? 'Вы' : escapeHtml(message.senderUsername || 'Оператор');
-            const time = message.createdAtText || '';
+            const mine = message.mine === true || message.senderUsername === currentUsername;
+            const sender = mine ? 'Вы' : escapeHtml(message.senderUsername || 'Собеседник');
+            const time = message.createdAtText || formatDateTime(message.createdAt);
             const text = escapeHtml(message.message || '');
 
             return `
@@ -471,15 +472,24 @@
             return;
         }
 
+        const currentUsername = localStorage.getItem('username');
+
         list.innerHTML = files.map(file => {
+            const fileName = getSupportFileName(file);
+            const fileType = getSupportFileType(file);
+            const fileSize = getSupportFileSize(file);
             const statusText = translateFileStatus(file.status);
-            const canAccept = file.status === 'PENDING';
+
+            const isRecipient = file.recipientUsername === currentUsername || !file.recipientUsername;
+            const canAccept = file.status === 'PENDING' && isRecipient;
             const canDownload = file.status === 'ACCEPTED';
 
             return `
                 <div class="file-row">
-                    <div style="font-weight:800;">${escapeHtml(file.filename)}</div>
-                    <div class="file-meta">${escapeHtml(file.sizeText || '')} · ${statusText} · отправитель: ${escapeHtml(file.senderUsername || 'оператор')}</div>
+                    <div style="font-weight:800; word-break:break-word;">📎 ${escapeHtml(fileName)}</div>
+                    <div class="file-meta">
+                        ${escapeHtml(fileType)} · ${escapeHtml(fileSize)} · ${statusText} · отправитель: ${escapeHtml(file.senderUsername || 'оператор')}
+                    </div>
                     <div class="file-actions">
                         ${canAccept ? `<button class="btn-primary" onclick="acceptSupportFile(${file.id})">Принять</button>` : ''}
                         ${canAccept ? `<button class="btn-glass" onclick="rejectSupportFile(${file.id})">Отклонить</button>` : ''}
@@ -562,6 +572,73 @@
             URL.revokeObjectURL(url);
         } catch (e) {
             alert('Ошибка скачивания файла: ' + e.message);
+        }
+    }
+
+
+    function getSupportFileName(file) {
+        const name = file.originalFilename || file.filename || file.name;
+
+        if (name && String(name).trim() !== '' && String(name).trim() !== '.') {
+            return String(name).trim();
+        }
+
+        return 'Файл без названия';
+    }
+
+    function getSupportFileType(file) {
+        if (file.contentType && String(file.contentType).trim() !== '') {
+            return String(file.contentType).trim();
+        }
+
+        const fileName = getSupportFileName(file);
+        const dotIndex = fileName.lastIndexOf('.');
+
+        if (dotIndex !== -1 && dotIndex < fileName.length - 1) {
+            return fileName.substring(dotIndex + 1).toUpperCase();
+        }
+
+        return 'Неизвестный тип';
+    }
+
+    function getSupportFileSize(file) {
+        if (file.sizeText && String(file.sizeText).trim() !== '') {
+            return String(file.sizeText).trim();
+        }
+
+        return formatFileSize(file.sizeBytes);
+    }
+
+    function formatFileSize(bytes) {
+        const size = Number(bytes || 0);
+
+        if (size <= 0) {
+            return '0 Б';
+        }
+
+        if (size < 1024) {
+            return size + ' Б';
+        }
+
+        if (size < 1024 * 1024) {
+            return (size / 1024).toFixed(1) + ' КБ';
+        }
+
+        return (size / 1024 / 1024).toFixed(1) + ' МБ';
+    }
+
+    function formatDateTime(value) {
+        if (!value) {
+            return '';
+        }
+
+        try {
+            return new Date(value).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            return '';
         }
     }
 
