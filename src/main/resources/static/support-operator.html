@@ -4,10 +4,105 @@
     <meta charset="UTF-8">
     <title>Remote PC - Support Operator</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .support-grid {
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .support-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chat-box {
+            height: 310px;
+            overflow-y: auto;
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        .chat-row.mine {
+            justify-content: flex-end;
+        }
+
+        .chat-message {
+            max-width: 78%;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-message.mine {
+            background: rgba(59, 130, 246, 0.22);
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .chat-meta {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 4px;
+        }
+
+        .chat-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: rgba(255, 255, 255, 0.86);
+            line-height: 1.35;
+        }
+
+        .chat-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.07);
+            color: white;
+            padding: 12px 14px;
+            outline: none;
+        }
+
+        .file-row {
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
 </head>
 
 <body style="padding: 24px;">
-<div style="max-width: 1100px; margin: 0 auto;">
+<div style="max-width: 1180px; margin: 0 auto;">
 
     <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
         <div>
@@ -61,18 +156,37 @@
             <button id="requestControlBtn" onclick="requestControl()" class="btn-glass" style="justify-content:center;" disabled>
                 🖱 Запросить управление
             </button>
-
-            <button onclick="alert('Чат добавим следующим шагом')" class="btn-glass" style="justify-content:center;">
-                💬 Чат
-            </button>
-
-            <button onclick="alert('Передачу файлов добавим после чата и управления')" class="btn-glass" style="justify-content:center;">
-                📁 Отправить файл
-            </button>
         </div>
 
         <div id="hintBox" style="margin-top:22px; padding:16px; border-radius:16px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); color:rgba(255,255,255,0.72);">
             Передайте клиенту код сессии. После подключения клиента будет автоматически выбран его ПК.
+        </div>
+    </div>
+
+    <div class="support-grid">
+        <div class="glass-card fade-in-up" style="padding:24px;">
+            <h2 style="font-size:22px; margin-bottom:14px;">💬 Чат с клиентом</h2>
+            <div id="chatMessages" class="chat-box">
+                <div style="color:rgba(255,255,255,0.45); text-align:center; padding-top:120px;">Сообщений пока нет</div>
+            </div>
+            <div class="chat-form">
+                <input id="chatInput" class="chat-input" placeholder="Введите сообщение..." maxlength="2000">
+                <button onclick="sendChatMessage()" class="btn-primary">Отправить</button>
+            </div>
+        </div>
+
+        <div class="glass-card fade-in-up" style="padding:24px;">
+            <h2 style="font-size:22px; margin-bottom:14px;">📁 Файлы клиенту</h2>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+                <input id="fileInput" type="file" class="chat-input" style="min-width:240px;">
+                <button onclick="uploadSupportFile()" class="btn-primary">Отправить</button>
+            </div>
+            <div style="color:rgba(255,255,255,0.5); font-size:13px; margin-bottom:12px;">
+                Файл увидит клиент. Скачать он сможет только после подтверждения.
+            </div>
+            <div id="filesList">
+                <div style="color:rgba(255,255,255,0.45);">Файлов пока нет</div>
+            </div>
         </div>
     </div>
 </div>
@@ -88,6 +202,8 @@
     const sessionCode = params.get('code');
 
     let currentSession = null;
+    let chatTimer = null;
+    let filesTimer = null;
 
     if (!sessionCode) {
         alert('Не указан код сессии');
@@ -240,8 +356,236 @@
         }
     }
 
+    async function loadChatMessages() {
+        if (!currentSession || currentSession.status !== 'ACTIVE') {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/chat', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const messages = await response.json();
+            renderChatMessages(messages);
+        } catch (e) {
+            console.warn('Ошибка загрузки чата:', e);
+        }
+    }
+
+    function renderChatMessages(messages) {
+        const box = document.getElementById('chatMessages');
+
+        if (!messages || messages.length === 0) {
+            box.innerHTML = '<div style="color:rgba(255,255,255,0.45); text-align:center; padding-top:120px;">Сообщений пока нет</div>';
+            return;
+        }
+
+        const shouldScroll = box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
+
+        box.innerHTML = messages.map(message => {
+            const mine = message.mine;
+            const sender = mine ? 'Вы' : escapeHtml(message.senderUsername || 'Клиент');
+            const time = message.createdAtText || '';
+            const text = escapeHtml(message.message || '');
+
+            return `
+                <div class="chat-row ${mine ? 'mine' : ''}">
+                    <div class="chat-message ${mine ? 'mine' : ''}">
+                        <div class="chat-meta">${sender} · ${time}</div>
+                        <div class="chat-text">${text}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (shouldScroll) {
+            box.scrollTop = box.scrollHeight;
+        }
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+
+        if (!text) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/chat', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: text
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            input.value = '';
+            await loadChatMessages();
+        } catch (e) {
+            alert('Ошибка отправки сообщения: ' + e.message);
+        }
+    }
+
+    async function loadSupportFiles() {
+        if (!currentSession || currentSession.status !== 'ACTIVE') {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/files', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const files = await response.json();
+            renderSupportFiles(files);
+        } catch (e) {
+            console.warn('Ошибка загрузки файлов:', e);
+        }
+    }
+
+    function renderSupportFiles(files) {
+        const list = document.getElementById('filesList');
+
+        if (!files || files.length === 0) {
+            list.innerHTML = '<div style="color:rgba(255,255,255,0.45);">Файлов пока нет</div>';
+            return;
+        }
+
+        list.innerHTML = files.map(file => {
+            const statusText = translateFileStatus(file.status);
+            return `
+                <div class="file-row">
+                    <div style="font-weight:800;">${escapeHtml(file.filename)}</div>
+                    <div class="file-meta">${escapeHtml(file.sizeText || '')} · ${statusText} · получатель: ${escapeHtml(file.recipientUsername || 'клиент')}</div>
+                    <div class="file-actions">
+                        <button class="btn-glass" onclick="downloadSupportFile(${file.id})">Скачать</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function uploadSupportFile() {
+        const input = document.getElementById('fileInput');
+
+        if (!input.files || input.files.length === 0) {
+            alert('Выберите файл');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/files/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            input.value = '';
+            await loadSupportFiles();
+            alert('Файл отправлен клиенту на подтверждение');
+        } catch (e) {
+            alert('Ошибка отправки файла: ' + e.message);
+        }
+    }
+
+    async function downloadSupportFile(fileId) {
+        try {
+            const response = await fetch('/api/support/sessions/' + encodeURIComponent(sessionCode) + '/files/' + fileId + '/download', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition') || '';
+            let filename = 'support-file';
+            const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/);
+            const simpleMatch = disposition.match(/filename=\"?([^\";]+)\"?/);
+
+            if (utf8Match) {
+                filename = decodeURIComponent(utf8Match[1]);
+            } else if (simpleMatch) {
+                filename = simpleMatch[1];
+            }
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            alert('Ошибка скачивания файла: ' + e.message);
+        }
+    }
+
+    function translateFileStatus(status) {
+        if (status === 'PENDING') return 'ожидает подтверждения клиента';
+        if (status === 'ACCEPTED') return 'принят клиентом';
+        if (status === 'REJECTED') return 'отклонён клиентом';
+        return status || '—';
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    document.getElementById('chatInput').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendChatMessage();
+        }
+    });
+
     loadSession();
+    loadChatMessages();
+    loadSupportFiles();
+
     setInterval(loadSession, 2500);
+    chatTimer = setInterval(loadChatMessages, 2500);
+    filesTimer = setInterval(loadSupportFiles, 3000);
 </script>
 </body>
 </html>
