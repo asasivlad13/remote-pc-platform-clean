@@ -187,7 +187,9 @@
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                resetJoinButton();
+                await handleJoinError(response);
+                return;
             }
 
             const participant = await response.json();
@@ -207,8 +209,45 @@
 
         } catch (e) {
             resetJoinButton();
-            showError(e.message);
+            showError('Не удалось подключиться к серверу');
         }
+    }
+
+    async function handleJoinError(response) {
+        let text = '';
+
+        try {
+            text = await response.text();
+        } catch (e) {
+            text = '';
+        }
+
+        let message = text;
+
+        try {
+            const json = JSON.parse(text);
+            message = json.message || json.error || text;
+        } catch (e) {
+            message = text;
+        }
+
+        const lowerMessage = String(message || '').toLowerCase();
+
+        if (
+            response.status === 400 ||
+            response.status === 404 ||
+            response.status === 500 ||
+            lowerMessage.includes('не найден') ||
+            lowerMessage.includes('не найдена') ||
+            lowerMessage.includes('not found') ||
+            lowerMessage.includes('сессия') ||
+            lowerMessage.includes('session')
+        ) {
+            showError('Учебная сессия с таким кодом не найдена');
+            return;
+        }
+
+        showError('Не удалось отправить заявку на подключение');
     }
 
     async function checkMyStatus() {
@@ -222,7 +261,8 @@
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                await handleStatusError(response);
+                return;
             }
 
             const participant = await response.json();
@@ -234,9 +274,45 @@
             }
 
         } catch (e) {
-            showError(e.message);
+            showError('Не удалось проверить статус подключения');
             stopStatusPolling();
         }
+    }
+
+    async function handleStatusError(response) {
+        let text = '';
+
+        try {
+            text = await response.text();
+        } catch (e) {
+            text = '';
+        }
+
+        let message = text;
+
+        try {
+            const json = JSON.parse(text);
+            message = json.message || json.error || text;
+        } catch (e) {
+            message = text;
+        }
+
+        const lowerMessage = String(message || '').toLowerCase();
+
+        if (
+            response.status === 400 ||
+            response.status === 404 ||
+            response.status === 500 ||
+            lowerMessage.includes('не найден') ||
+            lowerMessage.includes('не найдена') ||
+            lowerMessage.includes('not found')
+        ) {
+            showError('Учебная сессия с таким кодом не найдена');
+        } else {
+            showError('Не удалось проверить статус учебной сессии');
+        }
+
+        stopStatusPolling();
     }
 
     function startStatusPolling() {
@@ -344,7 +420,7 @@
 
     function showError(message) {
         const box = document.getElementById('errorBox');
-        box.innerText = message;
+        box.innerText = '❌ ' + message;
         box.style.display = 'block';
     }
 
@@ -365,24 +441,29 @@
     });
 
     async function returnToActiveStudentSession() {
-        const response = await fetch('/api/education/sessions/my-active/student', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        try {
+            const response = await fetch('/api/education/sessions/my-active/student', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-        if (response.status === 204) {
-            alert('Активной сессии нет');
-            return;
+            if (response.status === 204) {
+                alert('Активной сессии нет');
+                return;
+            }
+
+            if (!response.ok) {
+                alert('Ошибка поиска активной сессии');
+                return;
+            }
+
+            const session = await response.json();
+
+            window.location.href =
+                '/education-student.html?code=' + encodeURIComponent(session.sessionCode);
+
+        } catch (e) {
+            alert('Не удалось подключиться к серверу');
         }
-
-        if (!response.ok) {
-            alert('Ошибка поиска активной сессии');
-            return;
-        }
-
-        const session = await response.json();
-
-        window.location.href =
-            '/education-student.html?code=' + encodeURIComponent(session.sessionCode);
     }
 </script>
 </body>
