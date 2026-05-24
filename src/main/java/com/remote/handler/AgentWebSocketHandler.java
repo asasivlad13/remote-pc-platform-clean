@@ -66,6 +66,15 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
             return;
         }
+        if (type.startsWith("REMOTE_FILE_")) {
+            Long pcId = getPcIdBySession(session);
+
+            if (pcId != null) {
+                webSocketClientHandler.forwardRemoteFileMessage(pcId, json);
+            }
+
+            return;
+        }
         if ("register".equals(type)) {
             handleRegister(session, json);
         } else if ("heartbeat".equals(type)) {

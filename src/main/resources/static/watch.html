@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Remote PC - Remote Access</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
 
     <style>
         .settings-panel {
@@ -213,6 +215,463 @@
         #fileProgress.minimized #fileProgressBody {
             display: none;
         }
+
+        /* ===== Mobile remote control ===== */
+        .mobile-control-panel,
+        .mobile-joystick-layer,
+        .mobile-orientation-gate {
+            display: none;
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body.mobile-watch-page {
+                overflow: hidden !important;
+                padding: 0 !important;
+            }
+
+            body.mobile-watch-page .top-bar {
+                padding: 8px 10px !important;
+                gap: 8px !important;
+                flex-wrap: wrap !important;
+            }
+
+            body.mobile-watch-page .top-bar > div:first-child {
+                min-width: 180px;
+            }
+
+            body.mobile-watch-page #metrics {
+                display: none !important;
+            }
+
+            body.mobile-watch-page .top-bar button {
+                min-height: 42px !important;
+                font-size: 14px !important;
+                padding: 8px 10px !important;
+                border-radius: 12px !important;
+            }
+
+            body.mobile-watch-page .video-shell {
+                top: 62px;
+                padding: 6px;
+            }
+
+            body.mobile-watch-page.mobile-control-active .top-bar {
+                display: none !important;
+            }
+
+            body.mobile-watch-page.mobile-control-active .video-shell {
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                padding: 0 !important;
+                background: #000;
+            }
+
+            body.mobile-watch-page.mobile-control-active .video-frame {
+                border-radius: 0 !important;
+            }
+
+            body.mobile-watch-page.mobile-control-active #statusBadge,
+            body.mobile-watch-page.mobile-control-active #modeIndicator {
+                display: none !important;
+            }
+
+            .mobile-control-panel {
+                position: fixed;
+                left: 12px;
+                right: 12px;
+                top: 10px;
+                z-index: 850;
+                display: none;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 8px;
+                pointer-events: auto;
+                opacity: 0.32;
+                transition: opacity 0.18s ease;
+            }
+
+            .mobile-control-panel:active,
+            .mobile-control-panel:hover,
+            .mobile-control-panel.force-visible {
+                opacity: 0.92;
+            }
+
+            body.mobile-watch-page.mobile-control-active .mobile-control-panel {
+                display: grid;
+            }
+
+            .mobile-control-panel button {
+                min-height: 42px !important;
+                padding: 7px 10px !important;
+                border-radius: 14px !important;
+                border: 1px solid rgba(255,255,255,0.16);
+                background: rgba(15,23,42,0.42);
+                color: white;
+                font-size: 12px !important;
+                font-weight: 800;
+                backdrop-filter: blur(10px);
+            }
+
+            .mobile-control-panel button.active {
+                background: rgba(16,185,129,0.34);
+                border-color: rgba(16,185,129,0.65);
+                color: #dcfce7;
+            }
+            .mobile-control-panel button:disabled {
+                opacity: 0.92;
+                cursor: default;
+                color: white;
+            }
+
+            .mobile-control-panel #mobileControlModeLabel {
+                background: rgba(59,130,246,0.30);
+                border-color: rgba(59,130,246,0.55);
+            }
+
+
+            .mobile-joystick-layer {
+                position: fixed;
+                inset: 0;
+                z-index: 820;
+                pointer-events: none;
+                display: none;
+            }
+
+            body.mobile-watch-page.mobile-control-active.mobile-joystick-mode .mobile-joystick-layer {
+                display: block;
+            }
+
+            .mobile-stick-zone {
+                position: absolute;
+                left: 24px;
+                bottom: 24px;
+                width: 150px;
+                height: 150px;
+                border-radius: 50%;
+                background: rgba(15,23,42,0.24);
+                border: 1px solid rgba(255,255,255,0.18);
+                pointer-events: auto;
+                touch-action: none;
+                backdrop-filter: blur(8px);
+                opacity: 0.62;
+            }
+
+            .mobile-stick-knob {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                width: 62px;
+                height: 62px;
+                transform: translate(-50%, -50%);
+                border-radius: 50%;
+                background: rgba(59,130,246,0.48);
+                border: 1px solid rgba(255,255,255,0.28);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+            }
+
+            .mobile-mouse-buttons {
+                position: absolute;
+                right: 22px;
+                bottom: 24px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                pointer-events: auto;
+            }
+
+            .mobile-mouse-button {
+                width: 108px;
+                height: 108px;
+                border-radius: 30px;
+                border: 1px solid rgba(255,255,255,0.18);
+                background: rgba(16,185,129,0.25);
+                color: white;
+                font-size: 17px;
+                font-weight: 900;
+                pointer-events: auto;
+                touch-action: none;
+                backdrop-filter: blur(8px);
+                opacity: 0.64;
+            }
+
+            .mobile-mouse-button.right {
+                background: rgba(239,68,68,0.24);
+            }
+
+            .mobile-mouse-button:active {
+                transform: scale(0.96);
+                opacity: 0.9;
+            }
+
+            #mobileRemoteCursor {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 24px;
+                height: 24px;
+                z-index: 835;
+                pointer-events: none;
+                display: none;
+                transform: translate(-50%, -50%);
+                filter: drop-shadow(0 3px 8px rgba(0,0,0,0.75));
+            }
+
+            #mobileRemoteCursor::before {
+                content: '';
+                position: absolute;
+                left: 7px;
+                top: 7px;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: #22c55e;
+                border: 2px solid white;
+            }
+
+            #mobileRemoteCursor::after {
+                content: '';
+                position: absolute;
+                left: 11px;
+                top: 11px;
+                width: 34px;
+                height: 2px;
+                background: rgba(255,255,255,0.92);
+                transform: rotate(45deg);
+                transform-origin: left center;
+            }
+
+            body.mobile-watch-page.mobile-control-active.mobile-joystick-mode #mobileRemoteCursor {
+                display: block;
+            }
+
+            .mobile-orientation-gate {
+                position: fixed;
+                inset: 0;
+                z-index: 950;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 24px;
+                background: rgba(2,6,23,0.94);
+                color: white;
+            }
+
+            .mobile-orientation-card {
+                max-width: 420px;
+                width: 100%;
+                border-radius: 26px;
+                padding: 24px;
+                background: rgba(15,23,42,0.96);
+                border: 1px solid rgba(59,130,246,0.35);
+                box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+            }
+
+            .mobile-orientation-icon {
+                font-size: 54px;
+                margin-bottom: 14px;
+            }
+
+            .mobile-orientation-card h2 {
+                font-size: 24px !important;
+                margin-bottom: 10px;
+            }
+
+            .mobile-orientation-card p {
+                color: rgba(255,255,255,0.62);
+                font-size: 16px !important;
+                line-height: 1.45;
+            }
+
+            .mobile-orientation-card button {
+                width: 100%;
+                margin-top: 16px;
+                min-height: 56px !important;
+                font-size: 17px !important;
+                border-radius: 18px !important;
+            }
+
+            body.mobile-watch-page.mobile-control-active.portrait-mode .mobile-orientation-gate {
+                display: flex;
+            }
+
+            body.mobile-watch-page.mobile-control-active.portrait-mode #remoteVideo,
+            body.mobile-watch-page.mobile-control-active.portrait-mode .mobile-control-panel,
+            body.mobile-watch-page.mobile-control-active.portrait-mode .mobile-joystick-layer {
+                pointer-events: none;
+            }
+
+            #fileProgress {
+                width: auto !important;
+                left: 12px !important;
+                right: 12px !important;
+                bottom: 74px !important;
+            }
+        }
+
+
+        /* ===== Remote file browser: agent PC -> browser/phone ===== */
+        .remote-files-panel {
+            position: fixed;
+            right: 16px;
+            top: 86px;
+            width: 430px;
+            max-height: calc(100vh - 120px);
+            background: rgba(15, 23, 42, 0.97);
+            border: 1px solid rgba(59, 130, 246, 0.42);
+            border-radius: 22px;
+            box-shadow: 0 22px 60px rgba(0,0,0,0.48);
+            z-index: 760;
+            display: none;
+            color: white;
+            overflow: hidden;
+        }
+
+        .remote-files-header {
+            padding: 14px 16px;
+            background: rgba(30, 41, 59, 0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .remote-files-title {
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        .remote-files-body {
+            padding: 14px;
+        }
+
+        .remote-files-path {
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.72);
+            font-size: 12px;
+            word-break: break-all;
+            margin-bottom: 12px;
+        }
+
+        .remote-files-list {
+            display: grid;
+            gap: 8px;
+            max-height: 44vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .remote-file-item {
+            width: 100%;
+            text-align: left;
+            display: grid;
+            grid-template-columns: 34px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 11px 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.09);
+            background: rgba(255,255,255,0.055);
+            color: white;
+            cursor: pointer;
+        }
+
+        .remote-file-item:hover {
+            background: rgba(59,130,246,0.16);
+            border-color: rgba(59,130,246,0.45);
+        }
+
+        .remote-file-name {
+            font-weight: 800;
+            word-break: break-word;
+        }
+
+        .remote-file-meta {
+            font-size: 11px;
+            color: rgba(255,255,255,0.45);
+            margin-top: 3px;
+        }
+
+        .remote-files-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .remote-files-upload {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 18px;
+            background: rgba(16,185,129,0.10);
+            border: 1px solid rgba(16,185,129,0.28);
+        }
+
+        .remote-files-upload-title {
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .remote-files-download-progress {
+            margin-top: 12px;
+            display: none;
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            .remote-files-panel {
+                left: 10px !important;
+                right: 10px !important;
+                top: 10px !important;
+                bottom: 10px !important;
+                width: auto !important;
+                max-height: none !important;
+                border-radius: 24px !important;
+                z-index: 980 !important;
+            }
+
+            .remote-files-body {
+                padding: 14px !important;
+                height: calc(100% - 62px);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .remote-files-list {
+                max-height: none !important;
+                flex: 1;
+            }
+
+            .remote-file-item {
+                grid-template-columns: 42px 1fr;
+                padding: 15px !important;
+                border-radius: 20px !important;
+            }
+
+            .remote-file-item button {
+                grid-column: 1 / -1;
+                width: 100%;
+                margin-top: 8px;
+            }
+
+            .remote-files-actions {
+                grid-template-columns: 1fr !important;
+            }
+
+            .remote-files-upload input,
+            .remote-files-upload button {
+                width: 100% !important;
+                margin-top: 8px;
+            }
+        }
+
+
     </style>
 </head>
 <body style="background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); overflow: hidden;">
@@ -222,7 +681,7 @@
         <div style="width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border-radius:12px;display:flex;align-items:center;justify-content:center;">💻</div>
         <div>
             <div style="font-weight:600;">Remote Access</div>
-            <div style="font-size:12px;color:#93c5fd;" id="pcNameDisplay">Connecting...</div>
+            <div style="font-size:12px;color:#93c5fd;" id="pcNameDisplay">Подключение...</div>
         </div>
     </div>
 
@@ -235,11 +694,12 @@
         </div>
 
         <button id="settingsBtn" class="btn-glass">⚙️</button>
+        <button id="remoteFilesBtn" class="btn-glass" onclick="openRemoteFilesPanel()">📂 Файлы</button>
         <button id="controlModeBtn"
                 class="btn-glass"
                 onclick="toggleControlMode()"
                 style="background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);">
-            🎮 Control
+            🎮 Управление
         </button>
         <button id="fullscreenBtn" class="btn-glass">🖥️</button>
         <button id="disconnectBtn" class="btn-glass" style="background:rgba(239,68,68,0.2);border-color:rgba(239,68,68,0.5);">⏻</button>
@@ -255,9 +715,9 @@
 </div>
 
 <div id="settingsPanel" class="settings-panel">
-    <div class="settings-title">⚙️ Stream Settings</div>
+    <div class="settings-title">⚙️ Настройки трансляции</div>
 
-    <label class="settings-label" for="resolutionSelect">Resolution</label>
+    <label class="settings-label" for="resolutionSelect">Качество</label>
     <select id="resolutionSelect" class="settings-select">
         <option value="640x480">480p</option>
         <option value="1280x720" selected>720p</option>
@@ -267,13 +727,13 @@
     </select>
 
     <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.4;">
-        Select a quality preset and apply it.
-        Ping and FPS update automatically.
+        Выберите качество трансляции и примените настройку.
+        Ping и FPS обновляются автоматически.
     </div>
 
     <div class="settings-actions">
-        <button id="applySettingsBtn" class="btn-primary" style="flex:1;">Apply</button>
-        <button id="closeSettingsBtn" class="btn-glass" style="flex:1;">Close</button>
+        <button id="applySettingsBtn" class="btn-primary" style="flex:1;">Применить</button>
+        <button id="closeSettingsBtn" class="btn-glass" style="flex:1;">Закрыть</button>
     </div>
 </div>
 
@@ -286,15 +746,99 @@
 <div id="loadingOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:50;">
     <div style="text-align:center;">
         <div class="loading-spinner" style="margin:0 auto;"></div>
-        <p style="margin-top:20px;">Connecting...</p>
+        <p style="margin-top:20px;">Подключение...</p>
     </div>
 </div>
 
 <div id="statusBadge" style="position:fixed;bottom:16px;right:16px;background:rgba(0,0,0,0.6);padding:6px 14px;border-radius:20px;font-size:12px;color:#34d399;z-index:120;">🟢 Connected</div>
 
 <div id="modeIndicator" style="position:fixed;bottom:16px;left:16px;background:rgba(0,0,0,0.6);padding:6px 14px;border-radius:20px;font-size:11px;z-index:120;">
-    🎮 Control Mode Active
+    🎮 Режим управления
 </div>
+
+
+<div id="mobileOrientationGate" class="mobile-orientation-gate">
+    <div class="mobile-orientation-card">
+        <div class="mobile-orientation-icon">📱↔️</div>
+        <h2>Поверните телефон горизонтально</h2>
+        <p>
+            Управление экраном на телефоне работает только в горизонтальном положении.
+            В режиме просмотра можно оставаться вертикально.
+        </p>
+        <button class="btn-primary" type="button" onclick="enterMobileControlFullscreen()">
+            🔄 Перейти в горизонтальный режим
+        </button>
+        <button class="btn-glass" type="button" onclick="toggleControlMode()">
+            👁️ Вернуться к просмотру
+        </button>
+    </div>
+</div>
+
+<div id="mobileControlPanel" class="mobile-control-panel">
+    <button id="mobileControlModeLabel" type="button" disabled>☝️ Сенсорное</button>
+    <button type="button" onclick="toggleFullscreen()">⛶ Экран</button>
+    <button type="button" onclick="location.href='/settings.html'">⚙️ Настройки</button>
+    <button type="button" onclick="toggleControlMode()">👁️ Просмотр</button>
+</div>
+
+<div id="mobileJoystickLayer" class="mobile-joystick-layer">
+    <div id="mobileStickZone" class="mobile-stick-zone">
+        <div id="mobileStickKnob" class="mobile-stick-knob"></div>
+    </div>
+
+    <div class="mobile-mouse-buttons">
+        <button id="mobileLeftMouseButton" class="mobile-mouse-button left" type="button">ЛКМ</button>
+        <button id="mobileRightMouseButton" class="mobile-mouse-button right" type="button">ПКМ</button>
+    </div>
+</div>
+
+<div id="mobileRemoteCursor"></div>
+
+
+
+<div id="remoteFilesPanel" class="remote-files-panel">
+    <div class="remote-files-header">
+        <div>
+            <div class="remote-files-title">📂 Файлы удалённого ПК</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.48);margin-top:3px;">
+                Скачивание с ПК агента на это устройство
+            </div>
+        </div>
+        <button class="file-window-btn" type="button" onclick="closeRemoteFilesPanel()">✕</button>
+    </div>
+
+    <div class="remote-files-body">
+        <div id="remoteFilesPath" class="remote-files-path">ROOTS</div>
+
+        <div class="remote-files-actions">
+            <button class="btn-glass" type="button" onclick="goRemoteFilesUp()">⬆️ Назад</button>
+            <button class="btn-glass" type="button" onclick="loadRemoteFiles(currentRemotePath)">🔄 Обновить</button>
+        </div>
+
+        <div id="remoteFilesList" class="remote-files-list">
+            <div style="color:rgba(255,255,255,0.5);padding:18px;text-align:center;">Нажмите «Файлы», чтобы загрузить список</div>
+        </div>
+
+        <div id="remoteDownloadProgress" class="remote-files-download-progress">
+            <div class="file-progress-track">
+                <div id="remoteDownloadProgressBar" style="height:100%;width:0%;background:#10b981;"></div>
+            </div>
+            <div id="remoteDownloadProgressText" style="font-size:12px;color:#93c5fd;margin-top:8px;">0%</div>
+        </div>
+
+        <div class="remote-files-upload">
+            <div class="remote-files-upload-title">📤 Отправить файл на удалённый ПК</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.4;margin-bottom:10px;">
+                Работает и на ПК, и на телефоне. Файл будет загружен на удалённый ПК через уже существующий механизм.
+            </div>
+            <input id="remoteUploadInput" type="file" class="input-field">
+            <button class="btn-primary" type="button" onclick="uploadSelectedFileToRemote()" style="margin-top:10px;width:100%;justify-content:center;">
+                📤 Отправить выбранный файл
+            </button>
+        </div>
+    </div>
+</div>
+
 
 <div id="dropOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.88);border:3px dashed rgba(59,130,246,0.9);z-index:500;display:none;align-items:center;justify-content:center;text-align:center;color:white;">
     <div>
@@ -373,6 +917,20 @@
     const fileProgress = document.getElementById('fileProgress');
     const fileProgressHeader = document.getElementById('fileProgressHeader');
     const minimizeFileProgressBtn = document.getElementById('minimizeFileProgressBtn');
+    const remoteFilesPanel = document.getElementById('remoteFilesPanel');
+    const remoteFilesList = document.getElementById('remoteFilesList');
+    const remoteFilesPath = document.getElementById('remoteFilesPath');
+    const remoteDownloadProgress = document.getElementById('remoteDownloadProgress');
+    const remoteDownloadProgressBar = document.getElementById('remoteDownloadProgressBar');
+    const remoteDownloadProgressText = document.getElementById('remoteDownloadProgressText');
+
+    // Reverse file manager state: удалённый ПК с агентом → браузер/телефон.
+    // Без этих переменных openRemoteFilesPanel() падал на currentRemotePath,
+    // поэтому окно оставалось на надписи ROOTS и список дисков не запрашивался.
+    let currentRemotePath = 'ROOTS';
+    let currentRemoteParentPath = '';
+    const remoteDownloadBuffers = {};
+    const remoteDownloadMeta = {};
 
     let ws = null;
 
@@ -386,7 +944,7 @@
     let pingInterval = null;
     let metricsInterval = null;
     let fpsCounterStarted = false;
-    let pendingResolution = "1280x720";
+    let pendingКачество = "1280x720";
 
     let pc = null;
     let wsSignal = null;
@@ -446,7 +1004,7 @@
     function showLoadingError(message) {
         document.getElementById('loadingOverlay').innerHTML =
             '<div style="text-align:center;">' +
-            '<p style="color:#f87171;font-size:18px;">Connection failed</p>' +
+            '<p style="color:#f87171;font-size:18px;">Ошибка подключения</p>' +
             '<p style="margin-top:10px;">' + message + '</p>' +
             '</div>';
     }
@@ -655,11 +1213,11 @@
                 controlBtn.style.removeProperty('display');
                 controlBtn.style.display = 'inline-flex';
                 controlBtn.hidden = false;
-                controlBtn.innerHTML = '👁️ View';
+                controlBtn.innerHTML = '👁️ Просмотр';
                 controlBtn.style.background = 'rgba(245,158,11,0.2)';
                 controlBtn.style.borderColor = 'rgba(245,158,11,0.5)';
 
-                indicator.innerHTML = '👁️ Учебный режим: только просмотр. Нажмите View, чтобы перейти в управление.';
+                indicator.innerHTML = '👁️ Учебный режим: только просмотр. Нажмите «Просмотр», чтобы перейти в управление.';
                 indicator.style.color = '#fbbf24';
             } else {
                 controlMode = false;
@@ -826,7 +1384,7 @@
                     controlBtn.style.visibility = 'visible';
                     controlBtn.style.opacity = '1';
                     controlBtn.disabled = false;
-                    controlBtn.innerHTML = '🎮 Control';
+                    controlBtn.innerHTML = '🎮 Управление';
                     controlBtn.style.background = 'rgba(16,185,129,0.2)';
                     controlBtn.style.borderColor = 'rgba(16,185,129,0.5)';
                 }
@@ -1187,7 +1745,7 @@
             console.error("WebRTC error:", e);
             document.getElementById('videoState').innerText = 'error';
             document.getElementById('videoState').className = 'metric-bad';
-            showLoadingError('Video connection failed: ' + e.message);
+            showLoadingError('Ошибка подключения видео: ' + e.message);
         }
     }
 
@@ -1234,7 +1792,7 @@
                 supportCode: urlParams.get('supportCode') || urlParams.get('code'),
                 platform: navigator.platform,
                 browser: navigator.userAgent,
-                mode: controlMode ? "Control" : "View"
+                mode: controlMode ? "Управление" : "Просмотр"
             }));
 
             startPing();
@@ -1265,6 +1823,11 @@
                         hideFileProgressDelayed();
                     }
 
+                    return;
+                }
+
+                if (data.type && data.type.startsWith("REMOTE_FILE_")) {
+                    handleRemoteFileMessage(data);
                     return;
                 }
 
@@ -1327,7 +1890,7 @@
                 pcId: getControlTargetPcId(),
                 fps: fpsText === "-" ? 0 : parseFloat(fpsText),
                 latency: pingText === "-" ? 0 : parseFloat(pingText),
-                mode: controlMode ? "Control" : "View"
+                mode: controlMode ? "Управление" : "Просмотр"
             }));
         }
     }
@@ -1362,6 +1925,260 @@
             requestAnimationFrame(onFrame);
         }
     }
+
+
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function createRemoteRequestId() {
+        return 'rf_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+    }
+
+    function openRemoteFilesPanel() {
+        remoteFilesPanel.style.display = 'block';
+        loadRemoteFiles(currentRemotePath || 'ROOTS');
+    }
+
+    function closeRemoteFilesPanel() {
+        remoteFilesPanel.style.display = 'none';
+    }
+
+    function sendRemoteFileRequest(payload) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert('WebSocket ещё не подключён');
+            return false;
+        }
+
+        payload.pcId = getControlTargetPcId();
+        payload.profile = profile;
+
+        if (profile === 'education_student') {
+            payload.educationCode = urlParams.get('educationCode');
+        }
+
+        if (profile === 'support_operator_view_client') {
+            payload.supportCode = urlParams.get('supportCode') || urlParams.get('code');
+        }
+
+        ws.send(JSON.stringify(payload));
+        return true;
+    }
+
+    function loadRemoteFiles(path) {
+        const requestId = createRemoteRequestId();
+        const normalizedPath = path || 'ROOTS';
+
+        currentRemotePath = normalizedPath;
+        remoteFilesPath.innerText = normalizedPath;
+        remoteFilesList.innerHTML =
+            '<div style="color:rgba(255,255,255,0.55);padding:18px;text-align:center;">Загрузка списка файлов...</div>';
+
+        const sent = sendRemoteFileRequest({
+            type: 'remote_file_list',
+            requestId: requestId,
+            path: normalizedPath
+        });
+
+        if (!sent) {
+            return;
+        }
+
+        setTimeout(() => {
+            const stillLoading = remoteFilesList && remoteFilesList.innerText.includes('Загрузка списка файлов');
+            if (stillLoading) {
+                remoteFilesList.innerHTML =
+                    '<div style="color:#fbbf24;padding:18px;text-align:center;line-height:1.45;">' +
+                    'Агент не ответил на запрос файлов.<br>' +
+                    'Проверьте, что сервер и агент перезапущены с новыми файлами.' +
+                    '</div>';
+            }
+        }, 4500);
+    }
+
+    function goRemoteFilesUp() {
+        if (!currentRemoteParentPath || currentRemotePath === 'ROOTS') {
+            loadRemoteFiles('ROOTS');
+            return;
+        }
+
+        loadRemoteFiles(currentRemoteParentPath);
+    }
+
+    function renderRemoteFiles(data) {
+        currentRemotePath = data.path || 'ROOTS';
+        currentRemoteParentPath = data.parentPath || 'ROOTS';
+
+        remoteFilesPath.innerText = currentRemotePath;
+
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            remoteFilesList.innerHTML =
+                '<div style="color:rgba(255,255,255,0.55);padding:18px;text-align:center;">Папка пустая</div>';
+            return;
+        }
+
+        remoteFilesList.innerHTML = items.map(item => {
+            const icon = item.directory ? '📁' : '📄';
+            const safePath = encodeURIComponent(item.path || '');
+            const meta = item.directory
+                ? 'Папка'
+                : formatBytes(item.size || 0);
+
+            const action = item.directory
+                ? `onclick="openRemoteDirectory('${safePath}')"`
+                : `onclick="downloadRemoteFile('${safePath}')"`;
+
+            const buttonText = item.directory ? 'Открыть' : 'Скачать';
+
+            return `
+                <button class="remote-file-item" type="button" ${action}>
+                    <div style="font-size:26px;">${icon}</div>
+                    <div>
+                        <div class="remote-file-name">${escapeHtml(item.name || item.path || 'Без названия')}</div>
+                        <div class="remote-file-meta">${escapeHtml(meta)}</div>
+                    </div>
+                    <div class="btn-glass" style="padding:6px 10px;font-size:12px;border-radius:10px;">${buttonText}</div>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function openRemoteDirectory(encodedPath) {
+        loadRemoteFiles(decodeURIComponent(encodedPath));
+    }
+
+    function downloadRemoteFile(encodedPath) {
+        const path = decodeURIComponent(encodedPath);
+        const requestId = createRemoteRequestId();
+
+        remoteDownloadBuffers[requestId] = [];
+        remoteDownloadMeta[requestId] = {
+            path: path,
+            fileName: 'remote-file',
+            contentType: 'application/octet-stream',
+            size: 0
+        };
+
+        remoteDownloadProgress.style.display = 'block';
+        remoteDownloadProgressBar.style.width = '0%';
+        remoteDownloadProgressText.innerText = 'Подготовка скачивания...';
+
+        sendRemoteFileRequest({
+            type: 'remote_file_download',
+            requestId: requestId,
+            path: path
+        });
+    }
+
+    function handleRemoteFileMessage(data) {
+        if (data.type === 'REMOTE_FILE_LIST_RESULT') {
+            renderRemoteFiles(data);
+            return;
+        }
+
+        if (data.type === 'REMOTE_FILE_DOWNLOAD_START') {
+            remoteDownloadBuffers[data.requestId] = [];
+            remoteDownloadMeta[data.requestId] = {
+                fileName: data.fileName || 'remote-file',
+                contentType: data.contentType || 'application/octet-stream',
+                size: data.size || 0
+            };
+
+            remoteDownloadProgress.style.display = 'block';
+            remoteDownloadProgressBar.style.width = '0%';
+            remoteDownloadProgressText.innerText =
+                'Скачивание: ' + (data.fileName || 'remote-file') + ' · 0%';
+            return;
+        }
+
+        if (data.type === 'REMOTE_FILE_DOWNLOAD_CHUNK') {
+            if (!remoteDownloadBuffers[data.requestId]) {
+                remoteDownloadBuffers[data.requestId] = [];
+            }
+
+            remoteDownloadBuffers[data.requestId].push(base64ToUint8Array(data.chunk || ''));
+
+            const percent = data.percent || 0;
+            remoteDownloadProgress.style.display = 'block';
+            remoteDownloadProgressBar.style.width = percent + '%';
+            remoteDownloadProgressText.innerText =
+                percent + '% / ' + formatBytes(data.sentBytes || 0) + ' из ' + formatBytes(data.totalBytes || 0);
+            return;
+        }
+
+        if (data.type === 'REMOTE_FILE_DOWNLOAD_COMPLETE') {
+            const chunks = remoteDownloadBuffers[data.requestId] || [];
+            const meta = remoteDownloadMeta[data.requestId] || {};
+
+            const blob = new Blob(chunks, {
+                type: meta.contentType || 'application/octet-stream'
+            });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = meta.fileName || data.fileName || 'remote-file';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+            delete remoteDownloadBuffers[data.requestId];
+            delete remoteDownloadMeta[data.requestId];
+
+            remoteDownloadProgressBar.style.width = '100%';
+            remoteDownloadProgressText.innerText = 'Файл скачан';
+
+            setTimeout(() => {
+                remoteDownloadProgress.style.display = 'none';
+                remoteDownloadProgressBar.style.width = '0%';
+            }, 1500);
+
+            return;
+        }
+
+        if (data.type === 'REMOTE_FILE_ERROR') {
+            remoteDownloadProgress.style.display = 'none';
+            alert(data.message || 'Ошибка работы с файлами удалённого ПК');
+        }
+    }
+
+    function base64ToUint8Array(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    function uploadSelectedFileToRemote() {
+        const input = document.getElementById('remoteUploadInput');
+
+        if (!input || !input.files || input.files.length === 0) {
+            alert('Выберите файл');
+            return;
+        }
+
+        sendFileToRemote(input.files[0]);
+        input.value = '';
+    }
+
 
     function sendCommand(action, data = {}, allowInViewMode = false) {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -1489,7 +2306,7 @@
         const indicator = document.getElementById('modeIndicator');
 
         if (controlMode) {
-            btn.innerHTML = '🎮 Control';
+            btn.innerHTML = '🎮 Управление';
             btn.style.background = 'rgba(16,185,129,0.2)';
             btn.style.borderColor = 'rgba(16,185,129,0.5)';
 
@@ -1498,12 +2315,12 @@
             } else if (profile === 'support_operator_view_client') {
                 indicator.innerHTML = '🎮 Техподдержка: управление активно';
             } else {
-                indicator.innerHTML = '🎮 Control Mode Active - Keyboard & Mouse enabled';
+                indicator.innerHTML = '🎮 Режим управления — клавиатура и мышь включены';
             }
 
             indicator.style.color = '#34d399';
         } else {
-            btn.innerHTML = '👁️ View';
+            btn.innerHTML = '👁️ Просмотр';
             btn.style.background = 'rgba(245,158,11,0.2)';
             btn.style.borderColor = 'rgba(245,158,11,0.5)';
 
@@ -1512,7 +2329,7 @@
             } else if (profile === 'support_operator_view_client') {
                 indicator.innerHTML = '👁️ Техподдержка: только просмотр';
             } else {
-                indicator.innerHTML = '👁️ View Mode - Keyboard & Mouse disabled';
+                indicator.innerHTML = '👁️ Режим просмотра — клавиатура и мышь отключены';
             }
 
             indicator.style.color = '#fbbf24';
@@ -1795,11 +2612,11 @@
     });
 
     document.getElementById('resolutionSelect').addEventListener('change', (e) => {
-        pendingResolution = e.target.value;
+        pendingКачество = e.target.value;
     });
 
     document.getElementById('applySettingsBtn').addEventListener('click', () => {
-        sendSettings(pendingResolution);
+        sendSettings(pendingКачество);
     });
 
     document.getElementById('settingsBtn').onclick = () => {
@@ -1889,6 +2706,601 @@
         if (ws) ws.close();
     });
 
+
+    /* ===== Mobile watch/control logic ===== */
+    let mobileControlType =
+        localStorage.getItem('mobileControlMode') === 'joystick'
+            ? 'joystick'
+            : 'touch';
+    let mobilePointerDown = false;
+    let mobilePointerMoved = false;
+    let mobileLongPressTimer = null;
+    let mobileLastTapTime = 0;
+    let mobileDragStarted = false;
+    let mobileCursorX = Math.round(remoteScreenWidth / 2);
+    let mobileCursorY = Math.round(remoteScreenHeight / 2);
+
+    let joystickActive = false;
+    let joystickVectorX = 0;
+    let joystickVectorY = 0;
+    let joystickTimer = null;
+    let mobileMouseLongPressTimer = null;
+    let mobileMouseLastTapTime = 0;
+    let mobileMouseLongPressFired = false;
+
+    function isMobileWatchDevice() {
+        if (typeof isMobileDevice === 'function') {
+            return isMobileDevice();
+        }
+
+        return window.innerWidth <= 900 ||
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    }
+
+    function isLandscapeNow() {
+        return window.innerWidth > window.innerHeight;
+    }
+
+    function applyWatchMobileState() {
+        if (isMobileWatchDevice()) {
+            document.body.classList.add('mobile-watch-page');
+        } else {
+            document.body.classList.remove('mobile-watch-page');
+        }
+
+        if (isLandscapeNow()) {
+            document.body.classList.add('landscape-mode');
+            document.body.classList.remove('portrait-mode');
+        } else {
+            document.body.classList.add('portrait-mode');
+            document.body.classList.remove('landscape-mode');
+        }
+
+        updateMobileControlState();
+    }
+
+    async function enterMobileControlFullscreen() {
+        if (!isMobileWatchDevice()) {
+            return;
+        }
+
+        try {
+            if (!document.fullscreenElement && videoShell.requestFullscreen) {
+                await videoShell.requestFullscreen();
+            }
+        } catch (e) {
+            console.warn('Mobile fullscreen failed:', e);
+        }
+
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                await screen.orientation.lock('landscape');
+            }
+        } catch (e) {
+            console.warn('Orientation lock failed:', e);
+        }
+
+        updateMobileControlState();
+    }
+
+    function exitMobileControlFullscreen() {
+        try {
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+        } catch (e) {
+            console.warn('Orientation unlock failed:', e);
+        }
+    }
+
+    function getStoredMobileControlMode() {
+        return localStorage.getItem('mobileControlMode') === 'joystick'
+            ? 'joystick'
+            : 'touch';
+    }
+
+    function getStoredNumber(name, defaultValue, min, max) {
+        const value = Number(localStorage.getItem(name));
+
+        if (!Number.isFinite(value)) {
+            return defaultValue;
+        }
+
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function applyMobileControlPreferences() {
+        mobileControlType = getStoredMobileControlMode();
+
+        const joystickSize = getStoredNumber('mobileJoystickSize', 150, 110, 240);
+        const opacityPercent = getStoredNumber('mobileControlsOpacity', 62, 15, 100);
+        const opacity = opacityPercent / 100;
+
+        const joystickSide = localStorage.getItem('mobileJoystickSide') === 'right'
+            ? 'right'
+            : 'left';
+
+        let mouseSide = localStorage.getItem('mobileMouseButtonsSide') === 'left'
+            ? 'left'
+            : 'right';
+
+        if (mouseSide === joystickSide) {
+            mouseSide = joystickSide === 'left' ? 'right' : 'left';
+        }
+
+        const stickZone = document.getElementById('mobileStickZone');
+        const stickKnob = document.getElementById('mobileStickKnob');
+        const mouseButtons = document.querySelector('.mobile-mouse-buttons');
+        const mouseButtonList = document.querySelectorAll('.mobile-mouse-button');
+        const modeLabel = document.getElementById('mobileControlModeLabel');
+
+        if (stickZone) {
+            stickZone.style.width = joystickSize + 'px';
+            stickZone.style.height = joystickSize + 'px';
+            stickZone.style.opacity = String(opacity);
+
+            if (joystickSide === 'left') {
+                stickZone.style.left = '24px';
+                stickZone.style.right = 'auto';
+            } else {
+                stickZone.style.right = '24px';
+                stickZone.style.left = 'auto';
+            }
+        }
+
+        if (stickKnob) {
+            const knobSize = Math.max(48, Math.round(joystickSize * 0.42));
+            stickKnob.style.width = knobSize + 'px';
+            stickKnob.style.height = knobSize + 'px';
+        }
+
+        if (mouseButtons) {
+            mouseButtons.style.opacity = String(opacity);
+
+            if (mouseSide === 'left') {
+                mouseButtons.style.left = '22px';
+                mouseButtons.style.right = 'auto';
+            } else {
+                mouseButtons.style.right = '22px';
+                mouseButtons.style.left = 'auto';
+            }
+        }
+
+        mouseButtonList.forEach(button => {
+            button.style.opacity = String(opacity);
+        });
+
+        if (modeLabel) {
+            modeLabel.innerText = mobileControlType === 'joystick'
+                ? '🕹 Джойстик'
+                : '☝️ Сенсорное';
+        }
+    }
+
+    function updateMobileControlState() {
+        applyMobileControlPreferences();
+
+        if (!isMobileWatchDevice()) {
+            document.body.classList.remove('mobile-control-active', 'mobile-touch-mode', 'mobile-joystick-mode');
+            return;
+        }
+
+        if (controlMode) {
+            document.body.classList.add('mobile-control-active');
+
+            if (mobileControlType === 'joystick') {
+                document.body.classList.add('mobile-joystick-mode');
+                document.body.classList.remove('mobile-touch-mode');
+            } else {
+                document.body.classList.add('mobile-touch-mode');
+                document.body.classList.remove('mobile-joystick-mode');
+            }
+
+            const size = getActualRemoteSize();
+            if (!Number.isFinite(mobileCursorX) || !Number.isFinite(mobileCursorY)) {
+                mobileCursorX = Math.round(size.width / 2);
+                mobileCursorY = Math.round(size.height / 2);
+            }
+        } else {
+            document.body.classList.remove('mobile-control-active', 'mobile-touch-mode', 'mobile-joystick-mode');
+            stopJoystickLoop();
+            exitMobileControlFullscreen();
+        }
+
+        const modeLabel = document.getElementById('mobileControlModeLabel');
+
+        if (modeLabel) {
+            modeLabel.innerText = mobileControlType === 'joystick'
+                ? '🕹 Джойстик'
+                : '☝️ Сенсорное';
+        }
+
+        updateMobileRemoteCursor();
+    }
+
+    async function setMobileControlType(type) {
+        mobileControlType = type === 'joystick' ? 'joystick' : 'touch';
+        localStorage.setItem('mobileControlMode', mobileControlType);
+
+        if (controlMode) {
+            await enterMobileControlFullscreen();
+        }
+
+        updateMobileControlState();
+    }
+
+    function translateTouchCoords(touch) {
+        return translateMouseCoords({
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+    }
+
+    function updateMobileRemoteCursor() {
+        const cursor = document.getElementById('mobileRemoteCursor');
+        if (!cursor || !isMobileWatchDevice() || !controlMode) {
+            return;
+        }
+
+        const size = getActualRemoteSize();
+        const rect = getRenderedVideoRect();
+
+        const x = rect.left + (mobileCursorX / size.width) * rect.width;
+        const y = rect.top + (mobileCursorY / size.height) * rect.height;
+
+        cursor.style.left = x + 'px';
+        cursor.style.top = y + 'px';
+    }
+
+    function sendMobileMoveToPoint(point) {
+        if (!point) return;
+
+        mobileCursorX = point.x;
+        mobileCursorY = point.y;
+        updateMobileRemoteCursor();
+        sendCommand('MOUSE_MOVE', point);
+    }
+
+    function sendMobileClick(button) {
+        sendCommand('MOUSE_CLICK', { button: button || 1 });
+    }
+
+    function sendMobileDoubleClick() {
+        sendCommand('MOUSE_CLICK', { button: 1 });
+        setTimeout(() => sendCommand('MOUSE_CLICK', { button: 1 }), 80);
+    }
+
+    function sendMobileMouseDown(button) {
+        sendCommand('MOUSE_DOWN', { button: button || 1 });
+    }
+
+    function sendMobileMouseUp(button) {
+        sendCommand('MOUSE_UP', { button: button || 1 });
+    }
+
+    function handleMobileTouchStart(e) {
+        if (!isMobileWatchDevice() || !controlMode || mobileControlType !== 'touch') {
+            return;
+        }
+
+        if (!isLandscapeNow()) {
+            e.preventDefault();
+            updateMobileControlState();
+            return;
+        }
+
+        if (e.touches.length === 1) {
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            const point = translateTouchCoords(touch);
+
+            mobilePointerDown = true;
+            mobilePointerMoved = false;
+            mobileDragStarted = false;
+
+            sendMobileMoveToPoint(point);
+
+            clearTimeout(mobileLongPressTimer);
+            mobileLongPressTimer = setTimeout(() => {
+                if (!mobilePointerMoved) {
+                    sendMobileClick(3);
+                    mobilePointerDown = false;
+                }
+            }, 560);
+        }
+    }
+
+    function handleMobileTouchMove(e) {
+        if (!isMobileWatchDevice() || !controlMode || mobileControlType !== 'touch') {
+            return;
+        }
+
+        if (!isLandscapeNow()) {
+            e.preventDefault();
+            return;
+        }
+
+        if (e.touches.length === 1 && mobilePointerDown) {
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            const point = translateTouchCoords(touch);
+
+            mobilePointerMoved = true;
+
+            if (!mobileDragStarted) {
+                clearTimeout(mobileLongPressTimer);
+                mobileDragStarted = true;
+                sendMobileMouseDown(1);
+            }
+
+            sendMobileMoveToPoint(point);
+        }
+
+        if (e.touches.length === 2) {
+            e.preventDefault();
+
+            const y1 = e.touches[0].clientY;
+            const y2 = e.touches[1].clientY;
+            const avgY = (y1 + y2) / 2;
+
+            if (typeof handleMobileTouchMove.lastScrollY === 'number') {
+                const diff = avgY - handleMobileTouchMove.lastScrollY;
+
+                if (Math.abs(diff) > 8) {
+                    sendCommand('MOUSE_WHEEL', { delta: diff > 0 ? 1 : -1 });
+                    handleMobileTouchMove.lastScrollY = avgY;
+                }
+            } else {
+                handleMobileTouchMove.lastScrollY = avgY;
+            }
+        }
+    }
+
+    function handleMobileTouchEnd(e) {
+        if (!isMobileWatchDevice() || !controlMode || mobileControlType !== 'touch') {
+            return;
+        }
+
+        e.preventDefault();
+
+        clearTimeout(mobileLongPressTimer);
+        handleMobileTouchMove.lastScrollY = undefined;
+
+        if (mobileDragStarted) {
+            sendMobileMouseUp(1);
+            mobileDragStarted = false;
+            mobilePointerDown = false;
+            return;
+        }
+
+        if (mobilePointerDown && !mobilePointerMoved) {
+            const now = Date.now();
+
+            if (now - mobileLastTapTime < 320) {
+                sendMobileDoubleClick();
+                mobileLastTapTime = 0;
+            } else {
+                sendMobileClick(1);
+                mobileLastTapTime = now;
+            }
+        }
+
+        mobilePointerDown = false;
+    }
+
+    function startJoystickLoop() {
+        if (joystickTimer) {
+            return;
+        }
+
+        joystickTimer = setInterval(() => {
+            if (!joystickActive || !controlMode || mobileControlType !== 'joystick') {
+                return;
+            }
+
+            const size = getActualRemoteSize();
+            const speed = Math.max(6, Math.round(Math.min(size.width, size.height) / 95));
+
+            mobileCursorX += joystickVectorX * speed;
+            mobileCursorY += joystickVectorY * speed;
+
+            mobileCursorX = Math.max(0, Math.min(Math.round(mobileCursorX), size.width - 1));
+            mobileCursorY = Math.max(0, Math.min(Math.round(mobileCursorY), size.height - 1));
+
+            updateMobileRemoteCursor();
+
+            sendCommand('MOUSE_MOVE', {
+                x: mobileCursorX,
+                y: mobileCursorY,
+                screenWidth: size.width,
+                screenHeight: size.height,
+                relativeX: mobileCursorX / size.width,
+                relativeY: mobileCursorY / size.height
+            });
+        }, 16);
+    }
+
+    function stopJoystickLoop() {
+        if (joystickTimer) {
+            clearInterval(joystickTimer);
+            joystickTimer = null;
+        }
+
+        joystickActive = false;
+        joystickVectorX = 0;
+        joystickVectorY = 0;
+
+        const knob = document.getElementById('mobileStickKnob');
+        if (knob) {
+            knob.style.transform = 'translate(-50%, -50%)';
+        }
+    }
+
+    function handleJoystickStart(e) {
+        if (!controlMode || mobileControlType !== 'joystick' || !isLandscapeNow()) {
+            return;
+        }
+
+        e.preventDefault();
+        joystickActive = true;
+        updateJoystickVector(e);
+        startJoystickLoop();
+    }
+
+    function handleJoystickMove(e) {
+        if (!joystickActive) {
+            return;
+        }
+
+        e.preventDefault();
+        updateJoystickVector(e);
+    }
+
+    function handleJoystickEnd(e) {
+        if (!joystickActive) {
+            return;
+        }
+
+        e.preventDefault();
+        stopJoystickLoop();
+    }
+
+    function updateJoystickVector(e) {
+        const zone = document.getElementById('mobileStickZone');
+        const knob = document.getElementById('mobileStickKnob');
+
+        if (!zone || !knob) {
+            return;
+        }
+
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = zone.getBoundingClientRect();
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+
+        const knobRadius = knob.offsetWidth > 0 ? knob.offsetWidth / 2 : 31;
+        const max = Math.max(18, rect.width / 2 - knobRadius - 4);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > max) {
+            dx = dx / distance * max;
+            dy = dy / distance * max;
+        }
+
+        joystickVectorX = dx / max;
+        joystickVectorY = dy / max;
+
+        knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
+    }
+
+    function handleMobileMouseButtonStart(e) {
+        if (!controlMode || mobileControlType !== 'joystick' || !isLandscapeNow()) {
+            return;
+        }
+
+        e.preventDefault();
+
+        mobileMouseLongPressFired = false;
+        clearTimeout(mobileMouseLongPressTimer);
+
+        mobileMouseLongPressTimer = setTimeout(() => {
+            mobileMouseLongPressFired = true;
+            sendMobileClick(3);
+        }, 560);
+    }
+
+    function handleMobileMouseButtonEnd(e) {
+        if (!controlMode || mobileControlType !== 'joystick') {
+            return;
+        }
+
+        e.preventDefault();
+
+        clearTimeout(mobileMouseLongPressTimer);
+
+        if (mobileMouseLongPressFired) {
+            return;
+        }
+
+        const now = Date.now();
+
+        if (now - mobileMouseLastTapTime < 320) {
+            sendMobileDoubleClick();
+            mobileMouseLastTapTime = 0;
+        } else {
+            sendMobileClick(1);
+            mobileMouseLastTapTime = now;
+        }
+    }
+
+    function bindMobileControlEvents() {
+        video.addEventListener('touchstart', handleMobileTouchStart, { passive: false });
+        video.addEventListener('touchmove', handleMobileTouchMove, { passive: false });
+        video.addEventListener('touchend', handleMobileTouchEnd, { passive: false });
+        video.addEventListener('touchcancel', handleMobileTouchEnd, { passive: false });
+
+        const stick = document.getElementById('mobileStickZone');
+        const leftMouseBtn = document.getElementById('mobileLeftMouseButton');
+        const rightMouseBtn = document.getElementById('mobileRightMouseButton');
+
+        if (stick) {
+            stick.addEventListener('touchstart', handleJoystickStart, { passive: false });
+            stick.addEventListener('touchmove', handleJoystickMove, { passive: false });
+            stick.addEventListener('touchend', handleJoystickEnd, { passive: false });
+            stick.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
+        }
+
+        if (leftMouseBtn) {
+            leftMouseBtn.addEventListener('touchstart', handleMobileMouseButtonStart, { passive: false });
+            leftMouseBtn.addEventListener('touchend', handleMobileMouseButtonEnd, { passive: false });
+            leftMouseBtn.addEventListener('touchcancel', handleMobileMouseButtonEnd, { passive: false });
+        }
+
+        if (rightMouseBtn) {
+            rightMouseBtn.addEventListener('touchstart', function (e) {
+                if (!controlMode || mobileControlType !== 'joystick' || !isLandscapeNow()) return;
+                e.preventDefault();
+                sendMobileClick(3);
+            }, { passive: false });
+        }
+    }
+
+    const originalToggleControlMode = toggleControlMode;
+    toggleControlMode = async function () {
+        originalToggleControlMode();
+
+        if (isMobileWatchDevice() && controlMode) {
+            await enterMobileControlFullscreen();
+        }
+
+        updateMobileControlState();
+    };
+
+    document.getElementById('controlModeBtn').onclick = toggleControlMode;
+
+    window.addEventListener('storage', (event) => {
+        if (event.key && event.key.startsWith('mobile')) {
+            applyMobileControlPreferences();
+            updateMobileControlState();
+        }
+    });
+
+    window.addEventListener('resize', applyWatchMobileState);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(applyWatchMobileState, 300);
+    });
+
+    document.addEventListener('fullscreenchange', updateMobileControlState);
+    bindMobileControlEvents();
+    applyWatchMobileState();
+
+
     async function init() {
         try {
             await getPcInfo();
@@ -1918,13 +3330,13 @@
                     controlBtn.style.visibility = 'visible';
                     controlBtn.style.opacity = '1';
                     controlBtn.disabled = false;
-                    controlBtn.innerHTML = '👁️ View';
+                    controlBtn.innerHTML = '👁️ Просмотр';
                     controlBtn.onclick = toggleControlMode;
                     controlBtn.style.background = 'rgba(245,158,11,0.2)';
                     controlBtn.style.borderColor = 'rgba(245,158,11,0.5)';
 
                     document.getElementById('modeIndicator').innerHTML =
-                        '👁️ Учебный режим: только просмотр. Нажмите View, чтобы перейти в управление.';
+                        '👁️ Учебный режим: только просмотр. Нажмите «Просмотр», чтобы перейти в управление.';
 
                     document.getElementById('modeIndicator').style.color = '#fbbf24';
                 }
@@ -1963,7 +3375,7 @@
                     controlBtn.style.visibility = 'visible';
                     controlBtn.style.opacity = '1';
                     controlBtn.disabled = false;
-                    controlBtn.innerHTML = '🎮 Control';
+                    controlBtn.innerHTML = '🎮 Управление';
                     controlBtn.onclick = toggleControlMode;
                     controlBtn.style.background = 'rgba(16,185,129,0.2)';
                     controlBtn.style.borderColor = 'rgba(16,185,129,0.5)';
@@ -1980,6 +3392,7 @@
             showLoadingError(e.message);
         }
 
+        updateMobileControlState();
         console.log("Connection profile:", profile);
     }
 

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Remote PC - Настройки</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        body {
+            padding: 24px;
+        }
+
+        .settings-wrapper {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(320px,1fr));
+            gap: 20px;
+        }
+
+        .settings-card {
+            padding: 24px;
+            border-radius: 24px;
+        }
+
+        .settings-card h2 {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .settings-card p {
+            color: rgba(255,255,255,0.6);
+            line-height: 1.45;
+            margin-bottom: 18px;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 8px;
+            margin-top: 18px;
+            color: #93c5fd;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .settings-select,
+        .settings-range {
+            width: 100%;
+        }
+
+        .settings-select {
+            min-height: 52px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            color: white;
+            padding: 12px 14px;
+            font-size: 16px;
+        }
+
+        .settings-select option {
+            background: #0f172a;
+            color: white;
+        }
+
+        .settings-range {
+            margin-top: 10px;
+        }
+
+        .save-button {
+            width: 100%;
+            justify-content: center;
+            margin-top: 26px;
+        }
+
+        .guide-box {
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 16px;
+        }
+
+        .guide-box h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .guide-box ul {
+            padding-left: 18px;
+            color: rgba(255,255,255,0.72);
+            line-height: 1.6;
+        }
+
+        .value-text {
+            color: #34d399;
+            font-weight: 800;
+            margin-top: 8px;
+        }
+
+        .preview-area {
+            position: relative;
+            height: 250px;
+            border-radius: 22px;
+            background:
+                    radial-gradient(circle at 30% 30%, rgba(59,130,246,0.22), transparent 35%),
+                    linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.92));
+            border: 1px solid rgba(255,255,255,0.10);
+            overflow: hidden;
+            margin-top: 18px;
+        }
+
+        .preview-stick {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            left: 22px;
+            bottom: 22px;
+            border-radius: 50%;
+            background: rgba(15,23,42,0.32);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+
+        .preview-stick::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 46px;
+            height: 46px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: rgba(59,130,246,0.55);
+            border: 1px solid rgba(255,255,255,0.28);
+        }
+
+        .preview-buttons {
+            position: absolute;
+            right: 22px;
+            bottom: 22px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .preview-button {
+            width: 72px;
+            height: 72px;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(16,185,129,0.28);
+        }
+
+        .preview-button.right {
+            background: rgba(239,68,68,0.26);
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                padding: 14px !important;
+                padding-bottom: 90px !important;
+            }
+
+            .settings-header {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+
+            .settings-header .btn-glass {
+                width: 100%;
+            }
+
+            .settings-card {
+                padding: 20px !important;
+                border-radius: 22px !important;
+            }
+
+            .settings-card h2 {
+                font-size: 24px !important;
+            }
+
+            .settings-card p,
+            .guide-box ul {
+                font-size: 16px !important;
+            }
+
+            .settings-select {
+                min-height: 58px !important;
+                font-size: 17px !important;
+                border-radius: 18px !important;
+            }
+
+            .save-button {
+                min-height: 58px !important;
+                font-size: 17px !important;
+                border-radius: 18px !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<button class="mobile-back-button"
+        onclick="location.href='/pcs.html'">
+    ← Назад
+</button>
+
+<div class="settings-wrapper">
+
+    <div class="settings-header">
+        <div>
+            <h1 style="font-size:34px;">⚙️ Настройки</h1>
+            <p style="color:rgba(255,255,255,0.55);">
+                Настройка мобильного управления и интерфейса
+            </p>
+        </div>
+
+        <button class="btn-glass" onclick="location.href='/pcs.html'">
+            ← На рабочий стол
+        </button>
+    </div>
+
+    <div class="settings-grid">
+
+        <div class="glass-card settings-card">
+
+            <h2>📱 Управление с телефона</h2>
+
+            <p>
+                Эти настройки видны и на ПК, но используются только
+                при управлении трансляцией с телефона или планшета.
+            </p>
+
+            <label class="settings-label" for="controlModeSelect">
+                Тип управления
+            </label>
+
+            <select id="controlModeSelect"
+                    class="settings-select">
+
+                <option value="touch">
+                    Сенсорное управление
+                </option>
+
+                <option value="joystick">
+                    Джойстик
+                </option>
+            </select>
+
+            <label class="settings-label" for="joystickSize">
+                Размер джойстика
+            </label>
+
+            <input id="joystickSize"
+                   class="settings-range"
+                   type="range"
+                   min="110"
+                   max="240"
+                   value="150">
+
+            <div id="joystickSizeText"
+                 class="value-text">
+                150 px
+            </div>
+
+            <label class="settings-label" for="controlsOpacity">
+                Прозрачность кнопок
+            </label>
+
+            <input id="controlsOpacity"
+                   class="settings-range"
+                   type="range"
+                   min="15"
+                   max="100"
+                   value="62">
+
+            <div id="controlsOpacityText"
+                 class="value-text">
+                62%
+            </div>
+
+            <label class="settings-label" for="joystickSide">
+                Положение джойстика
+            </label>
+
+            <select id="joystickSide"
+                    class="settings-select">
+
+                <option value="left">
+                    Слева
+                </option>
+
+                <option value="right">
+                    Справа
+                </option>
+            </select>
+
+            <label class="settings-label" for="mouseButtonsSide">
+                Положение кнопок мыши
+            </label>
+
+            <select id="mouseButtonsSide"
+                    class="settings-select">
+
+                <option value="right">
+                    Справа
+                </option>
+
+                <option value="left">
+                    Слева
+                </option>
+            </select>
+
+            <button onclick="saveSettings()"
+                    class="btn-primary save-button">
+
+                💾 Сохранить настройки
+
+            </button>
+
+            <div class="preview-area">
+                <div id="previewStick" class="preview-stick"></div>
+                <div id="previewButtons" class="preview-buttons">
+                    <div id="previewLeftButton" class="preview-button">ЛКМ</div>
+                    <div id="previewRightButton" class="preview-button right">ПКМ</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card settings-card">
+
+            <h2>📖 Руководство пользователя</h2>
+
+            <div class="guide-box">
+                <h3>☝️ Сенсорное управление</h3>
+
+                <ul>
+                    <li>Один tap по экрану — ЛКМ.</li>
+                    <li>Двойной tap — двойной ЛКМ.</li>
+                    <li>Долгое нажатие — ПКМ.</li>
+                    <li>Удержание и движение пальцем — перетаскивание.</li>
+                    <li>Два пальца вверх/вниз — прокрутка колёсиком мыши.</li>
+                </ul>
+            </div>
+
+            <div class="guide-box">
+                <h3>🕹 Управление джойстиком</h3>
+
+                <ul>
+                    <li>Джойстик двигает курсор по экрану удалённого ПК.</li>
+                    <li>ЛКМ — обычный левый клик.</li>
+                    <li>ПКМ — правый клик.</li>
+                    <li>Двойное нажатие ЛКМ — двойной клик.</li>
+                    <li>Удержание ЛКМ и движение джойстиком — drag & drop.</li>
+                </ul>
+            </div>
+
+            <div class="guide-box">
+                <h3>📱 Правила мобильного режима</h3>
+
+                <ul>
+                    <li>Просмотр трансляции может работать вертикально.</li>
+                    <li>Управление экраном работает только горизонтально.</li>
+                    <li>При включении управления сайт пытается открыть полноэкранный режим.</li>
+                    <li>Курсор отображается поверх трансляции в режиме джойстика.</li>
+                    <li>Размер и прозрачность элементов можно менять в этих настройках.</li>
+                </ul>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    function loadSettings() {
+
+        const mode =
+            localStorage.getItem('mobileControlMode')
+            || 'touch';
+
+        const joystickSize =
+            localStorage.getItem('mobileJoystickSize')
+            || '150';
+
+        const opacity =
+            localStorage.getItem('mobileControlsOpacity')
+            || '62';
+
+        const joystickSide =
+            localStorage.getItem('mobileJoystickSide')
+            || 'left';
+
+        const mouseSide =
+            localStorage.getItem('mobileMouseButtonsSide')
+            || 'right';
+
+        document.getElementById('controlModeSelect').value = mode;
+        document.getElementById('joystickSize').value = joystickSize;
+        document.getElementById('controlsOpacity').value = opacity;
+        document.getElementById('joystickSide').value = joystickSide;
+        document.getElementById('mouseButtonsSide').value = mouseSide;
+
+        updateTexts();
+        updatePreview();
+    }
+
+    function updateTexts() {
+
+        document.getElementById(
+            'joystickSizeText'
+        ).innerText =
+            document.getElementById('joystickSize').value + ' px';
+
+        document.getElementById(
+            'controlsOpacityText'
+        ).innerText =
+            document.getElementById('controlsOpacity').value + '%';
+    }
+
+    function updatePreview() {
+        const size = Number(document.getElementById('joystickSize').value);
+        const opacity = Number(document.getElementById('controlsOpacity').value) / 100;
+        const joystickSide = document.getElementById('joystickSide').value;
+        let mouseSide = document.getElementById('mouseButtonsSide').value;
+
+        if (mouseSide === joystickSide) {
+            mouseSide = joystickSide === 'left' ? 'right' : 'left';
+        }
+
+        const stick = document.getElementById('previewStick');
+        const buttons = document.getElementById('previewButtons');
+        const leftButton = document.getElementById('previewLeftButton');
+        const rightButton = document.getElementById('previewRightButton');
+
+        const previewStickSize = Math.round(size * 0.72);
+
+        stick.style.width = previewStickSize + 'px';
+        stick.style.height = previewStickSize + 'px';
+        stick.style.opacity = String(opacity);
+
+        if (joystickSide === 'left') {
+            stick.style.left = '22px';
+            stick.style.right = 'auto';
+        } else {
+            stick.style.right = '22px';
+            stick.style.left = 'auto';
+        }
+
+        buttons.style.opacity = String(opacity);
+
+        if (mouseSide === 'left') {
+            buttons.style.left = '22px';
+            buttons.style.right = 'auto';
+        } else {
+            buttons.style.right = '22px';
+            buttons.style.left = 'auto';
+        }
+
+        leftButton.style.opacity = String(opacity);
+        rightButton.style.opacity = String(opacity);
+    }
+
+    function saveSettings() {
+
+        localStorage.setItem(
+            'mobileControlMode',
+            document.getElementById('controlModeSelect').value
+        );
+
+        localStorage.setItem(
+            'mobileJoystickSize',
+            document.getElementById('joystickSize').value
+        );
+
+        localStorage.setItem(
+            'mobileControlsOpacity',
+            document.getElementById('controlsOpacity').value
+        );
+
+        localStorage.setItem(
+            'mobileJoystickSide',
+            document.getElementById('joystickSide').value
+        );
+
+        localStorage.setItem(
+            'mobileMouseButtonsSide',
+            document.getElementById('mouseButtonsSide').value
+        );
+
+        alert('Настройки сохранены');
+    }
+
+    document.getElementById('joystickSize')
+        .addEventListener('input', () => {
+            updateTexts();
+            updatePreview();
+        });
+
+    document.getElementById('controlsOpacity')
+        .addEventListener('input', () => {
+            updateTexts();
+            updatePreview();
+        });
+
+    document.getElementById('joystickSide')
+        .addEventListener('change', updatePreview);
+
+    document.getElementById('mouseButtonsSide')
+        .addEventListener('change', updatePreview);
+
+    document.getElementById('controlModeSelect')
+        .addEventListener('change', updatePreview);
+
+    loadSettings();
+
+</script>
+
+</body>
+</html>

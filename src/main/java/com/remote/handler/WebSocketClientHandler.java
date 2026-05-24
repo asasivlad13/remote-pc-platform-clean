@@ -53,6 +53,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, Long> clientWatching = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> remoteFileRequestOwners = new ConcurrentHashMap<>();
     private final Map<Long, String> lastFrames = new ConcurrentHashMap<>();
 
     private final Map<String, Long> sessionLogIds = new ConcurrentHashMap<>();
@@ -107,10 +108,140 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             return;
         }
 
+        if ("remote_file_list".equals(type)) {
+            handleRemoteFileList(session, json);
+            return;
+        }
+
+        if ("remote_file_download".equals(type)) {
+            handleRemoteFileDownload(session, json);
+            return;
+        }
+
         if ("settings".equals(type)) {
             Long pcId = json.get("pcId").asLong();
             agentWebSocketHandler.sendCommandToAgent(pcId, json);
             session.sendMessage(new TextMessage("{\"type\":\"settings_applied\"}"));
+        }
+    }
+
+
+    private void handleRemoteFileList(WebSocketSession session, JsonNode json) throws Exception {
+        if (!json.has("pcId")) {
+            session.sendMessage(new TextMessage("{\"type\":\"REMOTE_FILE_ERROR\",\"message\":\"PC is not specified\"}"));
+            return;
+        }
+
+        Long pcId = json.get("pcId").asLong();
+        String requestId = json.has("requestId") ? json.get("requestId").asText() : java.util.UUID.randomUUID().toString();
+        String path = json.has("path") && !json.get("path").isNull() ? json.get("path").asText() : "ROOTS";
+
+        if (!isRemoteFileAccessAllowed(session, json, pcId)) {
+            session.sendMessage(new TextMessage(objectMapper.createObjectNode()
+                    .put("type", "REMOTE_FILE_ERROR")
+                    .put("requestId", requestId)
+                    .put("message", "Доступ к файлам удалённого ПК запрещён для текущего сценария")
+                    .toString()));
+            return;
+        }
+
+        remoteFileRequestOwners.put(requestId, session);
+
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type", "REMOTE_FILE_LIST");
+        command.put("requestId", requestId);
+        command.put("path", path);
+
+        agentWebSocketHandler.sendCommandToAgent(pcId, command);
+    }
+
+    private void handleRemoteFileDownload(WebSocketSession session, JsonNode json) throws Exception {
+        if (!json.has("pcId") || !json.has("path")) {
+            session.sendMessage(new TextMessage("{\"type\":\"REMOTE_FILE_ERROR\",\"message\":\"PC or file path is not specified\"}"));
+            return;
+        }
+
+        Long pcId = json.get("pcId").asLong();
+        String requestId = json.has("requestId") ? json.get("requestId").asText() : java.util.UUID.randomUUID().toString();
+        String path = json.get("path").asText();
+
+        if (!isRemoteFileAccessAllowed(session, json, pcId)) {
+            session.sendMessage(new TextMessage(objectMapper.createObjectNode()
+                    .put("type", "REMOTE_FILE_ERROR")
+                    .put("requestId", requestId)
+                    .put("message", "Скачивание файлов с удалённого ПК запрещено для текущего сценария")
+                    .toString()));
+            return;
+        }
+
+        remoteFileRequestOwners.put(requestId, session);
+
+        ObjectNode command = objectMapper.createObjectNode();
+        command.put("type", "REMOTE_FILE_DOWNLOAD");
+        command.put("requestId", requestId);
+        command.put("path", path);
+
+        agentWebSocketHandler.sendCommandToAgent(pcId, command);
+    }
+
+    private boolean isRemoteFileAccessAllowed(WebSocketSession session, JsonNode json, Long pcId) {
+        String profile = normalizeConnectionProfile(sessionProfiles.getOrDefault(session.getId(), "personal"));
+
+        if ("personal".equals(profile)) {
+            return true;
+        }
+
+        if ("education_student".equals(profile)) {
+            String educationCode = json.has("educationCode")
+                    ? json.get("educationCode").asText()
+                    : null;
+
+            String username = sessionUsernames.getOrDefault(session.getId(), "unknown");
+
+            return educationCode != null
+                    && !educationCode.isBlank()
+                    && !"unknown".equals(username)
+                    && educationParticipantService.hasControlInSession(username, educationCode);
+        }
+
+        if ("support_operator_view_client".equals(profile)) {
+            String supportCode = json.has("supportCode")
+                    ? json.get("supportCode").asText()
+                    : null;
+
+            String username = sessionUsernames.getOrDefault(session.getId(), "unknown");
+
+            return supportCode != null
+                    && !supportCode.isBlank()
+                    && !"unknown".equals(username)
+                    && supportSessionService.hasOperatorControl(username, supportCode, pcId);
+        }
+
+        return false;
+    }
+
+    public void forwardRemoteFileMessage(Long pcId, JsonNode json) throws Exception {
+        String requestId = json.has("requestId") ? json.get("requestId").asText() : null;
+
+        if (requestId == null || requestId.isBlank()) {
+            return;
+        }
+
+        WebSocketSession owner = remoteFileRequestOwners.get(requestId);
+
+        if (owner == null || !owner.isOpen()) {
+            remoteFileRequestOwners.remove(requestId);
+            return;
+        }
+
+        owner.sendMessage(new TextMessage(objectMapper.writeValueAsString(json)));
+
+        String type = json.has("type") ? json.get("type").asText() : "";
+
+        if ("REMOTE_FILE_LIST_RESULT".equals(type)
+                || "REMOTE_FILE_DOWNLOAD_COMPLETE".equals(type)
+                || "REMOTE_FILE_ERROR".equals(type)) {
+            remoteFileRequestOwners.remove(requestId);
         }
     }
 
@@ -280,6 +411,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         Long logId = sessionLogIds.remove(session.getId());
 
         clientWatching.remove(session.getId());
+        remoteFileRequestOwners.entrySet().removeIf(entry -> entry.getValue().getId().equals(session.getId()));
         sessionProfiles.remove(session.getId());
         sessionUsernames.remove(session.getId());
         fpsSum.remove(session.getId());
