@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Remote PC - Мобильный пульт</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        body {
+            padding: 18px;
+        }
+
+        .remote-page {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .remote-header {
+            margin-bottom: 20px;
+        }
+
+        .remote-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .remote-subtitle {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .mode-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .mode-card {
+            width: 100%;
+            text-align: left;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.07);
+            color: white;
+            border-radius: 22px;
+            padding: 20px;
+            cursor: pointer;
+            min-height: 130px;
+        }
+
+        .mode-card:active {
+            transform: scale(0.98);
+        }
+
+        .mode-icon {
+            font-size: 34px;
+            margin-bottom: 10px;
+        }
+
+        .mode-name {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .mode-description {
+            color: rgba(255, 255, 255, 0.58);
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .orientation-hint {
+            display: none;
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            color: #fbbf24;
+            font-size: 14px;
+        }
+
+        body.portrait-mode .orientation-hint {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="mobile-page-with-nav">
+<div class="remote-page">
+    <div class="remote-header">
+        <button class="btn-glass" onclick="location.href='/pcs.html'" style="margin-bottom:16px;">
+            ← Назад
+        </button>
+
+        <div class="remote-title">📱 Многофункциональный пульт</div>
+        <div class="remote-subtitle" id="pcInfo">
+            ПК: —
+        </div>
+
+        <div class="orientation-hint">
+            Для трансляции и управления экраном лучше повернуть телефон горизонтально.
+        </div>
+    </div>
+
+    <div class="mode-grid">
+        <button class="mode-card" onclick="openMode('presentation')">
+            <div class="mode-icon">🖥</div>
+            <div class="mode-name">Пульт презентации</div>
+            <div class="mode-description">
+                Переключение слайдов, запуск показа, выход из презентации, управление громкостью и режим с картинкой экрана.
+            </div>
+        </button>
+
+        <button class="mode-card" onclick="openMode('touchpad')">
+            <div class="mode-icon">🖱</div>
+            <div class="mode-name">Тачпад и рисование</div>
+            <div class="mode-description">
+                Управление курсором пальцем, клики, прокрутка, drag-and-drop и режим рисования на экране.
+            </div>
+        </button>
+
+        <button class="mode-card" onclick="openMode('gamepad')">
+            <div class="mode-icon">🎮</div>
+            <div class="mode-name">Игровой джойстик</div>
+            <div class="mode-description">
+                Управление играми с телефона. Сначала через клавиши, позже — как полноценный виртуальный геймпад.
+            </div>
+        </button>
+    </div>
+</div>
+
+<div class="mobile-bottom-nav mobile-only">
+    <button onclick="location.href='/pcs.html'">🏠<br>ПК</button>
+    <button onclick="openMode('presentation')">🖥<br>Преза</button>
+    <button onclick="openMode('touchpad')">🖱<br>Тач</button>
+    <button onclick="openMode('gamepad')">🎮<br>Игра</button>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const pcId = params.get('pcId');
+    const pcName = params.get('pcName') || 'ПК';
+
+    if (!pcId) {
+        alert('ПК не выбран');
+        window.location.href = '/pcs.html';
+    }
+
+    document.getElementById('pcInfo').innerText = 'ПК: ' + pcName + ' · ID: ' + pcId;
+
+    function openMode(mode) {
+        if (mode === 'presentation') {
+            window.location.href =
+                `/presentation-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
+            return;
+        }
+
+        if (mode === 'touchpad') {
+            window.location.href =
+                `/touchpad-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
+            return;
+        }
+
+        if (mode === 'gamepad') {
+            window.location.href =
+                `/gamepad-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
+            return;
+        }
+    }
+</script>
+</body>
+</html>

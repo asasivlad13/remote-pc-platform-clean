@@ -3,22 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <title>Remote PC - Create Support Session</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        @media (max-width: 900px), (pointer: coarse) {
+            .support-create-page {
+                max-width: none !important;
+                width: 100% !important;
+            }
+
+            .support-create-header-actions {
+                width: 100%;
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
+
+            #createdCode {
+                font-size: 38px !important;
+                letter-spacing: 6px !important;
+                text-align: center;
+            }
+        }
+    </style>
 </head>
 
-<body style="padding:24px;">
-<div style="max-width:800px;margin:0 auto;">
+<body class="mobile-screen-page">
+<div class="support-create-page mobile-screen-wrapper" style="max-width:800px;margin:0 auto;">
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+    <div class="mobile-header-stack" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
         <div>
-            <h1 style="font-size:32px;">🛠 Техническая поддержка</h1>
+            <h1 class="mobile-title" style="font-size:32px;">🛠 Техническая поддержка</h1>
             <p style="color:rgba(255,255,255,0.55);">Создание сессии помощи для клиента</p>
         </div>
 
-        <button onclick="location.href='/pcs.html'" class="btn-glass">← Назад</button>
+        <div class="support-create-header-actions" style="display:flex;gap:10px;">
+            <button onclick="location.href='/pcs.html'" class="btn-glass mobile-big-button">← Назад</button>
+        </div>
     </div>
 
-    <div class="glass-card fade-in-up" style="padding:28px;margin-bottom:24px;">
+    <div class="glass-card fade-in-up mobile-screen-card" style="padding:28px;margin-bottom:24px;">
         <h2 style="font-size:24px;margin-bottom:14px;">Новая сессия</h2>
 
         <div style="padding:16px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);color:rgba(255,255,255,0.75);margin-bottom:22px;">
@@ -27,22 +55,22 @@
 
         <label style="display:block;margin-bottom:8px;color:rgba(255,255,255,0.75);">Название обращения</label>
         <input id="titleInput"
-               class="input-field"
+               class="input-field mobile-big-input"
                placeholder="Например: Помощь с настройкой программы"
                style="width:100%;margin-bottom:20px;">
 
-        <button onclick="createSupportSession()" class="btn-primary" style="justify-content:center;">
+        <button onclick="createSupportSession()" class="btn-primary mobile-big-button" style="justify-content:center;">
             🛠 Создать сессию техподдержки
         </button>
     </div>
 
-    <div id="resultBox" class="glass-card fade-in-up" style="display:none;padding:28px;">
+    <div id="resultBox" class="glass-card fade-in-up mobile-screen-card" style="display:none;padding:28px;">
         <h2 style="font-size:24px;margin-bottom:10px;">Сессия создана</h2>
         <p style="color:rgba(255,255,255,0.55);margin-bottom:16px;">Передайте клиенту этот код:</p>
 
         <div id="createdCode" style="font-size:42px;font-weight:900;letter-spacing:8px;margin-bottom:22px;">------</div>
 
-        <button onclick="openOperatorSession()" class="btn-primary" style="justify-content:center;">
+        <button onclick="openOperatorSession()" class="btn-primary mobile-big-button" style="justify-content:center;">
             Перейти в рабочее место оператора
         </button>
     </div>
@@ -95,6 +123,10 @@
 
         window.location.href = '/support-operator.html?code=' + encodeURIComponent(createdSessionCode);
     }
+
+    window.addEventListener('load', function () {
+        addMobileBackButton('/pcs.html');
+    });
 </script>
 </body>
 </html>

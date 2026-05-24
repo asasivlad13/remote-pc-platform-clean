@@ -2,36 +2,131 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote PC - Support Join</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .support-join-card {
+            max-width: 480px;
+            width: 100%;
+            padding: 36px;
+            text-align: center;
+        }
+
+        .support-join-icon {
+            font-size: 52px;
+            margin-bottom: 16px;
+        }
+
+        .support-join-title {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .support-join-text {
+            color: rgba(255,255,255,0.55);
+            margin-bottom: 28px;
+        }
+
+        .support-code-input {
+            text-align: center;
+            font-size: 24px;
+            letter-spacing: 6px;
+            margin-bottom: 18px;
+        }
+
+        .support-error {
+            display: none;
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: rgba(239,68,68,0.1);
+            color: #fecaca;
+            font-size: 14px;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                align-items: stretch !important;
+                padding: 14px !important;
+                padding-bottom: 92px !important;
+            }
+
+            .support-join-card {
+                max-width: none !important;
+                min-height: calc(100vh - 112px);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 28px 20px !important;
+                border-radius: 28px !important;
+            }
+
+            .support-join-icon {
+                font-size: 68px !important;
+                margin-bottom: 20px !important;
+            }
+
+            .support-join-title {
+                font-size: 32px !important;
+            }
+
+            .support-join-text {
+                font-size: 17px !important;
+                line-height: 1.45 !important;
+                margin-bottom: 30px !important;
+            }
+
+            .support-code-input {
+                min-height: 72px !important;
+                font-size: 28px !important;
+                letter-spacing: 8px !important;
+                border-radius: 22px !important;
+            }
+        }
+    </style>
 </head>
 
-<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px;">
-<div class="glass-card fade-in-up" style="max-width: 480px; width:100%; padding: 36px; text-align:center;">
+<body class="mobile-screen-page">
+<div class="glass-card fade-in-up support-join-card mobile-screen-card">
+    <div class="support-join-icon">🛠</div>
 
-    <div style="font-size: 52px; margin-bottom: 16px;">🛠</div>
+    <h1 class="support-join-title">Вход в техподдержку</h1>
 
-    <h1 style="font-size: 28px; margin-bottom: 8px;">Вход в техподдержку</h1>
-
-    <p style="color: rgba(255,255,255,0.55); margin-bottom: 28px;">
+    <p class="support-join-text">
         Введите код, который сообщил оператор
     </p>
 
     <input id="codeInput"
-           class="input-field"
+           class="input-field support-code-input mobile-big-input"
            type="text"
            maxlength="6"
-           placeholder="Код сессии"
-           style="text-align:center; font-size:24px; letter-spacing:6px; margin-bottom: 18px;">
+           inputmode="numeric"
+           placeholder="Код сессии">
 
-    <button onclick="joinSupportSession()" class="btn-primary" style="width:100%; justify-content:center;">
+    <button onclick="joinSupportSession()" class="btn-primary mobile-big-button" style="width:100%; justify-content:center;">
         Подключиться
     </button>
 
-    <button onclick="location.href='/pcs.html'" class="btn-glass" style="width:100%; justify-content:center; margin-top: 12px;">
+    <button onclick="location.href='/pcs.html'" class="btn-glass mobile-big-button" style="width:100%; justify-content:center; margin-top: 12px;">
         ← Назад
     </button>
 
+    <div id="errorBox" class="support-error"></div>
 </div>
 
 <script>
@@ -41,11 +136,30 @@
         window.location.href = '/login.html';
     }
 
+    function showError(message) {
+        const box = document.getElementById('errorBox');
+        box.innerText = '❌ ' + message;
+        box.style.display = 'block';
+    }
+
+    function hideError() {
+        const box = document.getElementById('errorBox');
+        box.innerText = '';
+        box.style.display = 'none';
+    }
+
     async function joinSupportSession() {
+        hideError();
+
         const code = document.getElementById('codeInput').value.trim();
 
         if (!code) {
-            alert('Введите код сессии');
+            showError('Введите код сессии техподдержки');
+            return;
+        }
+
+        if (code.length !== 6) {
+            showError('Код сессии должен состоять из 6 символов');
             return;
         }
 
@@ -58,7 +172,22 @@
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                let text = '';
+                try {
+                    text = await response.text();
+                } catch (e) {
+                    text = '';
+                }
+
+                const lower = String(text || '').toLowerCase();
+
+                if (response.status === 400 || response.status === 404 || lower.includes('not found') || lower.includes('не найден')) {
+                    showError('Сессия техподдержки с таким кодом не найдена');
+                    return;
+                }
+
+                showError('Ошибка подключения к техподдержке');
+                return;
             }
 
             const session = await response.json();
@@ -67,8 +196,19 @@
                 '/support-client.html?code=' + encodeURIComponent(session.sessionCode);
 
         } catch (e) {
-            alert('Ошибка подключения к техподдержке: ' + e.message);
+            showError('Не удалось подключиться к серверу');
         }
+    }
+
+    document.getElementById('codeInput').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            joinSupportSession();
+        }
+    });
+
+    if (typeof addMobileBackButton === 'function') {
+        addMobileBackButton('/pcs.html');
     }
 </script>
 </body>

@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote PC - My Computers</title>
+
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
 
     <style>
         .scenario-modal-backdrop {
@@ -125,10 +128,108 @@
             color: #fbbf24;
             border-color: rgba(245, 158, 11, 0.35);
         }
+
+        .mobile-back-button {
+            display: none;
+        }
+
+        #mobileRemoteScenarioCard {
+            display: none;
+        }
+
+        #desktopRemoteScenarioCard {
+            display: block;
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                padding: 14px !important;
+                padding-bottom: 86px !important;
+            }
+
+            .scenario-modal-backdrop {
+                padding: 12px;
+                align-items: flex-end;
+            }
+
+            .scenario-modal {
+                width: 100%;
+                max-height: 92vh;
+                overflow-y: auto;
+                border-radius: 22px 22px 16px 16px;
+                padding: 18px;
+            }
+
+            .scenario-header {
+                align-items: center;
+            }
+
+            .scenario-title {
+                font-size: 21px;
+            }
+
+            .scenario-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .scenario-card {
+                min-height: 132px;
+                padding: 16px;
+            }
+
+            #pcsGrid {
+                grid-template-columns: 1fr !important;
+                gap: 16px !important;
+            }
+
+            .pc-card {
+                padding: 18px !important;
+                border-radius: 20px !important;
+            }
+
+            .top-actions {
+                width: 100%;
+                display: grid !important;
+                grid-template-columns: 1fr;
+                gap: 10px !important;
+            }
+
+            .top-actions .btn-glass {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .mobile-back-button {
+                position: fixed;
+                left: 14px;
+                right: 14px;
+                bottom: 14px;
+                z-index: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 52px;
+                border-radius: 18px;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                background: rgba(15, 23, 42, 0.94);
+                color: white;
+                font-size: 16px;
+                font-weight: 700;
+                backdrop-filter: blur(12px);
+                box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+                cursor: pointer;
+            }
+        }
     </style>
 </head>
 
 <body style="padding: 24px;">
+
+<button class="mobile-back-button" onclick="goMobileBack()">
+    ← Назад
+</button>
+
 <div style="max-width: 1200px; margin: 0 auto;">
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 16px;">
@@ -137,7 +238,7 @@
             <p style="color: rgba(255,255,255,0.5);">Manage your remote devices</p>
         </div>
 
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="top-actions" style="display: flex; gap: 12px; flex-wrap: wrap;">
             <button id="returnTeacherSessionBtn" onclick="returnToActiveTeacherSession()" class="btn-glass" style="display:none;">
                 🔁 Вернуться в учебную сессию
             </button>
@@ -207,13 +308,26 @@
                 <span class="scenario-badge">Доступно</span>
             </button>
 
-            <button class="scenario-card disabled" onclick="showScenarioInProgress('presentation_remote')">
+            <button id="mobileRemoteScenarioCard"
+                    class="scenario-card"
+                    onclick="openMobileRemote()">
+                <div class="scenario-icon">📱</div>
+                <div class="scenario-name">Многофункциональный пульт</div>
+                <div class="scenario-description">
+                    Управление презентацией, звуком, тачпадом, рисованием и игровым джойстиком с телефона или планшета.
+                </div>
+                <span class="scenario-badge">Мобильный режим</span>
+            </button>
+
+            <button id="desktopRemoteScenarioCard"
+                    class="scenario-card disabled"
+                    onclick="showScenarioInProgress('presentation_remote')">
                 <div class="scenario-icon">📱</div>
                 <div class="scenario-name">Презентация / пульт</div>
                 <div class="scenario-description">
-                    Мобильный интерфейс для управления презентацией, мультимедиа, тачпадом или джойстиком.
+                    Мобильный интерфейс для управления презентацией, мультимедиа, тачпадом или джойстиком. Доступен только с телефона или планшета.
                 </div>
-                <span class="scenario-badge soon">Скоро</span>
+                <span class="scenario-badge soon">Только мобильная версия</span>
             </button>
         </div>
     </div>
@@ -229,6 +343,58 @@
     let pcsCache = [];
     let selectedPcId = null;
     let selectedPcName = null;
+
+    function isCurrentDeviceMobile() {
+        if (typeof isMobileDevice === 'function') {
+            return isMobileDevice();
+        }
+
+        return window.innerWidth <= 900 ||
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    }
+
+    function applyPcsMobileState() {
+        const mobileCard = document.getElementById('mobileRemoteScenarioCard');
+        const desktopCard = document.getElementById('desktopRemoteScenarioCard');
+
+        if (isCurrentDeviceMobile()) {
+            document.body.classList.add('mobile-device');
+
+            if (mobileCard) {
+                mobileCard.style.display = 'block';
+            }
+
+            if (desktopCard) {
+                desktopCard.style.display = 'none';
+            }
+        } else {
+            document.body.classList.remove('mobile-device');
+
+            if (mobileCard) {
+                mobileCard.style.display = 'none';
+            }
+
+            if (desktopCard) {
+                desktopCard.style.display = 'block';
+            }
+        }
+    }
+
+    function goMobileBack() {
+        const modal = document.getElementById('scenarioModalBackdrop');
+
+        if (modal && modal.style.display === 'flex') {
+            closeScenarioModal();
+            return;
+        }
+
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        window.location.href = '/pcs.html';
+    }
 
     async function returnToActiveTeacherSession() {
         try {
@@ -295,7 +461,6 @@
         btn.style.display = 'none';
         btn.onclick = null;
 
-        // 1. Проверяем, есть ли активная сессия у текущего пользователя как у оператора
         try {
             const operatorResponse = await fetch('/api/support/sessions/my-active/operator', {
                 headers: {
@@ -320,7 +485,6 @@
             console.warn('Support operator session check failed:', e);
         }
 
-        // 2. Проверяем, есть ли активная сессия у текущего пользователя как у клиента
         try {
             const clientResponse = await fetch('/api/support/sessions/my-active/client', {
                 headers: {
@@ -450,6 +614,8 @@
 
         document.getElementById('scenarioPcName').innerText = 'ПК: ' + name;
         document.getElementById('scenarioModalBackdrop').style.display = 'flex';
+
+        applyPcsMobileState();
     }
 
     function closeScenarioModal() {
@@ -468,12 +634,27 @@
             `/watch.html?pcId=${selectedPcId}&pcName=${encodeURIComponent(selectedPcName)}&profile=${encodeURIComponent(profile)}`;
     }
 
+    function openMobileRemote() {
+        if (!selectedPcId || !selectedPcName) {
+            alert('ПК не выбран');
+            return;
+        }
+
+        if (!isCurrentDeviceMobile()) {
+            alert('Многофункциональный пульт доступен только с телефона или планшета');
+            return;
+        }
+
+        window.location.href =
+            `/mobile-remote.html?pcId=${selectedPcId}&pcName=${encodeURIComponent(selectedPcName)}`;
+    }
+
     function openSupportCreatePage() {
         window.location.href = '/support-create.html';
     }
 
     function showScenarioInProgress(profile) {
-        alert('Этот сценарий будет реализован следующим этапом: ' + profile);
+        alert('Этот сценарий доступен только с телефона или планшета: ' + profile);
     }
 
     function sendPowerCommand(pcId, action) {
@@ -528,6 +709,13 @@
         if (e.target.id === 'scenarioModalBackdrop') {
             closeScenarioModal();
         }
+    });
+
+    applyPcsMobileState();
+
+    window.addEventListener('resize', applyPcsMobileState);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(applyPcsMobileState, 300);
     });
 
     loadPCs();

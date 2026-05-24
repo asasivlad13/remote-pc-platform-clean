@@ -3,30 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <title>История подключений</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+    <style>
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                padding: 14px !important;
+                padding-bottom: 92px !important;
+            }
+
+            .mobile-header-stack {
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                gap: 16px !important;
+                align-items: stretch !important;
+            }
+
+            .mobile-history-actions {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+                width: 100% !important;
+            }
+
+            .mobile-history-actions button {
+                width: 100% !important;
+                min-width: 0 !important;
+                white-space: normal !important;
+            }
+
+            .mobile-history-back {
+                grid-column: 1 / -1 !important;
+            }
+
+            #filterInput {
+                min-height: 62px !important;
+                font-size: 18px !important;
+            }
+        }
+    </style>
 </head>
+
 <body style="padding:24px;">
-<div style="max-width:1200px;margin:0 auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+<div class="mobile-screen-wrapper" style="max-width:1200px;margin:0 auto;">
+    <div class="mobile-header-stack" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;">
         <div>
-            <h1>История подключений</h1>
+            <h1 class="mobile-title">История подключений</h1>
             <p style="color:rgba(255,255,255,0.55);">Журнал удалённых сессий</p>
         </div>
-        <div style="display:flex;gap:10px;">
-            <button class="btn-glass" onclick="exportJson()">Экспорт JSON</button>
-            <button class="btn-glass" onclick="exportCsv()">Экспорт CSV</button>
-            <button class="btn-glass" onclick="location.href='/pcs.html'">Назад</button>
+
+        <div class="mobile-history-actions" style="display:grid;grid-template-columns:repeat(3,auto);gap:10px;">
+            <button class="btn-glass mobile-big-button" onclick="exportJson()">📦 JSON</button>
+            <button class="btn-glass mobile-big-button" onclick="exportCsv()">📊 CSV</button>
+            <button class="btn-glass mobile-big-button mobile-history-back" onclick="location.href='/pcs.html'">← Назад</button>
         </div>
     </div>
 
-    <input id="filterInput" class="input-field" placeholder="Фильтр по ПК, IP, браузеру..." style="margin-bottom:20px;">
+    <input id="filterInput"
+           class="input-field mobile-big-input"
+           placeholder="Фильтр по ПК, IP, браузеру..."
+           style="margin-bottom:20px;">
 
     <div id="historyList"></div>
 </div>
 
 <script>
     const token = localStorage.getItem('token');
-    if (!token) window.location.href = '/login.html';
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
 
     let historyData = [];
 
@@ -62,20 +111,21 @@
         const list = document.getElementById('historyList');
 
         if (data.length === 0) {
-            list.innerHTML = '<div class="glass-card" style="padding:30px;text-align:center;">История пустая</div>';
+            list.innerHTML = '<div class="glass-card mobile-history-card" style="padding:30px;text-align:center;">История пустая</div>';
             return;
         }
 
         list.innerHTML = data.map(item => `
-            <div class="glass-card" style="padding:22px;margin-bottom:16px;">
-                <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+            <div class="glass-card mobile-history-card" style="padding:22px;margin-bottom:16px;">
+                <div class="mobile-history-row" style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;">
                     <div>
                         <h3 style="margin-bottom:8px;">📅 ${new Date(item.connectedAt).toLocaleString()}</h3>
                         <p style="color:rgba(255,255,255,0.65);">
                             Отключение: ${item.disconnectedAt ? new Date(item.disconnectedAt).toLocaleString() : 'сессия активна'}
                         </p>
                     </div>
-                    <div style="text-align:right;">
+
+                    <div class="mobile-history-right" style="text-align:right;">
                         <div class="status-online">${item.mode || 'Control'}</div>
                         <p style="margin-top:8px;color:rgba(255,255,255,0.65);">
                             ${formatDuration(item.durationSeconds)}
@@ -151,6 +201,10 @@
     }
 
     loadHistory();
+
+    window.addEventListener('load', function () {
+        addMobileBackButton('/pcs.html');
+    });
 </script>
 </body>
 </html>
