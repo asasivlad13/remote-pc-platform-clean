@@ -1,19 +1,470 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>Пульт презентации</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        body {
+            padding: 18px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overscroll-behavior: none;
+        }
+
+        .remote-wrapper {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .remote-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .remote-title {
+            font-size: 30px;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        .remote-subtitle {
+            color: rgba(255,255,255,0.55);
+            line-height: 1.45;
+            font-size: 14px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .main-control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .remote-big-button {
+            min-height: 150px;
+            border-radius: 28px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.07);
+            color: white;
+            font-size: 22px;
+            font-weight: 900;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            user-select: none;
+        }
+
+        .remote-big-button.primary {
+            background: linear-gradient(135deg, rgba(59,130,246,0.52), rgba(37,99,235,0.38));
+            border-color: rgba(96,165,250,0.5);
+        }
+
+        .remote-big-button:active {
+            transform: scale(0.98);
+        }
+
+        .remote-icon {
+            font-size: 42px;
+            line-height: 1;
+        }
+
+        .remote-section {
+            margin-top: 16px;
+            padding: 18px;
+            border-radius: 24px;
+        }
+
+        .remote-section-title {
+            font-size: 19px;
+            font-weight: 900;
+            margin-bottom: 12px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .button-grid.three {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .remote-action-button {
+            min-height: 68px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.13);
+            background: rgba(255,255,255,0.07);
+            color: white;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .remote-action-button:active {
+            transform: scale(0.98);
+        }
+
+        .hint-list {
+            margin: 0;
+            padding-left: 18px;
+            color: rgba(255,255,255,0.64);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .landscape-toolbar {
+            display: none;
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                padding: 12px !important;
+                padding-bottom: 86px !important;
+            }
+
+            .remote-wrapper {
+                max-width: none;
+                width: 100%;
+            }
+
+            .remote-header {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .remote-title {
+                font-size: 28px !important;
+            }
+
+            .main-control-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .remote-big-button {
+                min-height: 170px;
+                border-radius: 30px;
+                font-size: 22px;
+            }
+
+            .remote-icon {
+                font-size: 48px;
+            }
+
+            .remote-section {
+                padding: 18px !important;
+                border-radius: 24px !important;
+            }
+
+            .remote-action-button {
+                min-height: 72px;
+                font-size: 17px;
+                border-radius: 22px;
+            }
+
+            .button-grid.three {
+                grid-template-columns: 1fr;
+            }
+
+            .button-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
+            body {
+                padding: 10px !important;
+                overflow: hidden;
+            }
+
+            .remote-wrapper {
+                height: calc(100vh - 20px);
+                display: grid;
+                grid-template-columns: 1.1fr 1fr;
+                gap: 12px;
+                align-items: stretch;
+            }
+
+            .remote-header {
+                display: none;
+            }
+
+            .main-card {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 0;
+            }
+
+            .main-control-grid {
+                flex: 1;
+                min-height: 0;
+                margin-top: 0;
+            }
+
+            .remote-big-button {
+                min-height: 0;
+                height: 100%;
+                font-size: 24px;
+            }
+
+            .side-column {
+                display: grid;
+                grid-template-rows: auto 1fr auto;
+                gap: 10px;
+                min-height: 0;
+            }
+
+            .remote-section {
+                margin-top: 0;
+                padding: 14px !important;
+                overflow: auto;
+            }
+
+            .landscape-toolbar {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+
+            .landscape-toolbar button {
+                min-height: 48px !important;
+                font-size: 14px !important;
+            }
+
+            .hint-section {
+                display: none;
+            }
+        }
+    </style>
 </head>
-<body style="padding:18px;">
-<div class="glass-card" style="padding:22px;">
-    <button class="btn-glass" onclick="history.back()">← Назад</button>
-    <h1 style="margin-top:18px;">🖥 Пульт презентации</h1>
-    <p style="color:rgba(255,255,255,0.55);">
-        Здесь будет управление слайдами, запуск показа и громкость.
-    </p>
+
+<body>
+
+<div class="remote-wrapper">
+
+    <div class="glass-card main-card" style="padding:22px;">
+        <div class="remote-header">
+            <div>
+                <button class="btn-glass" onclick="goBack()">← Назад</button>
+                <h1 class="remote-title" style="margin-top:18px;">🖥 Пульт презентации</h1>
+                <div class="remote-subtitle">
+                    Управление слайдами и звуком на удалённом ПК. Окно презентации должно быть активным на ПК.
+                </div>
+                <div id="connectionStatus" class="status-pill">🟡 Подключение...</div>
+            </div>
+        </div>
+
+        <div class="main-control-grid">
+            <button class="remote-big-button" onclick="sendKey(37)">
+                <span class="remote-icon">⬅️</span>
+                <span>Назад</span>
+            </button>
+
+            <button class="remote-big-button primary" onclick="sendKey(39)">
+                <span class="remote-icon">➡️</span>
+                <span>Вперёд</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="side-column">
+        <div class="landscape-toolbar">
+            <button class="btn-glass" onclick="goBack()">← Назад</button>
+            <button class="btn-glass" onclick="sendKey(116)">▶ F5</button>
+            <button class="btn-glass" onclick="sendKey(27)">⏹ Esc</button>
+        </div>
+
+        <div class="glass-card remote-section">
+            <div class="remote-section-title">🎬 Показ</div>
+
+            <div class="button-grid">
+                <button class="remote-action-button" onclick="sendKey(116)">
+                    ▶️ С начала
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(116, {shift:true})">
+                    🔄 С текущего
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(27)">
+                    ⏹ Выход
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(66)">
+                    ⚫ Чёрный экран
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(87)">
+                    ⚪ Белый экран
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(36)">
+                    ⏮ В начало
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card remote-section">
+            <div class="remote-section-title">🔊 Звук</div>
+
+            <div class="button-grid three">
+                <button class="remote-action-button" onclick="sendKey(174)">
+                    🔉 Тише
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(175)">
+                    🔊 Громче
+                </button>
+
+                <button class="remote-action-button" onclick="sendKey(173)">
+                    🔇 Mute
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card remote-section hint-section">
+            <div class="remote-section-title">📖 Как пользоваться</div>
+
+            <ul class="hint-list">
+                <li>Открой презентацию на удалённом ПК.</li>
+                <li>Сделай окно PowerPoint/браузера/PDF активным.</li>
+                <li>Нажимай кнопки на телефоне как обычный пульт.</li>
+                <li>Пульт работает универсально через клавиши, не только с PowerPoint.</li>
+            </ul>
+        </div>
+    </div>
 </div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const pcId = urlParams.get('pcId');
+    const pcName = decodeURIComponent(urlParams.get('pcName') || 'ПК');
+
+    if (!pcId) {
+        alert('Не указан ПК для управления');
+        window.location.href = '/pcs.html';
+    }
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:${wsPort}/ws/client`;
+
+    let ws = null;
+
+    function connectWs() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            document.getElementById('connectionStatus').innerText = '🟢 Подключено к ' + pcName;
+
+            ws.send(JSON.stringify({
+                type: 'watch',
+                pcId: parseInt(pcId),
+                token: token,
+                pcName: pcName,
+                profile: 'personal',
+                platform: navigator.platform,
+                browser: navigator.userAgent,
+                mode: 'Пульт презентации'
+            }));
+        };
+
+        ws.onclose = () => {
+            document.getElementById('connectionStatus').innerText = '🟡 Соединение закрыто';
+        };
+
+        ws.onerror = () => {
+            document.getElementById('connectionStatus').innerText = '🔴 Ошибка соединения';
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'command_denied') {
+                    alert('Команда запрещена: ' + (data.message || data.action || ''));
+                }
+            } catch (e) {
+                // ignore non-json messages
+            }
+        };
+    }
+
+    function sendKey(keyCode, modifiers = {}) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert('Соединение ещё не установлено');
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'command',
+            pcId: parseInt(pcId),
+            action: 'KEY_PRESS',
+            keyCode: keyCode,
+            ctrl: modifiers.ctrl === true,
+            alt: modifiers.alt === true,
+            shift: modifiers.shift === true,
+            profile: 'personal'
+        }));
+    }
+
+    function goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        window.location.href = '/pcs.html';
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'stop' }));
+            ws.close();
+        }
+    });
+
+    if (typeof addMobileBackButton === 'function') {
+        addMobileBackButton('/pcs.html');
+    }
+
+    connectWs();
+</script>
+
 </body>
 </html>

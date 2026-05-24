@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Remote PC - Мобильный пульт</title>
+    <title>Многофункциональный пульт</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="stylesheet" href="/css/style.css">
@@ -12,135 +12,142 @@
     <style>
         body {
             padding: 18px;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
 
-        .remote-page {
-            max-width: 720px;
+        .hub-wrapper {
+            max-width: 900px;
             margin: 0 auto;
         }
 
-        .remote-header {
+        .hub-header {
             margin-bottom: 20px;
         }
 
-        .remote-title {
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .remote-subtitle {
-            color: rgba(255, 255, 255, 0.55);
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
-        .mode-grid {
+        .hub-grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 16px;
-            margin-top: 20px;
         }
 
-        .mode-card {
-            width: 100%;
+        .hub-card {
             text-align: left;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.07);
+            min-height: 180px;
+            border-radius: 24px;
+            padding: 22px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
             color: white;
-            border-radius: 22px;
-            padding: 20px;
             cursor: pointer;
-            min-height: 130px;
         }
 
-        .mode-card:active {
+        .hub-card:active {
             transform: scale(0.98);
         }
 
-        .mode-icon {
-            font-size: 34px;
-            margin-bottom: 10px;
+        .hub-card.disabled {
+            opacity: 0.48;
+            cursor: not-allowed;
         }
 
-        .mode-name {
+        .hub-icon {
+            font-size: 44px;
+            margin-bottom: 12px;
+        }
+
+        .hub-name {
             font-size: 20px;
-            font-weight: 800;
+            font-weight: 900;
             margin-bottom: 8px;
         }
 
-        .mode-description {
-            color: rgba(255, 255, 255, 0.58);
-            font-size: 14px;
+        .hub-desc {
+            color: rgba(255,255,255,0.58);
             line-height: 1.45;
-        }
-
-        .orientation-hint {
-            display: none;
-            margin-top: 16px;
-            padding: 14px;
-            border-radius: 16px;
-            background: rgba(245, 158, 11, 0.12);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            color: #fbbf24;
             font-size: 14px;
         }
 
-        body.portrait-mode .orientation-hint {
-            display: block;
+        .hub-badge {
+            display: inline-flex;
+            margin-top: 14px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(16,185,129,0.15);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.35);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .hub-badge.soon {
+            background: rgba(245,158,11,0.14);
+            color: #fbbf24;
+            border-color: rgba(245,158,11,0.35);
+        }
+
+        @media (max-width: 900px), (pointer: coarse) {
+            body {
+                padding: 14px !important;
+                padding-bottom: 86px !important;
+            }
+
+            .hub-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .hub-card {
+                min-height: 150px;
+                padding: 22px !important;
+                border-radius: 24px !important;
+            }
         }
     </style>
 </head>
 
-<body class="mobile-page-with-nav">
-<div class="remote-page">
-    <div class="remote-header">
-        <button class="btn-glass" onclick="location.href='/pcs.html'" style="margin-bottom:16px;">
-            ← Назад
-        </button>
+<body>
 
-        <div class="remote-title">📱 Многофункциональный пульт</div>
-        <div class="remote-subtitle" id="pcInfo">
+<div class="hub-wrapper">
+    <div class="hub-header">
+        <button class="btn-glass" onclick="goBack()">← Назад</button>
+
+        <h1 style="font-size:34px;margin-top:18px;margin-bottom:6px;">
+            📱 Многофункциональный пульт
+        </h1>
+
+        <p id="pcLabel" style="color:rgba(255,255,255,0.55);">
             ПК: —
-        </div>
-
-        <div class="orientation-hint">
-            Для трансляции и управления экраном лучше повернуть телефон горизонтально.
-        </div>
+        </p>
     </div>
 
-    <div class="mode-grid">
-        <button class="mode-card" onclick="openMode('presentation')">
-            <div class="mode-icon">🖥</div>
-            <div class="mode-name">Пульт презентации</div>
-            <div class="mode-description">
-                Переключение слайдов, запуск показа, выход из презентации, управление громкостью и режим с картинкой экрана.
+    <div class="hub-grid">
+        <button class="hub-card" onclick="openPresentationRemote()">
+            <div class="hub-icon">🖥</div>
+            <div class="hub-name">Пульт презентации</div>
+            <div class="hub-desc">
+                Управление слайдами, запуском показа, выходом из показа и громкостью.
             </div>
+            <span class="hub-badge">Доступно</span>
         </button>
 
-        <button class="mode-card" onclick="openMode('touchpad')">
-            <div class="mode-icon">🖱</div>
-            <div class="mode-name">Тачпад и рисование</div>
-            <div class="mode-description">
-                Управление курсором пальцем, клики, прокрутка, drag-and-drop и режим рисования на экране.
+        <button class="hub-card disabled" onclick="alert('Тачпад и рисование будут добавлены следующим этапом')">
+            <div class="hub-icon">✍️</div>
+            <div class="hub-name">Тачпад и рисование</div>
+            <div class="hub-desc">
+                Управление курсором и рисование поверх экрана с телефона или планшета.
             </div>
+            <span class="hub-badge soon">Скоро</span>
         </button>
 
-        <button class="mode-card" onclick="openMode('gamepad')">
-            <div class="mode-icon">🎮</div>
-            <div class="mode-name">Игровой джойстик</div>
-            <div class="mode-description">
-                Управление играми с телефона. Сначала через клавиши, позже — как полноценный виртуальный геймпад.
+        <button class="hub-card disabled" onclick="alert('Джойстик будет добавлен отдельным этапом')">
+            <div class="hub-icon">🎮</div>
+            <div class="hub-name">Игровой джойстик</div>
+            <div class="hub-desc">
+                Управление играми с телефона как с виртуального контроллера.
             </div>
+            <span class="hub-badge soon">Скоро</span>
         </button>
     </div>
-</div>
-
-<div class="mobile-bottom-nav mobile-only">
-    <button onclick="location.href='/pcs.html'">🏠<br>ПК</button>
-    <button onclick="openMode('presentation')">🖥<br>Преза</button>
-    <button onclick="openMode('touchpad')">🖱<br>Тач</button>
-    <button onclick="openMode('gamepad')">🎮<br>Игра</button>
 </div>
 
 <script>
@@ -150,36 +157,36 @@
         window.location.href = '/login.html';
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const pcId = params.get('pcId');
-    const pcName = params.get('pcName') || 'ПК';
+    const urlParams = new URLSearchParams(window.location.search);
+    const pcId = urlParams.get('pcId');
+    const pcName = decodeURIComponent(urlParams.get('pcName') || 'ПК');
 
-    if (!pcId) {
-        alert('ПК не выбран');
+    document.getElementById('pcLabel').innerText = 'ПК: ' + pcName;
+
+    function openPresentationRemote() {
+        if (!pcId) {
+            alert('ПК не выбран');
+            return;
+        }
+
+        window.location.href =
+            '/presentation-remote.html?pcId=' + encodeURIComponent(pcId) +
+            '&pcName=' + encodeURIComponent(pcName);
+    }
+
+    function goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
         window.location.href = '/pcs.html';
     }
 
-    document.getElementById('pcInfo').innerText = 'ПК: ' + pcName + ' · ID: ' + pcId;
-
-    function openMode(mode) {
-        if (mode === 'presentation') {
-            window.location.href =
-                `/presentation-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
-            return;
-        }
-
-        if (mode === 'touchpad') {
-            window.location.href =
-                `/touchpad-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
-            return;
-        }
-
-        if (mode === 'gamepad') {
-            window.location.href =
-                `/gamepad-remote.html?pcId=${encodeURIComponent(pcId)}&pcName=${encodeURIComponent(pcName)}`;
-            return;
-        }
+    if (typeof addMobileBackButton === 'function') {
+        addMobileBackButton('/pcs.html');
     }
 </script>
+
 </body>
 </html>
