@@ -4,158 +4,60 @@
     <meta charset="UTF-8">
     <title>Многофункциональный пульт</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/mobile.css">
     <script src="/js/mobile-utils.js"></script>
-
     <style>
-        body {
-            padding: 18px;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .hub-wrapper {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .hub-header {
-            margin-bottom: 20px;
-        }
-
-        .hub-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-        }
-
-        .hub-card {
-            text-align: left;
-            min-height: 180px;
-            border-radius: 24px;
-            padding: 22px;
-            border: 1px solid rgba(255,255,255,0.12);
-            background: rgba(255,255,255,0.06);
-            color: white;
-            cursor: pointer;
-        }
-
-        .hub-card:active {
-            transform: scale(0.98);
-        }
-
-        .hub-card.disabled {
-            opacity: 0.48;
-            cursor: not-allowed;
-        }
-
-        .hub-icon {
-            font-size: 44px;
-            margin-bottom: 12px;
-        }
-
-        .hub-name {
-            font-size: 20px;
-            font-weight: 900;
-            margin-bottom: 8px;
-        }
-
-        .hub-desc {
-            color: rgba(255,255,255,0.58);
-            line-height: 1.45;
-            font-size: 14px;
-        }
-
-        .hub-badge {
-            display: inline-flex;
-            margin-top: 14px;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: rgba(16,185,129,0.15);
-            color: #34d399;
-            border: 1px solid rgba(16,185,129,0.35);
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .hub-badge.soon {
-            background: rgba(245,158,11,0.14);
-            color: #fbbf24;
-            border-color: rgba(245,158,11,0.35);
-        }
-
-        @media (max-width: 900px), (pointer: coarse) {
-            body {
-                padding: 14px !important;
-                padding-bottom: 86px !important;
-            }
-
-            .hub-grid {
-                grid-template-columns: 1fr !important;
-            }
-
-            .hub-card {
-                min-height: 150px;
-                padding: 22px !important;
-                border-radius: 24px !important;
-            }
+        body { padding:18px; min-height:100vh; box-sizing:border-box; }
+        .hub-wrapper { max-width:900px; margin:0 auto; }
+        .hub-header { margin-bottom:20px; }
+        .hub-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+        .hub-card { text-align:left; min-height:180px; border-radius:24px; padding:22px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:white; cursor:pointer; transition:.16s ease; }
+        .hub-card:active { transform:scale(.98); }
+        .hub-card.disabled { opacity:.48; cursor:not-allowed; }
+        .hub-icon { font-size:44px; margin-bottom:12px; }
+        .hub-name { font-size:20px; font-weight:900; margin-bottom:8px; }
+        .hub-desc { color:rgba(255,255,255,.58); line-height:1.45; font-size:14px; }
+        .hub-badge { display:inline-flex; margin-top:14px; padding:5px 10px; border-radius:999px; background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.35); font-size:12px; font-weight:800; }
+        .hub-badge.soon { background:rgba(245,158,11,.14); color:#fbbf24; border-color:rgba(245,158,11,.35); }
+        @media (max-width:900px),(pointer:coarse) {
+            body { padding:14px!important; padding-bottom:86px!important; }
+            .hub-grid { grid-template-columns:1fr!important; }
+            .hub-card { min-height:150px; padding:22px!important; border-radius:24px!important; }
         }
     </style>
 </head>
-
 <body>
-
 <div class="hub-wrapper">
     <div class="hub-header">
         <button class="btn-glass" onclick="goBack()">← Назад</button>
-
-        <h1 style="font-size:34px;margin-top:18px;margin-bottom:6px;">
-            📱 Многофункциональный пульт
-        </h1>
-
-        <p id="pcLabel" style="color:rgba(255,255,255,0.55);">
-            ПК: —
-        </p>
+        <h1 style="font-size:34px;margin-top:18px;margin-bottom:6px;">📱 Многофункциональный пульт</h1>
+        <p id="pcLabel" style="color:rgba(255,255,255,0.55);">ПК: —</p>
     </div>
-
     <div class="hub-grid">
         <button class="hub-card" onclick="openPresentationRemote()">
             <div class="hub-icon">🖥</div>
             <div class="hub-name">Пульт презентации</div>
-            <div class="hub-desc">
-                Управление слайдами, запуском показа, выходом из показа и громкостью.
-            </div>
+            <div class="hub-desc">Управление слайдами, запуском показа, выходом из показа и громкостью.</div>
             <span class="hub-badge">Доступно</span>
         </button>
-
-        <button class="hub-card disabled" onclick="alert('Тачпад и рисование будут добавлены следующим этапом')">
-            <div class="hub-icon">✍️</div>
-            <div class="hub-name">Тачпад и рисование</div>
-            <div class="hub-desc">
-                Управление курсором и рисование поверх экрана с телефона или планшета.
-            </div>
-            <span class="hub-badge soon">Скоро</span>
+        <button class="hub-card" onclick="openTouchpadRemote()">
+            <div class="hub-icon">🖱</div>
+            <div class="hub-name">Тачпад</div>
+            <div class="hub-desc">Управление курсором, ЛКМ/ПКМ, двойным кликом и прокруткой.</div>
+            <span class="hub-badge">Доступно</span>
         </button>
-
-        <button class="hub-card disabled" onclick="alert('Джойстик будет добавлен отдельным этапом')">
+        <button class="hub-card" onclick="openGamepadRemote()">
             <div class="hub-icon">🎮</div>
             <div class="hub-name">Игровой джойстик</div>
-            <div class="hub-desc">
-                Управление играми с телефона как с виртуального контроллера.
-            </div>
-            <span class="hub-badge soon">Скоро</span>
+            <div class="hub-desc">Клавиатурный игровой пульт: стик WASD, кнопки действий, плечевые кнопки и быстрые клавиши.</div>
+            <span class="hub-badge">Доступно</span>
         </button>
     </div>
 </div>
-
 <script>
     const token = localStorage.getItem('token');
-
-    if (!token) {
-        window.location.href = '/login.html';
-    }
+    if (!token) window.location.href = '/login.html';
 
     const urlParams = new URLSearchParams(window.location.search);
     const pcId = urlParams.get('pcId');
@@ -164,29 +66,25 @@
     document.getElementById('pcLabel').innerText = 'ПК: ' + pcName;
 
     function openPresentationRemote() {
-        if (!pcId) {
-            alert('ПК не выбран');
-            return;
-        }
+        if (!pcId) { alert('ПК не выбран'); return; }
+        window.location.href = '/presentation-remote.html?pcId=' + encodeURIComponent(pcId) + '&pcName=' + encodeURIComponent(pcName);
+    }
 
-        window.location.href =
-            '/presentation-remote.html?pcId=' + encodeURIComponent(pcId) +
-            '&pcName=' + encodeURIComponent(pcName);
+    function openTouchpadRemote() {
+        if (!pcId) { alert('ПК не выбран'); return; }
+        window.location.href = '/touchpad-remote.html?pcId=' + encodeURIComponent(pcId) + '&pcName=' + encodeURIComponent(pcName);
+    }
+
+    function openGamepadRemote() {
+        if (!pcId) { alert('ПК не выбран'); return; }
+        window.location.href = '/gamepad-remote.html?pcId=' + encodeURIComponent(pcId) + '&pcName=' + encodeURIComponent(pcName);
     }
 
     function goBack() {
-        if (window.history.length > 1) {
-            window.history.back();
-            return;
-        }
-
         window.location.href = '/pcs.html';
     }
 
-    if (typeof addMobileBackButton === 'function') {
-        addMobileBackButton('/pcs.html');
-    }
+    if (typeof addMobileBackButton === 'function') addMobileBackButton('/pcs.html');
 </script>
-
 </body>
 </html>

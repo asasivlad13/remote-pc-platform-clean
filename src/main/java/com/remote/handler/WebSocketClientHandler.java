@@ -259,7 +259,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         boolean allowed;
 
         if ("personal".equals(profile)) {
-            allowed = sessionPermissionService.isCommandAllowed(profile, action);
+            allowed = sessionPermissionService.isCommandAllowed(profile, action) || isGamepadAction(action);
 
         } else if ("education_student".equals(profile)) {
             String educationCode = json.has("educationCode")
@@ -538,6 +538,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         return sessionPermissionService.normalizeProfile(profile);
+    }
+
+    private boolean isGamepadAction(String action) {
+        return "GAMEPAD_CONNECT".equals(action)
+                || "GAMEPAD_STATE".equals(action)
+                || "GAMEPAD_DISCONNECT".equals(action);
     }
 
     private boolean isRemoteControlAction(String action) {

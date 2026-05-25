@@ -1,19 +1,618 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>Тачпад</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/mobile.css">
+    <script src="/js/mobile-utils.js"></script>
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        body {
+            padding: 0 !important;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        }
+
+        .mobile-back-button {
+            display: none !important;
+        }
+
+        .touchpad-page {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .touchpad-header {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 10px;
+            min-height: 54px;
+        }
+
+        .touchpad-back,
+        .help-button {
+            min-height: 46px !important;
+            padding: 8px 14px !important;
+            border-radius: 16px !important;
+            font-size: 14px !important;
+        }
+
+        .touchpad-title-block {
+            min-width: 0;
+        }
+
+        .touchpad-title {
+            font-size: 20px;
+            font-weight: 900;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .touchpad-status {
+            color: rgba(255,255,255,0.58);
+            font-size: 12px;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pad-zone {
+            position: relative;
+            overflow: hidden;
+            border-radius: 28px;
+            border: 1px solid rgba(59,130,246,0.34);
+            background:
+                    radial-gradient(circle at 50% 50%, rgba(59,130,246,0.16), transparent 38%),
+                    rgba(15,23,42,0.88);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+            user-select: none;
+            touch-action: none;
+            min-height: 0;
+        }
+
+        .pad-zone::before {
+            content: 'Водите пальцем — курсор двигается на ПК';
+            position: absolute;
+            left: 18px;
+            top: 16px;
+            color: rgba(255,255,255,0.28);
+            font-size: 14px;
+            font-weight: 900;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .pad-zone.scroll-mode::before {
+            content: 'Scroll: двигайте пальцем вверх/вниз';
+        }
+
+        .cursor-dot {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(34,197,94,0.9);
+            border: 2px solid white;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.42);
+            display: none;
+            z-index: 3;
+        }
+
+        .touchpad-controls {
+            display: grid;
+            grid-template-rows: auto auto;
+            gap: 8px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .mode-tab {
+            min-height: 46px !important;
+            border-radius: 16px !important;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.07);
+            color: white;
+            font-size: 13px !important;
+            font-weight: 900;
+            cursor: pointer;
+            touch-action: manipulation;
+            padding: 6px 8px !important;
+        }
+
+        .mode-tab.active {
+            background: rgba(16,185,129,0.28);
+            border-color: rgba(16,185,129,0.55);
+            color: #dcfce7;
+        }
+
+        .bottom-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .control-button {
+            min-height: 54px !important;
+            border-radius: 18px !important;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.07);
+            color: white;
+            font-size: 14px !important;
+            font-weight: 900;
+            touch-action: manipulation;
+            cursor: pointer;
+            padding: 8px 6px !important;
+        }
+
+        .control-button.primary {
+            background: rgba(59,130,246,0.28);
+            border-color: rgba(96,165,250,0.48);
+        }
+
+        .control-button:active,
+        .mode-tab:active {
+            transform: scale(0.98);
+        }
+
+        .help-box {
+            display: none;
+            position: fixed;
+            inset: 12px;
+            z-index: 50;
+            padding: 20px;
+            overflow: auto;
+            border-radius: 26px;
+            background: rgba(15,23,42,0.98);
+            border: 1px solid rgba(59,130,246,0.35);
+            color: white;
+        }
+
+        .help-box h2 {
+            margin-top: 0;
+        }
+
+        .help-box li {
+            color: rgba(255,255,255,0.72);
+            line-height: 1.65;
+            font-size: 15px;
+        }
+
+        .help-box ul {
+            padding-left: 20px;
+        }
+
+        @media (orientation: landscape) and (max-width: 900px), (pointer: coarse) and (orientation: landscape) {
+            .touchpad-page {
+                grid-template-columns: 1fr 180px;
+                grid-template-rows: auto 1fr;
+                gap: 8px;
+                padding: 8px;
+            }
+
+            .touchpad-header {
+                grid-column: 1 / -1;
+                min-height: 48px;
+            }
+
+            .pad-zone {
+                grid-row: 2;
+                grid-column: 1;
+            }
+
+            .touchpad-controls {
+                grid-row: 2;
+                grid-column: 2;
+                display: grid;
+                grid-template-rows: auto 1fr;
+                min-height: 0;
+            }
+
+            .mode-tabs {
+                grid-template-columns: 1fr;
+            }
+
+            .bottom-controls {
+                grid-template-columns: 1fr;
+                min-height: 0;
+            }
+
+            .control-button {
+                min-height: 0 !important;
+                height: 100%;
+            }
+
+            .mode-tab {
+                min-height: 42px !important;
+            }
+
+            .touchpad-title {
+                font-size: 18px;
+            }
+
+            .touchpad-status {
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 420px) and (orientation: portrait) {
+            .touchpad-page {
+                padding: 8px;
+                gap: 7px;
+            }
+
+            .touchpad-title {
+                font-size: 17px;
+            }
+
+            .touchpad-status {
+                font-size: 11px;
+            }
+
+            .touchpad-back,
+            .help-button {
+                min-height: 42px !important;
+                font-size: 13px !important;
+                padding: 6px 10px !important;
+            }
+
+            .mode-tab {
+                min-height: 42px !important;
+                font-size: 12px !important;
+            }
+
+            .control-button {
+                min-height: 50px !important;
+                font-size: 12px !important;
+            }
+        }
+    </style>
 </head>
-<body style="padding:18px;">
-<div class="glass-card" style="padding:22px;">
-    <button class="btn-glass" onclick="history.back()">← Назад</button>
-    <h1 style="margin-top:18px;">🖱 Тачпад и рисование</h1>
-    <p style="color:rgba(255,255,255,0.55);">
-        Здесь будет управление курсором, клики, прокрутка и режим рисования.
-    </p>
+
+<body>
+
+<div class="touchpad-page">
+
+    <div class="touchpad-header">
+        <button class="btn-glass touchpad-back" onclick="goBack()">← Назад</button>
+
+        <div class="touchpad-title-block">
+            <h1 class="touchpad-title">🖱 Тачпад</h1>
+            <div id="connectionStatus" class="touchpad-status">🟡 Подключение...</div>
+        </div>
+
+        <button class="btn-glass help-button" onclick="toggleHelp()">❔</button>
+    </div>
+
+    <div id="padZone" class="pad-zone">
+        <div id="cursorDot" class="cursor-dot"></div>
+    </div>
+
+    <div class="touchpad-controls">
+        <div class="mode-tabs">
+            <button id="modeTouchBtn" class="mode-tab active" onclick="setMode('touch')">☝️ Тачпад</button>
+            <button id="modeScrollBtn" class="mode-tab" onclick="setMode('scroll')">🖱 Scroll</button>
+        </div>
+
+        <div class="bottom-controls">
+            <button class="control-button primary" onclick="leftClick()">ЛКМ</button>
+            <button class="control-button" onclick="rightClick()">ПКМ</button>
+            <button class="control-button" onclick="doubleClick()">2× ЛКМ</button>
+        </div>
+    </div>
 </div>
+
+<div id="helpBox" class="help-box">
+    <button class="btn-glass" onclick="toggleHelp()">← Закрыть</button>
+
+    <h2>📖 Как пользоваться</h2>
+
+    <h3>☝️ Тачпад</h3>
+    <ul>
+        <li>Большая тёмная область — это тачпад почти на весь экран.</li>
+        <li>Водите пальцем по области — курсор двигается на удалённом ПК.</li>
+        <li>ЛКМ — обычный левый клик.</li>
+        <li>ПКМ — правый клик.</li>
+        <li>2× ЛКМ — двойной клик.</li>
+    </ul>
+
+    <h3>🖱 Scroll</h3>
+    <ul>
+        <li>Включите режим Scroll.</li>
+        <li>Двигайте пальцем вверх или вниз по большой области.</li>
+        <li>Документ, сайт или список на удалённом ПК будет прокручиваться.</li>
+    </ul>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login.html';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const pcId = urlParams.get('pcId');
+    const pcName = decodeURIComponent(urlParams.get('pcName') || 'ПК');
+
+    if (!pcId) {
+        alert('ПК не выбран');
+        window.location.href = '/pcs.html';
+    }
+
+    const padZone = document.getElementById('padZone');
+    const cursorDot = document.getElementById('cursorDot');
+
+    let ws = null;
+    let mode = 'touch';
+
+    let remoteScreenWidth = 1920;
+    let remoteScreenHeight = 1080;
+    let virtualX = remoteScreenWidth / 2;
+    let virtualY = remoteScreenHeight / 2;
+
+    let pointerActive = false;
+    let lastClientX = 0;
+    let lastClientY = 0;
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:${wsPort}/ws/client`;
+
+    async function loadPcInfo() {
+        try {
+            const response = await fetch('/pcs/' + encodeURIComponent(pcId), {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const pc = await response.json();
+
+            if (pc.screenWidth && pc.screenHeight) {
+                remoteScreenWidth = pc.screenWidth;
+                remoteScreenHeight = pc.screenHeight;
+                virtualX = remoteScreenWidth / 2;
+                virtualY = remoteScreenHeight / 2;
+            }
+        } catch (e) {
+            console.warn('PC info load failed:', e);
+        }
+    }
+
+    function connectWs() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            document.getElementById('connectionStatus').innerText = '🟢 ' + pcName;
+
+            ws.send(JSON.stringify({
+                type: 'watch',
+                pcId: parseInt(pcId),
+                token: token,
+                pcName: pcName,
+                profile: 'personal',
+                platform: navigator.platform,
+                browser: navigator.userAgent,
+                mode: 'Тачпад'
+            }));
+
+            moveMouseTo(virtualX, virtualY);
+            showCursorDot();
+        };
+
+        ws.onclose = () => {
+            document.getElementById('connectionStatus').innerText = '🟡 Соединение закрыто';
+        };
+
+        ws.onerror = () => {
+            document.getElementById('connectionStatus').innerText = '🔴 Ошибка соединения';
+        };
+    }
+
+    function sendCommand(action, data = {}) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'command',
+            pcId: parseInt(pcId),
+            action: action,
+            profile: 'personal',
+            ...data
+        }));
+    }
+
+    function moveMouseTo(x, y) {
+        virtualX = Math.max(0, Math.min(remoteScreenWidth - 1, x));
+        virtualY = Math.max(0, Math.min(remoteScreenHeight - 1, y));
+
+        sendCommand('MOUSE_MOVE', {
+            x: Math.round(virtualX),
+            y: Math.round(virtualY),
+            screenWidth: remoteScreenWidth,
+            screenHeight: remoteScreenHeight,
+            relativeX: virtualX / remoteScreenWidth,
+            relativeY: virtualY / remoteScreenHeight
+        });
+
+        showCursorDot();
+    }
+
+    function clickMouse(button = 1) {
+        sendCommand('MOUSE_CLICK', {
+            x: Math.round(virtualX),
+            y: Math.round(virtualY),
+            button: button,
+            screenWidth: remoteScreenWidth,
+            screenHeight: remoteScreenHeight,
+            relativeX: virtualX / remoteScreenWidth,
+            relativeY: virtualY / remoteScreenHeight
+        });
+    }
+
+    function leftClick() {
+        clickMouse(1);
+    }
+
+    function rightClick() {
+        clickMouse(3);
+    }
+
+    function doubleClick() {
+        clickMouse(1);
+        setTimeout(() => clickMouse(1), 90);
+    }
+
+    function scrollBy(delta) {
+        if (delta === 0) {
+            return;
+        }
+
+        sendCommand('MOUSE_WHEEL', {
+            delta: delta
+        });
+    }
+
+    function setMode(nextMode) {
+        mode = nextMode;
+
+        document.getElementById('modeTouchBtn').classList.toggle('active', mode === 'touch');
+        document.getElementById('modeScrollBtn').classList.toggle('active', mode === 'scroll');
+
+        padZone.classList.toggle('scroll-mode', mode === 'scroll');
+    }
+
+    function showCursorDot() {
+        const rect = padZone.getBoundingClientRect();
+
+        const x = (virtualX / remoteScreenWidth) * rect.width;
+        const y = (virtualY / remoteScreenHeight) * rect.height;
+
+        cursorDot.style.display = 'block';
+        cursorDot.style.left = x + 'px';
+        cursorDot.style.top = y + 'px';
+    }
+
+    padZone.addEventListener('pointerdown', (event) => {
+        pointerActive = true;
+        padZone.setPointerCapture(event.pointerId);
+
+        lastClientX = event.clientX;
+        lastClientY = event.clientY;
+
+        event.preventDefault();
+    });
+
+    padZone.addEventListener('pointermove', (event) => {
+        if (!pointerActive) {
+            return;
+        }
+
+        const dx = event.clientX - lastClientX;
+        const dy = event.clientY - lastClientY;
+
+        lastClientX = event.clientX;
+        lastClientY = event.clientY;
+
+        if (mode === 'scroll') {
+            scrollBy(Math.round(-dy / 14));
+            event.preventDefault();
+            return;
+        }
+
+        const multiplier = 1.5;
+
+        const remoteDx = dx * multiplier * (remoteScreenWidth / Math.max(1, padZone.clientWidth)) * 2.2;
+        const remoteDy = dy * multiplier * (remoteScreenHeight / Math.max(1, padZone.clientHeight)) * 2.2;
+
+        moveMouseTo(virtualX + remoteDx, virtualY + remoteDy);
+
+        event.preventDefault();
+    });
+
+    padZone.addEventListener('pointerup', (event) => {
+        pointerActive = false;
+
+        try {
+            padZone.releasePointerCapture(event.pointerId);
+        } catch (e) {
+            // ignore
+        }
+
+        event.preventDefault();
+    });
+
+    padZone.addEventListener('pointercancel', () => {
+        pointerActive = false;
+    });
+
+    function toggleHelp() {
+        const box = document.getElementById('helpBox');
+        box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function goBack() {
+        window.location.href =
+            '/mobile-remote.html?pcId=' + encodeURIComponent(pcId) +
+            '&pcName=' + encodeURIComponent(pcName);
+    }
+
+    window.addEventListener('resize', () => {
+        showCursorDot();
+    });
+
+    window.addEventListener('orientationchange', () => {
+        setTimeout(showCursorDot, 300);
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'stop'
+            }));
+
+            ws.close();
+        }
+    });
+
+    loadPcInfo().finally(() => {
+        connectWs();
+    });
+</script>
+
 </body>
 </html>
