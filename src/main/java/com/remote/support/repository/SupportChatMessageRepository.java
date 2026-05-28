@@ -1,0 +1,14 @@
+package com.remote.support.repository;
+
+import com.remote.support.model.SupportChatMessage;
+import com.remote.support.model.SupportSession;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface SupportChatMessageRepository extends JpaRepository<SupportChatMessage, Long> {
+
+    @EntityGraph(attributePaths = {"sender"})
+    List<SupportChatMessage> findBySupportSessionOrderByCreatedAt(SupportSession supportSession);
+}

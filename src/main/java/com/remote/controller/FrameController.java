@@ -1,10 +1,9 @@
 package com.remote.controller;
 
-import com.remote.handler.WebSocketClientHandler;
-import com.remote.model.Pc;
-import com.remote.repository.PcRepository;
+import com.remote.websocket.client.WebSocketClientHandler;
+import com.remote.pc.model.Pc;
+import com.remote.pc.repository.PcRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;

@@ -1,5 +1,6 @@
 package com.remote.model;
 
+import com.remote.pc.model.Pc;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
