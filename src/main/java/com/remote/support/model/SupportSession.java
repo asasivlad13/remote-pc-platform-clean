@@ -3,24 +3,49 @@ package com.remote.support.model;
 import com.remote.core.model.User;
 import com.remote.pc.model.Pc;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+@NoArgsConstructor
+@Getter
+@Setter
 @Entity
-@Table(name = "support_sessions")
+@Table(
+        name = "support_sessions",
+        indexes = {
+                @Index(name = "idx_support_sessions_session_code", columnList = "session_code"),
+                @Index(name = "idx_support_sessions_operator", columnList = "operator_id"),
+                @Index(name = "idx_support_sessions_client", columnList = "client_id"),
+                @Index(name = "idx_support_sessions_client_pc", columnList = "client_pc_id"),
+                @Index(name = "idx_support_sessions_status", columnList = "status"),
+                @Index(name = "idx_support_sessions_created_at", columnList = "created_at")
+        }
+)
 public class SupportSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
+    @Pattern(regexp = "\\d{6}")
     @Column(name = "session_code", nullable = false, unique = true, length = 6)
     private String sessionCode;
 
-    @Column(nullable = false)
+    @NotBlank
+    @Size(max = 150)
+    @Column(nullable = false, length = 150)
     private String title;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "operator_id", nullable = false)
     private User operator;
 
@@ -28,17 +53,13 @@ public class SupportSession {
     @JoinColumn(name = "client_id")
     private User client;
 
-    /*
-     * ВАЖНО:
-     * clientPc теперь НЕ задаётся оператором при создании сессии.
-     * Он определяется автоматически, когда клиент входит по коду со своего ПК.
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_pc_id")
     private Pc clientPc;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private SupportSessionStatus status = SupportSessionStatus.WAITING_CLIENT;
 
     @Column(name = "control_requested", nullable = false)
@@ -47,6 +68,7 @@ public class SupportSession {
     @Column(name = "control_allowed", nullable = false)
     private boolean controlAllowed = false;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -61,117 +83,6 @@ public class SupportSession {
 
     @Column(name = "control_allowed_at")
     private LocalDateTime controlAllowedAt;
-
-    public SupportSession() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getSessionCode() {
-        return sessionCode;
-    }
-
-    public void setSessionCode(String sessionCode) {
-        this.sessionCode = sessionCode;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public User getOperator() {
-        return operator;
-    }
-
-    public void setOperator(User operator) {
-        this.operator = operator;
-    }
-
-    public User getClient() {
-        return client;
-    }
-
-    public void setClient(User client) {
-        this.client = client;
-    }
-
-    public Pc getClientPc() {
-        return clientPc;
-    }
-
-    public void setClientPc(Pc clientPc) {
-        this.clientPc = clientPc;
-    }
-
-    public SupportSessionStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(SupportSessionStatus status) {
-        this.status = status;
-    }
-
-    public boolean isControlRequested() {
-        return controlRequested;
-    }
-
-    public void setControlRequested(boolean controlRequested) {
-        this.controlRequested = controlRequested;
-    }
-
-    public boolean isControlAllowed() {
-        return controlAllowed;
-    }
-
-    public void setControlAllowed(boolean controlAllowed) {
-        this.controlAllowed = controlAllowed;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getStartedAt() {
-        return startedAt;
-    }
-
-    public void setStartedAt(LocalDateTime startedAt) {
-        this.startedAt = startedAt;
-    }
-
-    public LocalDateTime getFinishedAt() {
-        return finishedAt;
-    }
-
-    public void setFinishedAt(LocalDateTime finishedAt) {
-        this.finishedAt = finishedAt;
-    }
-
-    public LocalDateTime getControlRequestedAt() {
-        return controlRequestedAt;
-    }
-
-    public void setControlRequestedAt(LocalDateTime controlRequestedAt) {
-        this.controlRequestedAt = controlRequestedAt;
-    }
-
-    public LocalDateTime getControlAllowedAt() {
-        return controlAllowedAt;
-    }
-
-    public void setControlAllowedAt(LocalDateTime controlAllowedAt) {
-        this.controlAllowedAt = controlAllowedAt;
-    }
 
     public void finish() {
         this.status = SupportSessionStatus.FINISHED;

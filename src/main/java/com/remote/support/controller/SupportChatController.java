@@ -1,36 +1,41 @@
 package com.remote.support.controller;
 
+import com.remote.core.service.CurrentUserService;
+import com.remote.support.dto.SupportChatMessageRequest;
+import com.remote.support.dto.SupportChatMessageResponse;
 import com.remote.support.service.SupportChatService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/support/sessions/{sessionCode}/chat")
 public class SupportChatController {
 
     private final SupportChatService supportChatService;
-
-    public SupportChatController(SupportChatService supportChatService) {
-        this.supportChatService = supportChatService;
-    }
+    private final CurrentUserService currentUserService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getMessages(@PathVariable String sessionCode) {
-        return ResponseEntity.ok(supportChatService.getMessages(getCurrentUsername(), sessionCode));
+    public List<SupportChatMessageResponse> getMessages(@PathVariable String sessionCode,
+                                                        HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportChatService.getMessages(username, sessionCode);
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> sendMessage(@PathVariable String sessionCode,
-                                                           @RequestBody Map<String, Object> request) {
-        String message = request.get("message") != null ? request.get("message").toString() : null;
-        return ResponseEntity.ok(supportChatService.sendMessage(getCurrentUsername(), sessionCode, message));
-    }
+    public SupportChatMessageResponse sendMessage(@PathVariable String sessionCode,
+                                                  @Valid @RequestBody SupportChatMessageRequest requestBody,
+                                                  HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
 
-    private String getCurrentUsername() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
+        return supportChatService.sendMessage(
+                username,
+                sessionCode,
+                requestBody.message()
+        );
     }
 }

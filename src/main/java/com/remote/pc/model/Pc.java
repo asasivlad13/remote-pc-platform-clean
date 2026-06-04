@@ -1,40 +1,82 @@
 package com.remote.pc.model;
 
 import com.remote.core.model.User;
-import com.remote.model.ConnectionLog;
+import com.remote.history.model.ConnectionLog;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
+@NoArgsConstructor
+@Getter
+@Setter
 @Entity
-@Table(name = "pcs")
+@Table(
+        name = "pcs",
+        indexes = {
+                @Index(name = "idx_pcs_mac_address", columnList = "mac_address"),
+                @Index(name = "idx_pcs_user_id", columnList = "user_id"),
+                @Index(name = "idx_pcs_status", columnList = "status"),
+                @Index(name = "idx_pcs_last_connection", columnList = "last_connection")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_pcs_mac_address", columnNames = "mac_address")
+        }
+)
 public class Pc {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
+    @Size(max = 100)
+    @Column(nullable = false, length = 100)
     private String name;
+
+    @NotBlank
+    @Size(max = 50)
+    @Column(name = "mac_address", nullable = false, length = 50, unique = true)
     private String macAddress;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
-    private PcStatus status;
+    @Column(nullable = false, length = 30)
+    private PcStatus status = PcStatus.OFFLINE;
 
+    @Column(name = "last_connection")
     private LocalDateTime lastConnection;
 
+    @Min(1)
+    @Column(name = "screen_width")
     private Integer screenWidth;
+
+    @Min(1)
+    @Column(name = "screen_height")
     private Integer screenHeight;
 
+    @Size(max = 500)
+    @Column(name = "webrtc_url", length = 500)
     private String webrtcUrl;
+
+    @Size(max = 100)
+    @Column(name = "stream_name", length = 100)
     private String streamName;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @OneToMany(mappedBy = "pc", cascade = CascadeType.ALL)
     private List<ConnectionLog> connectionLogs;
-
-    public Pc() {}
 
     public Pc(String name, String macAddress, User user) {
         this.name = name;
@@ -42,37 +84,4 @@ public class Pc {
         this.user = user;
         this.status = PcStatus.OFFLINE;
     }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getMacAddress() { return macAddress; }
-    public void setMacAddress(String macAddress) { this.macAddress = macAddress; }
-
-    public PcStatus getStatus() { return status; }
-    public void setStatus(PcStatus status) { this.status = status; }
-
-    public LocalDateTime getLastConnection() { return lastConnection; }
-    public void setLastConnection(LocalDateTime lastConnection) { this.lastConnection = lastConnection; }
-
-    public Integer getScreenWidth() { return screenWidth; }
-    public void setScreenWidth(Integer screenWidth) { this.screenWidth = screenWidth; }
-
-    public Integer getScreenHeight() { return screenHeight; }
-    public void setScreenHeight(Integer screenHeight) { this.screenHeight = screenHeight; }
-
-    public String getWebrtcUrl() { return webrtcUrl; }
-    public void setWebrtcUrl(String webrtcUrl) { this.webrtcUrl = webrtcUrl; }
-
-    public String getStreamName() { return streamName; }
-    public void setStreamName(String streamName) { this.streamName = streamName; }
-
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-
-    public List<ConnectionLog> getConnectionLogs() { return connectionLogs; }
-    public void setConnectionLogs(List<ConnectionLog> connectionLogs) { this.connectionLogs = connectionLogs; }
 }

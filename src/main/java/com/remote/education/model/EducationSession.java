@@ -3,139 +3,91 @@ package com.remote.education.model;
 import com.remote.core.model.User;
 import com.remote.pc.model.Pc;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+@NoArgsConstructor
+@Getter
+@Setter
 @Entity
-@Table(name = "education_sessions")
+@Table(
+        name = "education_sessions",
+        indexes = {
+                @Index(name = "idx_education_sessions_session_code", columnList = "session_code"),
+                @Index(name = "idx_education_sessions_teacher", columnList = "teacher_id"),
+                @Index(name = "idx_education_sessions_teacher_pc", columnList = "teacher_pc_id"),
+                @Index(name = "idx_education_sessions_status", columnList = "status"),
+                @Index(name = "idx_education_sessions_created_at", columnList = "created_at")
+        }
+)
 public class EducationSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
+    @Pattern(regexp = "\\d{6}")
     @Column(name = "session_code", nullable = false, unique = true, length = 6)
     private String sessionCode;
 
-    @Column(nullable = false)
+    @NotBlank
+    @Size(max = 150)
+    @Column(nullable = false, length = 150)
     private String title;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "teacher_id", nullable = false)
     private User teacher;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @Size(max = 100)
+    @Column(name = "teacher_display_name", length = 100)
+    private String teacherDisplayName;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "teacher_pc_id", nullable = false)
     private Pc teacherPc;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private EducationSessionStatus status = EducationSessionStatus.ACTIVE;
 
+    @NotNull
+    @Min(1)
+    @Max(100)
     @Column(name = "max_students", nullable = false)
     private Integer maxStudents = 30;
 
+    @NotNull
     @Column(name = "allow_student_control", nullable = false)
     private Boolean allowStudentControl = false;
 
+    @NotNull
     @Column(name = "allow_file_transfer", nullable = false)
     private Boolean allowFileTransfer = false;
 
+    @NotNull
     @Column(name = "allow_student_screen_share", nullable = false)
     private Boolean allowStudentScreenShare = false;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "finished_at")
     private LocalDateTime finishedAt;
-
-    public EducationSession() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getSessionCode() {
-        return sessionCode;
-    }
-
-    public void setSessionCode(String sessionCode) {
-        this.sessionCode = sessionCode;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public User getTeacher() {
-        return teacher;
-    }
-
-    public void setTeacher(User teacher) {
-        this.teacher = teacher;
-    }
-
-    public Pc getTeacherPc() {
-        return teacherPc;
-    }
-
-    public void setTeacherPc(Pc teacherPc) {
-        this.teacherPc = teacherPc;
-    }
-
-    public EducationSessionStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(EducationSessionStatus status) {
-        this.status = status;
-    }
-
-    public Integer getMaxStudents() {
-        return maxStudents;
-    }
-
-    public void setMaxStudents(Integer maxStudents) {
-        this.maxStudents = maxStudents;
-    }
-
-    public Boolean getAllowStudentControl() {
-        return allowStudentControl;
-    }
-
-    public void setAllowStudentControl(Boolean allowStudentControl) {
-        this.allowStudentControl = allowStudentControl;
-    }
-
-    public Boolean getAllowFileTransfer() {
-        return allowFileTransfer;
-    }
-
-    public void setAllowFileTransfer(Boolean allowFileTransfer) {
-        this.allowFileTransfer = allowFileTransfer;
-    }
-
-    public Boolean getAllowStudentScreenShare() {
-        return allowStudentScreenShare;
-    }
-
-    public void setAllowStudentScreenShare(Boolean allowStudentScreenShare) {
-        this.allowStudentScreenShare = allowStudentScreenShare;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getFinishedAt() {
-        return finishedAt;
-    }
 
     public void finish() {
         this.status = EducationSessionStatus.FINISHED;

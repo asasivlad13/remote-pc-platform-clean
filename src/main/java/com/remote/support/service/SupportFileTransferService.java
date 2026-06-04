@@ -1,14 +1,16 @@
 package com.remote.support.service;
 
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
 import com.remote.education.service.EducationCryptoService;
+import com.remote.history.service.ConnectionLogActivityService;
+import com.remote.support.dto.SupportFileTransferResponse;
 import com.remote.support.model.SupportFileTransfer;
 import com.remote.support.model.SupportFileTransferStatus;
 import com.remote.support.model.SupportSession;
 import com.remote.support.model.SupportSessionStatus;
-import com.remote.core.model.User;
 import com.remote.support.repository.SupportFileTransferRepository;
 import com.remote.support.repository.SupportSessionRepository;
-import com.remote.core.repository.UserRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,9 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class SupportFileTransferService {
@@ -45,19 +45,22 @@ public class SupportFileTransferService {
     private final SupportSessionRepository supportSessionRepository;
     private final UserRepository userRepository;
     private final EducationCryptoService educationCryptoService;
+    private final ConnectionLogActivityService connectionLogActivityService;
 
     public SupportFileTransferService(SupportFileTransferRepository supportFileTransferRepository,
                                       SupportSessionRepository supportSessionRepository,
                                       UserRepository userRepository,
-                                      EducationCryptoService educationCryptoService) {
+                                      EducationCryptoService educationCryptoService,
+                                      ConnectionLogActivityService connectionLogActivityService) {
         this.supportFileTransferRepository = supportFileTransferRepository;
         this.supportSessionRepository = supportSessionRepository;
         this.userRepository = userRepository;
         this.educationCryptoService = educationCryptoService;
+        this.connectionLogActivityService = connectionLogActivityService;
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getFiles(String username, String sessionCode) {
+    public List<SupportFileTransferResponse> getFiles(String username, String sessionCode) {
         SupportSession session = getSession(sessionCode);
         User currentUser = getUser(username);
 
@@ -71,9 +74,9 @@ public class SupportFileTransferService {
     }
 
     @Transactional
-    public Map<String, Object> uploadFromOperator(String username,
-                                                  String sessionCode,
-                                                  MultipartFile multipartFile) {
+    public SupportFileTransferResponse uploadFromOperator(String username,
+                                                          String sessionCode,
+                                                          MultipartFile multipartFile) {
         SupportSession session = getSession(sessionCode);
         User operator = getUser(username);
 
@@ -106,6 +109,9 @@ public class SupportFileTransferService {
 
             SupportFileTransfer savedFile = supportFileTransferRepository.save(fileTransfer);
 
+            String pcName = session.getClientPc() != null ? session.getClientPc().getName() : null;
+            connectionLogActivityService.incrementFilesSent(operator.getUsername(), pcName);
+
             return toResponse(savedFile);
 
         } catch (Exception e) {
@@ -114,7 +120,7 @@ public class SupportFileTransferService {
     }
 
     @Transactional
-    public Map<String, Object> accept(String username, String sessionCode, Long fileId) {
+    public SupportFileTransferResponse accept(String username, String sessionCode, Long fileId) {
         SupportFileTransfer file = getFile(fileId);
 
         if (!file.getSupportSession().getSessionCode().equals(sessionCode)) {
@@ -125,7 +131,7 @@ public class SupportFileTransferService {
     }
 
     @Transactional
-    public Map<String, Object> reject(String username, String sessionCode, Long fileId) {
+    public SupportFileTransferResponse reject(String username, String sessionCode, Long fileId) {
         SupportFileTransfer file = getFile(fileId);
 
         if (!file.getSupportSession().getSessionCode().equals(sessionCode)) {
@@ -147,7 +153,7 @@ public class SupportFileTransferService {
     }
 
     @Transactional
-    public Map<String, Object> acceptFile(String username, Long fileId) {
+    public SupportFileTransferResponse acceptFile(String username, Long fileId) {
         SupportFileTransfer file = getFile(fileId);
         User client = getUser(username);
 
@@ -166,7 +172,7 @@ public class SupportFileTransferService {
     }
 
     @Transactional
-    public Map<String, Object> rejectFile(String username, Long fileId) {
+    public SupportFileTransferResponse rejectFile(String username, Long fileId) {
         SupportFileTransfer file = getFile(fileId);
         User client = getUser(username);
 
@@ -240,26 +246,21 @@ public class SupportFileTransferService {
         }
     }
 
-    private Map<String, Object> toResponse(SupportFileTransfer file) {
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        response.put("id", file.getId());
-        response.put("supportSessionId", file.getSupportSession().getId());
-
-        response.put("senderId", file.getSender().getId());
-        response.put("senderUsername", file.getSender().getUsername());
-
-        response.put("recipientId", file.getRecipient().getId());
-        response.put("recipientUsername", file.getRecipient().getUsername());
-
-        response.put("originalFilename", file.getOriginalFilename());
-        response.put("contentType", file.getContentType());
-        response.put("sizeBytes", file.getSizeBytes());
-        response.put("status", file.getStatus().name());
-        response.put("createdAt", file.getCreatedAt());
-        response.put("decidedAt", file.getDecidedAt());
-
-        return response;
+    private SupportFileTransferResponse toResponse(SupportFileTransfer file) {
+        return new SupportFileTransferResponse(
+                file.getId(),
+                file.getSupportSession().getId(),
+                file.getSender().getId(),
+                file.getSender().getUsername(),
+                file.getRecipient().getId(),
+                file.getRecipient().getUsername(),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                file.getSizeBytes(),
+                file.getStatus().name(),
+                file.getCreatedAt(),
+                file.getDecidedAt()
+        );
     }
 
     private void validateFile(MultipartFile file) {

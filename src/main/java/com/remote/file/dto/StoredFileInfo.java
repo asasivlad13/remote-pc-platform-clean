@@ -1,17 +1,39 @@
 package com.remote.file.dto;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 
 public class StoredFileInfo {
 
+    @NotBlank
     private String fileId;
+
+    @NotBlank
+    @Size(max = 255)
     private String fileName;
+
+    @Min(0)
     private long fileSize;
+
+    @NotBlank
+    @Size(max = 1000)
     private String downloadUrl;
+
+    @NotBlank
     private String encryptionKey;
+
+    @NotBlank
     private String iv;
+
     private boolean downloaded;
+
+    @NotNull
     private LocalDateTime createdAt;
+
     private LocalDateTime downloadedAt;
 
     public StoredFileInfo(String fileId,

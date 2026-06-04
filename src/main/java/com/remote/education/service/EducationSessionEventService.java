@@ -1,12 +1,13 @@
 package com.remote.education.service;
 
 import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
+import com.remote.education.dto.EducationSessionEventResponse;
 import com.remote.education.model.EducationSession;
 import com.remote.education.model.EducationSessionEvent;
 import com.remote.education.model.EducationSessionEventType;
 import com.remote.education.repository.EducationSessionEventRepository;
 import com.remote.education.repository.EducationSessionRepository;
-import com.remote.core.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,5 +70,23 @@ public class EducationSessionEventService {
         }
 
         return eventRepository.findByEducationSessionOrderByCreatedAtDesc(session);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EducationSessionEventResponse> getEventResponses(String username, String sessionCode) {
+        return getEvents(username, sessionCode)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private EducationSessionEventResponse toResponse(EducationSessionEvent event) {
+        return new EducationSessionEventResponse(
+                event.getId(),
+                event.getType(),
+                event.getMessage(),
+                event.getActor() != null ? event.getActor().getUsername() : null,
+                event.getCreatedAt()
+        );
     }
 }

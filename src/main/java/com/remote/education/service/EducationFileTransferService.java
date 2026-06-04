@@ -12,7 +12,14 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.remote.history.service.ConnectionLogActivityService;
+import com.remote.education.dto.EducationFileResponse;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
+import java.nio.charset.StandardCharsets;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +32,7 @@ public class EducationFileTransferService {
     private static final Path STORAGE_DIR = Path.of("uploads", "education");
     private static final long MAX_FILE_SIZE = 100L * 1024L * 1024L;
 
+    private final ConnectionLogActivityService connectionLogActivityService;
     private final EducationFileTransferRepository fileRepository;
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
@@ -32,12 +40,13 @@ public class EducationFileTransferService {
     private final EducationSessionEventService eventService;
     private final EducationCryptoService cryptoService;
 
-    public EducationFileTransferService(EducationFileTransferRepository fileRepository,
+    public EducationFileTransferService(ConnectionLogActivityService connectionLogActivityService, EducationFileTransferRepository fileRepository,
                                         EducationSessionRepository sessionRepository,
                                         EducationSessionParticipantRepository participantRepository,
                                         UserRepository userRepository,
                                         EducationSessionEventService eventService,
                                         EducationCryptoService cryptoService) {
+        this.connectionLogActivityService = connectionLogActivityService;
         this.fileRepository = fileRepository;
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
@@ -113,6 +122,12 @@ public class EducationFileTransferService {
             transfer.setSizeBytes(file.getSize());
 
             EducationFileTransfer saved = fileRepository.save(transfer);
+
+            String pcName = session.getTeacherPc() != null
+                    ? session.getTeacherPc().getName()
+                    : null;
+
+            connectionLogActivityService.incrementFilesSent(sender.getUsername(), pcName);
 
             String recipientText = recipient == null
                     ? "всем участникам"
@@ -207,5 +222,53 @@ public class EducationFileTransferService {
         }
 
         return filename.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    @Transactional
+    public EducationFileResponse uploadAndReturnResponse(String username,
+                                                         String sessionCode,
+                                                         Long recipientId,
+                                                         MultipartFile file) {
+        return toResponse(upload(username, sessionCode, recipientId, file));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EducationFileResponse> getVisibleFileResponses(String username, String sessionCode) {
+        return getVisibleFiles(username, sessionCode)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> downloadResponse(String username, Long fileId) {
+        EducationFileTransfer file = getFileForDownload(username, fileId);
+        Resource resource = loadResource(file);
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(file.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        file.getContentType() != null ? file.getContentType() : "application/octet-stream"
+                ))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(resource);
+    }
+
+    private EducationFileResponse toResponse(EducationFileTransfer file) {
+        return new EducationFileResponse(
+                file.getId(),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                file.getSizeBytes(),
+                file.getSender() != null ? file.getSender().getId() : null,
+                file.getSender() != null ? file.getSender().getUsername() : null,
+                file.getRecipient() != null ? file.getRecipient().getId() : null,
+                file.getRecipient() != null ? file.getRecipient().getUsername() : null,
+                file.getStatus().name(),
+                file.getCreatedAt()
+        );
     }
 }

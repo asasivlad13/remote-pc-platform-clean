@@ -2,10 +2,10 @@ package com.remote.websocket.client.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.remote.auth.security.JwtUtil;
-import com.remote.model.ConnectionLog;
+import com.remote.history.model.ConnectionLog;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
-import com.remote.repository.ConnectionLogRepository;
+import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;

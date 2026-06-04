@@ -2,11 +2,25 @@ package com.remote.education.model;
 
 import com.remote.core.model.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
 @Entity
-@Table(name = "education_chat_messages")
+@Table(
+        name = "education_chat_messages",
+        indexes = {
+                @Index(name = "idx_education_chat_messages_session", columnList = "education_session_id"),
+                @Index(name = "idx_education_chat_messages_sender", columnList = "sender_id"),
+                @Index(name = "idx_education_chat_messages_recipient", columnList = "recipient_id"),
+                @Index(name = "idx_education_chat_messages_created_at", columnList = "created_at")
+        }
+)
 public class EducationChatMessage {
 
     @Id
@@ -25,49 +39,11 @@ public class EducationChatMessage {
     @JoinColumn(name = "recipient_id")
     private User recipient;
 
+    @NotBlank
+    @Size(max = 2000)
     @Column(nullable = false, length = 2000)
     private String message;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    public Long getId() {
-        return id;
-    }
-
-    public EducationSession getEducationSession() {
-        return educationSession;
-    }
-
-    public void setEducationSession(EducationSession educationSession) {
-        this.educationSession = educationSession;
-    }
-
-    public User getSender() {
-        return sender;
-    }
-
-    public void setSender(User sender) {
-        this.sender = sender;
-    }
-
-    public User getRecipient() {
-        return recipient;
-    }
-
-    public void setRecipient(User recipient) {
-        this.recipient = recipient;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
 }

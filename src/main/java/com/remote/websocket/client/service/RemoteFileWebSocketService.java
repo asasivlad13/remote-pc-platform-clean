@@ -3,13 +3,13 @@ package com.remote.websocket.client.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.remote.education.service.EducationParticipantService;
+import com.remote.education.service.EducationControlService;
 import com.remote.support.service.SupportSessionService;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.context.annotation.Lazy;
 
 import java.util.Map;
 import java.util.UUID;
@@ -19,17 +19,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RemoteFileWebSocketService {
 
     private final AgentWebSocketHandler agentWebSocketHandler;
-    private final EducationParticipantService educationParticipantService;
+    private final EducationControlService educationControlService;
     private final SupportSessionService supportSessionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, WebSocketSession> requestOwners = new ConcurrentHashMap<>();
 
     public RemoteFileWebSocketService(@Lazy AgentWebSocketHandler agentWebSocketHandler,
-                                      EducationParticipantService educationParticipantService,
+                                      EducationControlService educationControlService,
                                       SupportSessionService supportSessionService) {
         this.agentWebSocketHandler = agentWebSocketHandler;
-        this.educationParticipantService = educationParticipantService;
+        this.educationControlService = educationControlService;
         this.supportSessionService = supportSessionService;
     }
 
@@ -139,7 +139,7 @@ public class RemoteFileWebSocketService {
             return educationCode != null
                     && !educationCode.isBlank()
                     && !"unknown".equals(username)
-                    && educationParticipantService.hasControlInSession(username, educationCode);
+                    && educationControlService.hasControlInSession(username, educationCode);
         }
 
         if ("support_operator_view_client".equals(profile)) {

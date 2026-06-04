@@ -1,11 +1,12 @@
 package com.remote.education.service;
 
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
 import com.remote.education.model.EducationChatMessage;
 import com.remote.education.model.EducationSession;
-import com.remote.core.model.User;
 import com.remote.education.repository.EducationChatMessageRepository;
+import com.remote.education.repository.EducationSessionParticipantRepository;
 import com.remote.education.repository.EducationSessionRepository;
-import com.remote.core.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,15 +20,18 @@ public class EducationChatService {
 
     private final EducationChatMessageRepository chatRepository;
     private final EducationSessionRepository sessionRepository;
+    private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final EducationCryptoService cryptoService;
 
     public EducationChatService(EducationChatMessageRepository chatRepository,
                                 EducationSessionRepository sessionRepository,
+                                EducationSessionParticipantRepository participantRepository,
                                 UserRepository userRepository,
                                 EducationCryptoService cryptoService) {
         this.chatRepository = chatRepository;
         this.sessionRepository = sessionRepository;
+        this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.cryptoService = cryptoService;
     }
@@ -92,7 +96,12 @@ public class EducationChatService {
 
         EducationChatMessage saved = chatRepository.save(message);
 
+        /*
+         * Принудительно обращаемся к lazy-полям внутри транзакции,
+         * чтобы при формировании ответа не было проблем с загрузкой sender/recipient.
+         */
         saved.getSender().getUsername();
+
         if (saved.getRecipient() != null) {
             saved.getRecipient().getUsername();
         }
@@ -120,14 +129,53 @@ public class EducationChatService {
         Map<String, Object> response = new LinkedHashMap<>();
 
         response.put("id", message.getId());
+
         response.put("senderId", message.getSender().getId());
         response.put("senderUsername", message.getSender().getUsername());
+        response.put(
+                "senderDisplayName",
+                resolveUserDisplayName(message.getEducationSession(), message.getSender())
+        );
+
         response.put("recipientId", message.getRecipient() != null ? message.getRecipient().getId() : null);
         response.put("recipientUsername", message.getRecipient() != null ? message.getRecipient().getUsername() : null);
+        response.put(
+                "recipientDisplayName",
+                message.getRecipient() != null
+                        ? resolveUserDisplayName(message.getEducationSession(), message.getRecipient())
+                        : null
+        );
+
         response.put("message", decryptMessageSafe(message.getMessage()));
         response.put("createdAt", message.getCreatedAt());
 
         return response;
+    }
+
+    private String resolveUserDisplayName(EducationSession session, User user) {
+        if (session == null || user == null) {
+            return null;
+        }
+
+        if (session.getTeacher() != null && session.getTeacher().getId().equals(user.getId())) {
+            return resolveDisplayName(session.getTeacherDisplayName(), user.getUsername());
+        }
+
+        return participantRepository.findByEducationSessionAndStudent(session, user)
+                .map(participant -> resolveDisplayName(participant.getDisplayName(), user.getUsername()))
+                .orElse(user.getUsername());
+    }
+
+    private String resolveDisplayName(String displayName, String fallbackUsername) {
+        if (displayName != null && !displayName.isBlank()) {
+            return displayName.trim();
+        }
+
+        if (fallbackUsername != null && !fallbackUsername.isBlank()) {
+            return fallbackUsername;
+        }
+
+        return "Пользователь";
     }
 
     private String decryptMessageSafe(String value) {

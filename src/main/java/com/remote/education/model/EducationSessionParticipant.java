@@ -2,119 +2,90 @@ package com.remote.education.model;
 
 import com.remote.core.model.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
 @Entity
-@Table(name = "education_session_participants")
+@Table(
+        name = "education_session_participants",
+        indexes = {
+                @Index(name = "idx_education_participants_session", columnList = "education_session_id"),
+                @Index(name = "idx_education_participants_student", columnList = "student_id"),
+                @Index(name = "idx_education_participants_status", columnList = "status"),
+                @Index(name = "idx_education_participants_joined_at", columnList = "joined_at"),
+                @Index(name = "idx_education_participants_last_activity", columnList = "last_activity_at")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_education_participants_session_student",
+                        columnNames = {"education_session_id", "student_id"}
+                )
+        }
+)
 public class EducationSessionParticipant {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "education_session_id", nullable = false)
     private EducationSession educationSession;
 
+    @NotNull
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private User student;
 
-    @Column(nullable = false)
+    @NotBlank
+    @Size(max = 100)
+    @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private EducationParticipantStatus status = EducationParticipantStatus.WAITING;
 
-    @Column(nullable = false)
+    @NotNull
+    @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
 
+    @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @Column(nullable = false)
+    @Column(name = "control_requested", nullable = false)
     private boolean controlRequested = false;
 
-    @Column(nullable = false)
+    @Column(name = "has_control", nullable = false)
     private boolean hasControl = false;
 
     @Column(name = "last_activity_at")
     private LocalDateTime lastActivityAt;
 
+    @Column(name = "control_requested_at")
     private LocalDateTime controlRequestedAt;
 
+    @Column(name = "control_granted_at")
     private LocalDateTime controlGrantedAt;
 
-    @Column(nullable = false)
+    @Column(name = "screen_share_requested", nullable = false)
     private boolean screenShareRequested = false;
 
-    @Column(nullable = false)
+    @Column(name = "screen_share_active", nullable = false)
     private boolean screenShareActive = false;
 
+    @Column(name = "screen_share_requested_at")
     private LocalDateTime screenShareRequestedAt;
 
+    @Column(name = "screen_share_started_at")
     private LocalDateTime screenShareStartedAt;
-
-    public Long getId() { return id; }
-
-    public EducationSession getEducationSession() { return educationSession; }
-
-    public void setEducationSession(EducationSession educationSession) { this.educationSession = educationSession; }
-
-    public User getStudent() { return student; }
-
-    public void setStudent(User student) { this.student = student; }
-
-    public String getDisplayName() { return displayName; }
-
-    public void setDisplayName(String displayName) { this.displayName = displayName; }
-
-    public EducationParticipantStatus getStatus() { return status; }
-
-    public void setStatus(EducationParticipantStatus status) { this.status = status; }
-
-    public LocalDateTime getJoinedAt() { return joinedAt; }
-
-    public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
-
-    public LocalDateTime getApprovedAt() { return approvedAt; }
-
-    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
-
-    public boolean isControlRequested() { return controlRequested; }
-
-    public void setControlRequested(boolean controlRequested) { this.controlRequested = controlRequested; }
-
-    public boolean isHasControl() { return hasControl; }
-
-    public void setHasControl(boolean hasControl) { this.hasControl = hasControl; }
-
-    public LocalDateTime getControlRequestedAt() { return controlRequestedAt; }
-
-    public void setControlRequestedAt(LocalDateTime controlRequestedAt) { this.controlRequestedAt = controlRequestedAt; }
-
-    public LocalDateTime getControlGrantedAt() { return controlGrantedAt; }
-
-    public void setControlGrantedAt(LocalDateTime controlGrantedAt) { this.controlGrantedAt = controlGrantedAt; }
-
-    public LocalDateTime getLastActivityAt() { return lastActivityAt; }
-
-    public void setLastActivityAt(LocalDateTime lastActivityAt) { this.lastActivityAt = lastActivityAt; }
-
-    public boolean isScreenShareRequested() { return screenShareRequested; }
-
-    public void setScreenShareRequested(boolean screenShareRequested) { this.screenShareRequested = screenShareRequested; }
-
-    public boolean isScreenShareActive() { return screenShareActive; }
-
-    public void setScreenShareActive(boolean screenShareActive) { this.screenShareActive = screenShareActive; }
-
-    public LocalDateTime getScreenShareRequestedAt() { return screenShareRequestedAt; }
-
-    public void setScreenShareRequestedAt(LocalDateTime screenShareRequestedAt) { this.screenShareRequestedAt = screenShareRequestedAt; }
-
-    public LocalDateTime getScreenShareStartedAt() { return screenShareStartedAt; }
-
-    public void setScreenShareStartedAt(LocalDateTime screenShareStartedAt) { this.screenShareStartedAt = screenShareStartedAt; }
 }

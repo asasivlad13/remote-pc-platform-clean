@@ -9,12 +9,14 @@ import com.remote.websocket.client.service.ClientSessionService;
 import com.remote.websocket.client.service.CommandAuthorizationService;
 import com.remote.websocket.client.service.CommandDispatchService;
 import com.remote.websocket.client.service.RemoteFileWebSocketService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+@Slf4j
 @Component
 public class WebSocketClientHandler extends TextWebSocketHandler {
 

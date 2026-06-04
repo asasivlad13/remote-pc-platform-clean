@@ -1,0 +1,85 @@
+package com.remote.pc.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
+import com.remote.pc.model.Pc;
+import com.remote.pc.model.PcStatus;
+import com.remote.pc.repository.PcRepository;
+import com.remote.websocket.agent.AgentWebSocketHandler;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+
+@Service
+public class PcPowerService {
+
+    private final PcRepository pcRepository;
+    private final UserRepository userRepository;
+    private final AgentWebSocketHandler agentWebSocketHandler;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public PcPowerService(PcRepository pcRepository,
+                          UserRepository userRepository,
+                          @Lazy AgentWebSocketHandler agentWebSocketHandler) {
+        this.pcRepository = pcRepository;
+        this.userRepository = userRepository;
+        this.agentWebSocketHandler = agentWebSocketHandler;
+    }
+
+    @Transactional
+    public Map<String, String> enableSoftSleep(Long pcId, String username) {
+        Pc pc = findUserPc(pcId, username);
+
+        sendPowerCommand(pc, "SOFT_SLEEP");
+
+        pc.setStatus(PcStatus.SLEEP);
+        pcRepository.save(pc);
+
+        return Map.of("message", "Режим ожидания включён");
+    }
+
+    @Transactional
+    public Map<String, String> disableSoftSleep(Long pcId, String username) {
+        Pc pc = findUserPc(pcId, username);
+
+        sendPowerCommand(pc, "SOFT_WAKE");
+
+        pc.setStatus(PcStatus.ONLINE);
+        pcRepository.save(pc);
+
+        return Map.of("message", "ПК выведен из режима ожидания");
+    }
+
+    private Pc findUserPc(Long pcId, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Pc pc = pcRepository.findById(pcId)
+                .orElseThrow(() -> new IllegalArgumentException("ПК не найден"));
+
+        if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Доступ запрещён");
+        }
+
+        return pc;
+    }
+
+    private void sendPowerCommand(Pc pc, String action) {
+        try {
+            ObjectNode command = objectMapper.createObjectNode();
+            command.put("type", "command");
+            command.put("pcId", pc.getId());
+            command.put("action", action);
+
+            agentWebSocketHandler.sendCommandToAgent(pc.getId(), command);
+
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить команду агенту");
+        }
+    }
+}

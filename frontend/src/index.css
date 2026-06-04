@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:
+            radial-gradient(circle at top left, rgba(59, 130, 246, 0.22), transparent 34%),
+            radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.18), transparent 32%),
+            linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+}
+
+button,
+input {
+    font-family: inherit;
+}
+
+a {
+    color: inherit;
+}
+
+.top-action-button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #334155;
+    transition: 0.15s ease;
+}
+
+.top-action-button:hover {
+    background: #f8fafc;
+}
+
+.top-action-button.danger {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #be123c;
+}
+
+.top-action-button.danger:hover {
+    background: #ffe4e6;
+}
+
+#remote-screen-fullscreen-target:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    padding: 0;
+    border-radius: 0;
+    background: #000;
+}
+
+#remote-screen-fullscreen-target:fullscreen .remote-screen-video {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    object-fit: contain;
+}
+
+#remote-screen-fullscreen-target:fullscreen .remote-screen-video.object-cover {
+    object-fit: cover;
+}
+
+.top-action-button.active-control {
+    border-color: #bbf7d0;
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.top-action-button.active-control:hover {
+    background: #d1fae5;
+}

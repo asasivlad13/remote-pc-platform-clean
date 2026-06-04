@@ -1,6 +1,7 @@
 package com.remote.file.service;
 
 import com.remote.file.dto.StoredFileInfo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 public class FileStorageService {
 
@@ -29,6 +31,8 @@ public class FileStorageService {
         this.fileCryptoService = fileCryptoService;
 
         Files.createDirectories(this.storageDir);
+
+        log.info("Remote file storage initialized: storageDir={}", this.storageDir);
     }
 
     public StoredFileInfo storeEncrypted(MultipartFile file, String publicBaseUrl) throws Exception {
@@ -67,9 +71,13 @@ public class FileStorageService {
 
         files.put(fileId, info);
 
-        System.out.println("🔐 File encrypted and stored:");
-        System.out.println("  Original: " + originalFileName);
-        System.out.println("  Stored: " + targetPath);
+        log.info(
+                "File encrypted and stored: fileId={}, originalFileName={}, storedPath={}, size={}",
+                fileId,
+                originalFileName,
+                targetPath,
+                file.getSize()
+        );
 
         return info;
     }
@@ -94,6 +102,7 @@ public class FileStorageService {
         info.markDownloaded();
 
         try {
+            log.info("One-time encrypted file resource loaded: fileId={}, fileName={}", fileId, info.getFileName());
             return new UrlResource(filePath.toUri());
         } catch (MalformedURLException e) {
             throw new IllegalArgumentException("Cannot load encrypted file", e);

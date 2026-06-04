@@ -1,7 +1,7 @@
 package com.remote.websocket.client.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.remote.education.service.EducationParticipantService;
+import com.remote.education.service.EducationControlService;
 import com.remote.service.SessionPermissionService;
 import com.remote.support.service.SupportSessionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,7 @@ public class CommandAuthorizationService {
     private SessionPermissionService sessionPermissionService;
 
     @Autowired
-    private EducationParticipantService educationParticipantService;
+    private EducationControlService educationControlService;
 
     @Autowired
     private SupportSessionService supportSessionService;
@@ -39,7 +39,7 @@ public class CommandAuthorizationService {
                     && !educationCode.isBlank()
                     && !"unknown".equals(username)
                     && isRemoteControlAction(action)
-                    && educationParticipantService.hasControlInSession(username, educationCode);
+                    && educationControlService.hasControlInSession(username, educationCode);
         }
 
         if ("support_operator_view_client".equals(profile)) {

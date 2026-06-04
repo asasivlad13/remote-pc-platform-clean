@@ -1,62 +1,60 @@
 package com.remote.support.controller;
 
+import com.remote.core.service.CurrentUserService;
+import com.remote.support.dto.SupportFileTransferResponse;
 import com.remote.support.service.SupportFileTransferService;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/support/sessions/{sessionCode}/files")
 public class SupportFileTransferController {
 
     private final SupportFileTransferService supportFileTransferService;
-
-    public SupportFileTransferController(SupportFileTransferService supportFileTransferService) {
-        this.supportFileTransferService = supportFileTransferService;
-    }
+    private final CurrentUserService currentUserService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getFiles(@PathVariable String sessionCode) {
-        return ResponseEntity.ok(
-                supportFileTransferService.getFiles(getCurrentUsername(), sessionCode)
-        );
+    public List<SupportFileTransferResponse> getFiles(@PathVariable String sessionCode,
+                                                      HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportFileTransferService.getFiles(username, sessionCode);
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, Object>> upload(@PathVariable String sessionCode,
-                                                      @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(
-                supportFileTransferService.uploadFromOperator(getCurrentUsername(), sessionCode, file)
-        );
+    public SupportFileTransferResponse upload(@PathVariable String sessionCode,
+                                              @RequestParam("file") MultipartFile file,
+                                              HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportFileTransferService.uploadFromOperator(username, sessionCode, file);
     }
 
     @PostMapping("/{fileId}/accept")
-    public ResponseEntity<Map<String, Object>> accept(@PathVariable String sessionCode,
-                                                      @PathVariable Long fileId) {
-        return ResponseEntity.ok(
-                supportFileTransferService.accept(getCurrentUsername(), sessionCode, fileId)
-        );
+    public SupportFileTransferResponse accept(@PathVariable String sessionCode,
+                                              @PathVariable Long fileId,
+                                              HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportFileTransferService.accept(username, sessionCode, fileId);
     }
 
     @PostMapping("/{fileId}/reject")
-    public ResponseEntity<Map<String, Object>> reject(@PathVariable String sessionCode,
-                                                      @PathVariable Long fileId) {
-        return ResponseEntity.ok(
-                supportFileTransferService.reject(getCurrentUsername(), sessionCode, fileId)
-        );
+    public SupportFileTransferResponse reject(@PathVariable String sessionCode,
+                                              @PathVariable Long fileId,
+                                              HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportFileTransferService.reject(username, sessionCode, fileId);
     }
 
     @GetMapping("/{fileId}/download")
     public ResponseEntity<byte[]> download(@PathVariable String sessionCode,
-                                           @PathVariable Long fileId) {
-        return supportFileTransferService.download(getCurrentUsername(), sessionCode, fileId);
-    }
-
-    private String getCurrentUsername() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
+                                           @PathVariable Long fileId,
+                                           HttpServletRequest request) {
+        String username = currentUserService.extractUsername(request);
+        return supportFileTransferService.download(username, sessionCode, fileId);
     }
 }

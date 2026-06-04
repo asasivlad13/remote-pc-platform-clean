@@ -1,19 +1,20 @@
 package com.remote.support.service;
 
+import com.remote.core.exception.BusinessException;
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.model.PcStatus;
+import com.remote.support.dto.SupportSessionResponse;
 import com.remote.support.model.SupportSession;
 import com.remote.support.model.SupportSessionStatus;
-import com.remote.core.model.User;
 import com.remote.support.repository.SupportSessionRepository;
-import com.remote.core.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @Service
 public class SupportSessionService {
@@ -29,12 +30,8 @@ public class SupportSessionService {
         this.userRepository = userRepository;
     }
 
-    /*
-     * Оператор создаёт только заявку/сессию и код.
-     * ПК клиента здесь НЕ выбирается.
-     */
     @Transactional
-    public Map<String, Object> create(String operatorUsername, String title) {
+    public SupportSessionResponse create(String operatorUsername, String title) {
         User operator = findUser(operatorUsername);
 
         finishOldActiveOperatorSessions(operator);
@@ -51,30 +48,35 @@ public class SupportSessionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getByCode(String sessionCode) {
+    public SupportSessionResponse getByCode(String sessionCode) {
         SupportSession session = findSession(sessionCode);
+
+        if (isFinishedOrCancelled(session)) {
+            throw conflict("SUPPORT_SESSION_FINISHED", "Сессия технической поддержки уже завершена");
+        }
+
         return toResponse(session);
     }
 
-    /*
-     * Клиент входит по коду.
-     * Здесь автоматически выбирается онлайн-ПК клиента.
-     */
     @Transactional
-    public Map<String, Object> join(String clientUsername, String sessionCode) {
+    public SupportSessionResponse join(String clientUsername, String sessionCode) {
         User client = findUser(clientUsername);
         SupportSession session = findSession(sessionCode);
 
+        if (isFinishedOrCancelled(session)) {
+            throw conflict("SUPPORT_SESSION_FINISHED", "Сессия технической поддержки уже завершена");
+        }
+
         if (session.getStatus() != SupportSessionStatus.WAITING_CLIENT) {
-            throw new IllegalArgumentException("Сессия недоступна для подключения");
+            throw conflict("SUPPORT_SESSION_NOT_JOINABLE", "Сессия недоступна для подключения");
         }
 
         if (session.getClient() != null && !session.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("К этой сессии уже подключён другой клиент");
+            throw conflict("SUPPORT_SESSION_HAS_ANOTHER_CLIENT", "К этой сессии уже подключён другой клиент");
         }
 
         if (session.getOperator().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Оператор не может подключиться как клиент");
+            throw forbidden("OPERATOR_CANNOT_JOIN_AS_CLIENT", "Оператор не может подключиться как клиент");
         }
 
         Pc clientPc = findOnlineClientPc(client);
@@ -88,7 +90,7 @@ public class SupportSessionService {
     }
 
     @Transactional
-    public Map<String, Object> finish(String username, String sessionCode) {
+    public SupportSessionResponse finish(String username, String sessionCode) {
         User currentUser = findUser(username);
         SupportSession session = findSession(sessionCode);
 
@@ -97,11 +99,10 @@ public class SupportSessionService {
                 && session.getClient().getId().equals(currentUser.getId());
 
         if (!isOperator && !isClient) {
-            throw new IllegalArgumentException("Нет доступа к завершению этой сессии");
+            throw forbidden("SUPPORT_SESSION_FINISH_FORBIDDEN", "Нет доступа к завершению этой сессии");
         }
 
-        if (session.getStatus() != SupportSessionStatus.FINISHED
-                && session.getStatus() != SupportSessionStatus.CANCELLED) {
+        if (!isFinishedOrCancelled(session)) {
             session.finish();
         }
 
@@ -109,14 +110,14 @@ public class SupportSessionService {
     }
 
     @Transactional
-    public Map<String, Object> requestControl(String operatorUsername, String sessionCode) {
+    public SupportSessionResponse requestControl(String operatorUsername, String sessionCode) {
         User operator = findUser(operatorUsername);
         SupportSession session = findSession(sessionCode);
 
         checkActive(session);
 
         if (!session.getOperator().getId().equals(operator.getId())) {
-            throw new IllegalArgumentException("Только оператор может запросить управление");
+            throw forbidden("ONLY_OPERATOR_CAN_REQUEST_CONTROL", "Только оператор может запросить управление");
         }
 
         session.setControlRequested(true);
@@ -128,7 +129,7 @@ public class SupportSessionService {
     }
 
     @Transactional
-    public Map<String, Object> allowControl(String clientUsername, String sessionCode) {
+    public SupportSessionResponse allowControl(String clientUsername, String sessionCode) {
         User client = findUser(clientUsername);
         SupportSession session = findSession(sessionCode);
 
@@ -136,7 +137,7 @@ public class SupportSessionService {
         checkClient(session, client);
 
         if (!session.isControlRequested()) {
-            throw new IllegalArgumentException("Оператор ещё не запрашивал управление");
+            throw conflict("CONTROL_NOT_REQUESTED", "Оператор ещё не запрашивал управление");
         }
 
         session.setControlAllowed(true);
@@ -146,7 +147,7 @@ public class SupportSessionService {
     }
 
     @Transactional
-    public Map<String, Object> denyControl(String clientUsername, String sessionCode) {
+    public SupportSessionResponse denyControl(String clientUsername, String sessionCode) {
         User client = findUser(clientUsername);
         SupportSession session = findSession(sessionCode);
 
@@ -162,10 +163,10 @@ public class SupportSessionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getMyActiveOperatorSession(String username) {
+    public SupportSessionResponse getMyActiveOperatorSession(String username) {
         User operator = findUser(username);
 
-        Map<String, Object> active = supportSessionRepository
+        SupportSessionResponse active = supportSessionRepository
                 .findFirstByOperatorAndStatusOrderByCreatedAtDesc(operator, SupportSessionStatus.ACTIVE)
                 .map(this::toResponse)
                 .orElse(null);
@@ -181,7 +182,7 @@ public class SupportSessionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getMyActiveClientSession(String username) {
+    public SupportSessionResponse getMyActiveClientSession(String username) {
         User client = findUser(username);
 
         return supportSessionRepository
@@ -190,7 +191,6 @@ public class SupportSessionService {
                 .orElse(null);
     }
 
-
     @Transactional(readOnly = true)
     public boolean hasOperatorControl(String operatorUsername, String sessionCode, Long targetPcId) {
         User operator = findUser(operatorUsername);
@@ -198,11 +198,7 @@ public class SupportSessionService {
         SupportSession session = supportSessionRepository.findBySessionCode(sessionCode)
                 .orElse(null);
 
-        if (session == null) {
-            return false;
-        }
-
-        if (session.getStatus() != SupportSessionStatus.ACTIVE) {
+        if (session == null || session.getStatus() != SupportSessionStatus.ACTIVE) {
             return false;
         }
 
@@ -220,14 +216,15 @@ public class SupportSessionService {
 
     private Pc findOnlineClientPc(User client) {
         if (client.getPcs() == null || client.getPcs().isEmpty()) {
-            throw new IllegalArgumentException("У клиента нет зарегистрированных ПК");
+            throw conflict("CLIENT_HAS_NO_REGISTERED_PC", "У клиента нет зарегистрированных ПК");
         }
 
         return client.getPcs()
                 .stream()
                 .filter(pc -> pc.getStatus() == PcStatus.ONLINE)
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> conflict(
+                        "CLIENT_HAS_NO_ONLINE_AGENT",
                         "У клиента нет подключённого онлайн-агента. Запустите агент на ПК клиента и повторите вход."
                 ));
     }
@@ -250,28 +247,33 @@ public class SupportSessionService {
 
     private User findUser(String username) {
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> notFound("USER_NOT_FOUND", "Пользователь не найден"));
     }
 
     private SupportSession findSession(String sessionCode) {
         return supportSessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Сессия технической поддержки не найдена"));
+                .orElseThrow(() -> notFound("SUPPORT_SESSION_NOT_FOUND", "Сессия технической поддержки не найдена"));
     }
 
     private void checkActive(SupportSession session) {
         if (session.getStatus() != SupportSessionStatus.ACTIVE) {
-            throw new IllegalArgumentException("Сессия техподдержки не активна");
+            throw conflict("SUPPORT_SESSION_NOT_ACTIVE", "Сессия техподдержки не активна");
         }
 
         if (session.getClient() == null || session.getClientPc() == null) {
-            throw new IllegalArgumentException("К сессии ещё не подключён клиент");
+            throw conflict("SUPPORT_CLIENT_NOT_CONNECTED", "К сессии ещё не подключён клиент");
         }
     }
 
     private void checkClient(SupportSession session, User client) {
         if (session.getClient() == null || !session.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Только клиент этой сессии может выполнить действие");
+            throw forbidden("ONLY_SESSION_CLIENT_ALLOWED", "Только клиент этой сессии может выполнить действие");
         }
+    }
+
+    private boolean isFinishedOrCancelled(SupportSession session) {
+        return session.getStatus() == SupportSessionStatus.FINISHED
+                || session.getStatus() == SupportSessionStatus.CANCELLED;
     }
 
     private String generateUniqueCode() {
@@ -284,38 +286,50 @@ public class SupportSessionService {
         return code;
     }
 
-    private Map<String, Object> toResponse(SupportSession session) {
-        Map<String, Object> response = new LinkedHashMap<>();
+    private SupportSessionResponse toResponse(SupportSession session) {
+        return new SupportSessionResponse(
+                session.getId(),
+                session.getSessionCode(),
+                session.getTitle(),
+                session.getStatus(),
+                session.getCreatedAt(),
+                session.getStartedAt(),
+                session.getFinishedAt(),
 
-        response.put("id", session.getId());
-        response.put("sessionCode", session.getSessionCode());
-        response.put("title", session.getTitle());
-        response.put("status", session.getStatus());
-        response.put("createdAt", session.getCreatedAt());
-        response.put("startedAt", session.getStartedAt());
-        response.put("finishedAt", session.getFinishedAt());
+                session.getOperator().getId(),
+                session.getOperator().getUsername(),
 
-        response.put("operatorId", session.getOperator().getId());
-        response.put("operatorUsername", session.getOperator().getUsername());
+                session.getClient() != null ? session.getClient().getId() : null,
+                session.getClient() != null ? session.getClient().getUsername() : null,
 
-        response.put("clientId", session.getClient() != null ? session.getClient().getId() : null);
-        response.put("clientUsername", session.getClient() != null ? session.getClient().getUsername() : null);
+                session.getClientPc() != null ? session.getClientPc().getId() : null,
+                session.getClientPc() != null ? session.getClientPc().getName() : null,
+                session.getClientPc() != null && session.getClientPc().getStatus() != null
+                        ? session.getClientPc().getStatus().name()
+                        : null,
+                session.getClientPc() != null ? session.getClientPc().getWebrtcUrl() : null,
+                session.getClientPc() != null ? session.getClientPc().getStreamName() : null,
+                session.getClientPc() != null ? session.getClientPc().getScreenWidth() : null,
+                session.getClientPc() != null ? session.getClientPc().getScreenHeight() : null,
+                session.getClientPc() != null ? session.getClientPc().getScreenWidth() : null,
+                session.getClientPc() != null ? session.getClientPc().getScreenHeight() : null,
 
-        response.put("clientPcId", session.getClientPc() != null ? session.getClientPc().getId() : null);
-        response.put("clientPcName", session.getClientPc() != null ? session.getClientPc().getName() : null);
-        response.put("clientPcStatus", session.getClientPc() != null ? session.getClientPc().getStatus() : null);
-        response.put("clientPcWebrtcUrl", session.getClientPc() != null ? session.getClientPc().getWebrtcUrl() : null);
-        response.put("clientPcStreamName", session.getClientPc() != null ? session.getClientPc().getStreamName() : null);
-        response.put("clientPcScreenWidth", session.getClientPc() != null ? session.getClientPc().getScreenWidth() : null);
-        response.put("clientPcScreenHeight", session.getClientPc() != null ? session.getClientPc().getScreenHeight() : null);
-        response.put("screenWidth", session.getClientPc() != null ? session.getClientPc().getScreenWidth() : null);
-        response.put("screenHeight", session.getClientPc() != null ? session.getClientPc().getScreenHeight() : null);
+                session.isControlRequested(),
+                session.isControlAllowed(),
+                session.getControlRequestedAt(),
+                session.getControlAllowedAt()
+        );
+    }
 
-        response.put("controlRequested", session.isControlRequested());
-        response.put("controlAllowed", session.isControlAllowed());
-        response.put("controlRequestedAt", session.getControlRequestedAt());
-        response.put("controlAllowedAt", session.getControlAllowedAt());
+    private BusinessException forbidden(String code, String message) {
+        return new BusinessException(HttpStatus.FORBIDDEN, code, message);
+    }
 
-        return response;
+    private BusinessException notFound(String code, String message) {
+        return new BusinessException(HttpStatus.NOT_FOUND, code, message);
+    }
+
+    private BusinessException conflict(String code, String message) {
+        return new BusinessException(HttpStatus.CONFLICT, code, message);
     }
 }

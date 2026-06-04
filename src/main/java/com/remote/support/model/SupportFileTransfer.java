@@ -2,140 +2,83 @@ package com.remote.support.model;
 
 import com.remote.core.model.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
+@NoArgsConstructor
+@Getter
+@Setter
 @Entity
-@Table(name = "support_file_transfers")
+@Table(
+        name = "support_file_transfers",
+        indexes = {
+                @Index(name = "idx_support_file_transfers_session", columnList = "support_session_id"),
+                @Index(name = "idx_support_file_transfers_sender", columnList = "sender_id"),
+                @Index(name = "idx_support_file_transfers_recipient", columnList = "recipient_id"),
+                @Index(name = "idx_support_file_transfers_status", columnList = "status"),
+                @Index(name = "idx_support_file_transfers_created_at", columnList = "created_at")
+        }
+)
 public class SupportFileTransfer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "support_session_id", nullable = false)
     private SupportSession supportSession;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
 
-    @Column(name = "original_filename", nullable = false)
+    @NotBlank
+    @Size(max = 255)
+    @Column(name = "original_filename", nullable = false, length = 255)
     private String originalFilename;
 
-    @Column(name = "content_type")
+    @Size(max = 100)
+    @Column(name = "content_type", length = 100)
     private String contentType;
 
+    @NotNull
+    @Min(0)
     @Column(name = "size_bytes", nullable = false)
     private Long sizeBytes;
 
+    @NotNull
     @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(name = "file_data", nullable = false, columnDefinition = "bytea")
     private byte[] fileData;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private SupportFileTransferStatus status = SupportFileTransferStatus.PENDING;
 
+    @NotNull
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
-
-    public SupportFileTransfer() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public SupportSession getSupportSession() {
-        return supportSession;
-    }
-
-    public void setSupportSession(SupportSession supportSession) {
-        this.supportSession = supportSession;
-    }
-
-    public User getSender() {
-        return sender;
-    }
-
-    public void setSender(User sender) {
-        this.sender = sender;
-    }
-
-    public User getRecipient() {
-        return recipient;
-    }
-
-    public void setRecipient(User recipient) {
-        this.recipient = recipient;
-    }
-
-    public String getOriginalFilename() {
-        return originalFilename;
-    }
-
-    public void setOriginalFilename(String originalFilename) {
-        this.originalFilename = originalFilename;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
-    }
-
-    public Long getSizeBytes() {
-        return sizeBytes;
-    }
-
-    public void setSizeBytes(Long sizeBytes) {
-        this.sizeBytes = sizeBytes;
-    }
-
-    public byte[] getFileData() {
-        return fileData;
-    }
-
-    public void setFileData(byte[] fileData) {
-        this.fileData = fileData;
-    }
-
-    public SupportFileTransferStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(SupportFileTransferStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getDecidedAt() {
-        return decidedAt;
-    }
-
-    public void setDecidedAt(LocalDateTime decidedAt) {
-        this.decidedAt = decidedAt;
-    }
 
     public void accept() {
         this.status = SupportFileTransferStatus.ACCEPTED;

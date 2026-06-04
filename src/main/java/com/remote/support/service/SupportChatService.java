@@ -1,19 +1,18 @@
 package com.remote.support.service;
 
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
 import com.remote.education.service.EducationCryptoService;
+import com.remote.support.dto.SupportChatMessageResponse;
 import com.remote.support.model.SupportChatMessage;
 import com.remote.support.model.SupportSession;
 import com.remote.support.model.SupportSessionStatus;
-import com.remote.core.model.User;
 import com.remote.support.repository.SupportChatMessageRepository;
 import com.remote.support.repository.SupportSessionRepository;
-import com.remote.core.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class SupportChatService {
@@ -34,7 +33,7 @@ public class SupportChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getMessages(String username, String sessionCode) {
+    public List<SupportChatMessageResponse> getMessages(String username, String sessionCode) {
         SupportSession session = getSession(sessionCode);
         User currentUser = getUser(username);
 
@@ -48,20 +47,13 @@ public class SupportChatService {
     }
 
     @Transactional
-    public Map<String, Object> sendMessage(String username, String sessionCode, String messageText) {
+    public SupportChatMessageResponse sendMessage(String username, String sessionCode, String messageText) {
         SupportSession session = getSession(sessionCode);
         User sender = getUser(username);
 
         checkSessionParticipant(session, sender);
         checkSessionActive(session);
-
-        if (messageText == null || messageText.trim().isEmpty()) {
-            throw new IllegalArgumentException("Сообщение не может быть пустым");
-        }
-
-        if (messageText.length() > 2000) {
-            throw new IllegalArgumentException("Сообщение слишком длинное");
-        }
+        validateMessage(messageText);
 
         SupportChatMessage message = new SupportChatMessage();
         message.setSupportSession(session);
@@ -75,20 +67,26 @@ public class SupportChatService {
         return toResponse(savedMessage);
     }
 
-    private Map<String, Object> toResponse(SupportChatMessage message) {
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        response.put("id", message.getId());
-        response.put("supportSessionId", message.getSupportSession().getId());
-        response.put("senderId", message.getSender().getId());
-        response.put("senderUsername", message.getSender().getUsername());
-
+    private SupportChatMessageResponse toResponse(SupportChatMessage message) {
         String decryptedMessage = educationCryptoService.decryptText(message.getMessage());
-        response.put("message", decryptedMessage);
 
-        response.put("createdAt", message.getCreatedAt());
+        return new SupportChatMessageResponse(
+                message.getId(),
+                message.getSender().getId(),
+                message.getSender().getUsername(),
+                decryptedMessage,
+                message.getCreatedAt()
+        );
+    }
 
-        return response;
+    private void validateMessage(String messageText) {
+        if (messageText == null || messageText.trim().isEmpty()) {
+            throw new IllegalArgumentException("Сообщение не может быть пустым");
+        }
+
+        if (messageText.length() > 2000) {
+            throw new IllegalArgumentException("Сообщение слишком длинное");
+        }
     }
 
     private SupportSession getSession(String sessionCode) {

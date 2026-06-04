@@ -19,12 +19,6 @@ public interface EducationSessionRepository extends JpaRepository<EducationSessi
     @EntityGraph(attributePaths = {"teacher", "teacherPc"})
     List<EducationSession> findByTeacherOrderByCreatedAtDesc(User teacher);
 
-    @EntityGraph(attributePaths = {"teacher", "teacherPc"})
-    List<EducationSession> findByTeacherAndStatusOrderByCreatedAtDesc(
-            User teacher,
-            EducationSessionStatus status
-    );
-
     Optional<EducationSession> findFirstByTeacherAndStatusOrderByCreatedAtDesc(
             User teacher,
             EducationSessionStatus status
