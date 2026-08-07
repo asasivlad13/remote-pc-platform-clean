@@ -1,5 +1,6 @@
 package com.remote.file.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class FileCleanupService {
 
@@ -44,16 +46,28 @@ public class FileCleanupService {
 
                                 if (lastModified.plus(maxAge).isBefore(now)) {
                                     Files.deleteIfExists(path);
-                                    System.out.println("🧹 Deleted old uploaded file: " + path.getFileName());
+
+                                    log.info(
+                                            "Old uploaded file deleted: fileName={}",
+                                            path.getFileName()
+                                    );
                                 }
                             } catch (Exception e) {
-                                System.err.println("Cleanup file error: " + path + " / " + e.getMessage());
+                                log.warn(
+                                        "Failed to clean up uploaded file: path={}",
+                                        path,
+                                        e
+                                );
                             }
                         });
             }
 
         } catch (Exception e) {
-            System.err.println("File cleanup error: " + e.getMessage());
+            log.error(
+                    "File cleanup failed: storageDir={}",
+                    storageDir,
+                    e
+            );
         }
     }
 }

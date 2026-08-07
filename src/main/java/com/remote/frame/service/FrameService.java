@@ -6,11 +6,13 @@ import com.remote.frame.dto.FrameUploadRequest;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.client.WebSocketClientHandler;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 public class FrameService {
 
@@ -48,7 +50,11 @@ public class FrameService {
 
         lastFrames.put(mac, imageBase64);
 
-        System.out.println("📸 Frame saved for " + mac + ", size: " + imageBase64.length() + " chars");
+        log.debug(
+                "Frame saved: mac={}, sizeChars={}",
+                mac,
+                imageBase64.length()
+        );
 
         webSocketClientHandler.broadcastFrame(pc.getId(), imageBase64);
     }

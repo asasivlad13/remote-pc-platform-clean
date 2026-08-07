@@ -4,11 +4,13 @@ import com.remote.education.model.EducationSessionStatus;
 import com.remote.education.repository.EducationSessionRepository;
 import com.remote.support.model.SupportSessionStatus;
 import com.remote.support.repository.SupportSessionRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class StartupSessionCleanupService {
 
@@ -30,7 +32,11 @@ public class StartupSessionCleanupService {
                 .forEach(session -> {
                     session.finish();
                     educationSessionRepository.save(session);
-                    System.out.println("Startup cleanup: education session closed: " + session.getSessionCode());
+
+                    log.info(
+                            "Startup cleanup: education session closed: sessionCode={}",
+                            session.getSessionCode()
+                    );
                 });
 
         supportSessionRepository.findAll()
@@ -47,7 +53,11 @@ public class StartupSessionCleanupService {
                     }
 
                     supportSessionRepository.save(session);
-                    System.out.println("Startup cleanup: support session closed: " + session.getSessionCode());
+
+                    log.info(
+                            "Startup cleanup: support session closed: sessionCode={}",
+                            session.getSessionCode()
+                    );
                 });
     }
 }
