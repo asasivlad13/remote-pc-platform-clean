@@ -7,6 +7,16 @@ import com.remote.support.service.SupportSessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import static com.remote.common.ServerConstants.ACTION_GAMEPAD_CONNECT;
+import static com.remote.common.ServerConstants.ACTION_GAMEPAD_DISCONNECT;
+import static com.remote.common.ServerConstants.ACTION_GAMEPAD_STATE;
+import static com.remote.common.ServerConstants.ACTION_KEY_COMBO;
+import static com.remote.common.ServerConstants.ACTION_KEY_PRESS;
+import static com.remote.common.ServerConstants.ACTION_KEY_RELEASE;
+import static com.remote.common.ServerConstants.ACTION_MOUSE_CLICK;
+import static com.remote.common.ServerConstants.ACTION_MOUSE_MOVE;
+import static com.remote.common.ServerConstants.ACTION_MOUSE_WHEEL;
+
 @Service
 public class CommandAuthorizationService {
 
@@ -58,17 +68,17 @@ public class CommandAuthorizationService {
     }
 
     private boolean isGamepadAction(String action) {
-        return "GAMEPAD_CONNECT".equals(action)
-                || "GAMEPAD_STATE".equals(action)
-                || "GAMEPAD_DISCONNECT".equals(action);
+        return ACTION_GAMEPAD_CONNECT.equals(action)
+                || ACTION_GAMEPAD_STATE.equals(action)
+                || ACTION_GAMEPAD_DISCONNECT.equals(action);
     }
 
     private boolean isRemoteControlAction(String action) {
-        return "MOUSE_MOVE".equals(action)
-                || "MOUSE_CLICK".equals(action)
-                || "MOUSE_WHEEL".equals(action)
-                || "KEY_PRESS".equals(action)
-                || "KEY_RELEASE".equals(action)
-                || "KEY_COMBO".equals(action);
+        return ACTION_MOUSE_MOVE.equals(action)
+                || ACTION_MOUSE_CLICK.equals(action)
+                || ACTION_MOUSE_WHEEL.equals(action)
+                || ACTION_KEY_PRESS.equals(action)
+                || ACTION_KEY_RELEASE.equals(action)
+                || ACTION_KEY_COMBO.equals(action);
     }
 }
