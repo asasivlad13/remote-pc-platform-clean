@@ -3,12 +3,14 @@ package com.remote.pc.service;
 import com.remote.pc.model.Pc;
 import com.remote.pc.model.PcStatus;
 import com.remote.pc.repository.PcRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 public class PcOnlineStatusMonitorService {
 
@@ -34,7 +36,11 @@ public class PcOnlineStatusMonitorService {
                 pc.setStatus(PcStatus.OFFLINE);
                 pcRepository.save(pc);
 
-                System.out.println("PC " + pc.getName() + " marked OFFLINE by heartbeat timeout");
+                log.info(
+                        "PC marked OFFLINE by heartbeat timeout: pcId={}, pcName={}",
+                        pc.getId(),
+                        pc.getName()
+                );
             }
         }
     }

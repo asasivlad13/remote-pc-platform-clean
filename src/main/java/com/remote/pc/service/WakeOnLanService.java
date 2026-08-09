@@ -1,5 +1,6 @@
 package com.remote.pc.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -7,6 +8,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
+@Slf4j
 @Service
 public class WakeOnLanService {
 
@@ -36,7 +38,12 @@ public class WakeOnLanService {
                 socket.send(new DatagramPacket(magicPacket, magicPacket.length, address, wolPort));
             }
 
-            System.out.println("Wake-on-LAN пакет отправлен на MAC: " + macAddress);
+            log.info(
+                    "Wake-on-LAN packet sent: macAddress={}, broadcastAddress={}, port={}",
+                    macAddress,
+                    broadcastAddress,
+                    wolPort
+            );
 
         } catch (Exception e) {
             throw new RuntimeException("Ошибка отправки Wake-on-LAN пакета", e);
