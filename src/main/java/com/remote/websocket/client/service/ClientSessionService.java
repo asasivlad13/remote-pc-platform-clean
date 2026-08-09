@@ -3,14 +3,15 @@ package com.remote.websocket.client.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.remote.auth.security.JwtUtil;
 import com.remote.history.model.ConnectionLog;
+import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
-import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.context.annotation.Lazy;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 public class ClientSessionService {
 
@@ -65,16 +67,16 @@ public class ClientSessionService {
         Pc pc = pcRepository.findById(pcId).orElse(null);
 
         if (pc != null) {
-            ConnectionLog log = new ConnectionLog(username, pc.getName(), "CONNECT", clientIp);
-            log.setPc(pc);
-            log.setClientInfo(clientInfo);
-            log.setMode(mode);
-            log.setAvgFps(0.0);
-            log.setAvgLatency(0.0);
-            log.setFilesSent(0);
-            log.setIssues("profile=" + profile);
+            ConnectionLog connectionLog = new ConnectionLog(username, pc.getName(), "CONNECT", clientIp);
+            connectionLog.setPc(pc);
+            connectionLog.setClientInfo(clientInfo);
+            connectionLog.setMode(mode);
+            connectionLog.setAvgFps(0.0);
+            connectionLog.setAvgLatency(0.0);
+            connectionLog.setFilesSent(0);
+            connectionLog.setIssues("profile=" + profile);
 
-            ConnectionLog saved = connectionLogRepository.save(log);
+            ConnectionLog saved = connectionLogRepository.save(connectionLog);
             sessionLogIds.put(session.getId(), saved.getId());
 
             fpsSum.put(session.getId(), 0.0);
@@ -90,9 +92,25 @@ public class ClientSessionService {
 
             agentWebSocketHandler.sendNotificationToAgent(pcId, notificationMessage);
 
-            System.out.println("📝 Logged connection: " + username + " -> " + pc.getName());
-            System.out.println("🎯 Connection profile: " + profile);
-            System.out.println("🔔 Notification sent: " + notificationMessage);
+            log.info(
+                    "Connection logged: username={}, pcId={}, pcName={}",
+                    username,
+                    pcId,
+                    pc.getName()
+            );
+
+            log.info(
+                    "Connection profile: sessionId={}, profile={}",
+                    session.getId(),
+                    profile
+            );
+
+            log.info(
+                    "Agent notification sent: pcId={}, username={}, profile={}",
+                    pcId,
+                    username,
+                    profile
+            );
         }
 
         String lastFrame = lastFrameCache.get(pcId);
@@ -125,11 +143,11 @@ public class ClientSessionService {
         double avgFps = fpsSum.getOrDefault(session.getId(), 0.0) / count;
         double avgLatency = latencySum.getOrDefault(session.getId(), 0.0) / count;
 
-        connectionLogRepository.findById(logId).ifPresent(log -> {
-            log.setAvgFps(round(avgFps));
-            log.setAvgLatency(round(avgLatency));
-            log.setMode(mode);
-            connectionLogRepository.save(log);
+        connectionLogRepository.findById(logId).ifPresent(connectionLog -> {
+            connectionLog.setAvgFps(round(avgFps));
+            connectionLog.setAvgLatency(round(avgLatency));
+            connectionLog.setMode(mode);
+            connectionLogRepository.save(connectionLog);
         });
     }
 
@@ -147,19 +165,26 @@ public class ClientSessionService {
             return;
         }
 
-        connectionLogRepository.findById(logId).ifPresent(log -> {
+        connectionLogRepository.findById(logId).ifPresent(connectionLog -> {
             LocalDateTime disconnectedAt = LocalDateTime.now();
-            log.setDisconnectedAt(disconnectedAt);
+            connectionLog.setDisconnectedAt(disconnectedAt);
 
-            if (log.getTimestamp() != null) {
-                long seconds = Duration.between(log.getTimestamp(), disconnectedAt).getSeconds();
-                log.setDurationSeconds((int) Math.max(seconds, 0));
+            if (connectionLog.getTimestamp() != null) {
+                long seconds = Duration.between(
+                        connectionLog.getTimestamp(),
+                        disconnectedAt
+                ).getSeconds();
+
+                connectionLog.setDurationSeconds((int) Math.max(seconds, 0));
             }
 
-            connectionLogRepository.save(log);
+            connectionLogRepository.save(connectionLog);
 
-            System.out.println("📝 Session closed: logId=" + logId
-                    + ", duration=" + log.getDurationSeconds() + " sec");
+            log.info(
+                    "Session closed: logId={}, durationSeconds={}",
+                    logId,
+                    connectionLog.getDurationSeconds()
+            );
         });
     }
 
@@ -181,7 +206,7 @@ public class ClientSessionService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Cannot extract username from token: " + e.getMessage());
+            log.warn("Cannot extract username from WebSocket token", e);
         }
 
         return "unknown";
@@ -198,8 +223,13 @@ public class ClientSessionService {
     }
 
     private String extractClientInfo(JsonNode json) {
-        String platform = json.has("platform") ? json.get("platform").asText() : "unknown platform";
-        String browser = json.has("browser") ? json.get("browser").asText() : "unknown browser";
+        String platform = json.has("platform")
+                ? json.get("platform").asText()
+                : "unknown platform";
+
+        String browser = json.has("browser")
+                ? json.get("browser").asText()
+                : "unknown browser";
 
         return platform + ", " + browser;
     }

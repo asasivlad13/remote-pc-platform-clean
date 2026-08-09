@@ -1,11 +1,13 @@
 package com.remote.websocket.client.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+@Slf4j
 @Service
 public class ClientBroadcastService {
 
@@ -30,7 +32,12 @@ public class ClientBroadcastService {
                             )
                     );
                 } catch (Exception e) {
-                    System.err.println("Error sending frame: " + e.getMessage());
+                    log.warn(
+                            "Failed to send frame: pcId={}, sessionId={}",
+                            pcId,
+                            session.getId(),
+                            e
+                    );
                 }
             }
         }
@@ -42,7 +49,12 @@ public class ClientBroadcastService {
                 try {
                     session.sendMessage(new BinaryMessage(imageData));
                 } catch (Exception e) {
-                    System.err.println("Error sending binary frame: " + e.getMessage());
+                    log.warn(
+                            "Failed to send binary frame: pcId={}, sessionId={}",
+                            pcId,
+                            session.getId(),
+                            e
+                    );
                 }
             }
         }
@@ -54,7 +66,12 @@ public class ClientBroadcastService {
                 try {
                     session.sendMessage(new TextMessage(progressJson.toString()));
                 } catch (Exception e) {
-                    System.err.println("Error sending file progress: " + e.getMessage());
+                    log.warn(
+                            "Failed to send file progress: pcId={}, sessionId={}",
+                            pcId,
+                            session.getId(),
+                            e
+                    );
                 }
             }
         }
