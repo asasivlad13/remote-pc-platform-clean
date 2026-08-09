@@ -45,13 +45,15 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        System.out.println("Web client connected: " + session.getId());
+        log.info(
+                "Web client connected: sessionId={}",
+                session.getId()
+        );
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        System.out.println("Received from client: " + payload);
 
         JsonNode json = objectMapper.readTree(payload);
 
@@ -60,6 +62,13 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         String type = json.get("type").asText();
+
+        log.debug(
+                "WebSocket message received: sessionId={}, type={}, payloadLength={}",
+                session.getId(),
+                type,
+                payload.length()
+        );
 
         if ("ping".equals(type)) {
             session.sendMessage(new TextMessage(payload.replace("\"ping\"", "\"pong\"")));
@@ -150,12 +159,15 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
             session.sendMessage(new TextMessage(errorJson));
 
-            System.out.println("⛔ Command denied: profile=" + profile
-                    + ", action=" + action
-                    + ", username=" + username
-                    + ", educationCode=" + (json.has("educationCode") ? json.get("educationCode").asText() : "none")
-                    + ", supportCode=" + (json.has("supportCode") ? json.get("supportCode").asText() : "none")
-                    + ", session=" + session.getId());
+            log.warn(
+                    "Command denied: profile={}, action={}, username={}, educationCode={}, supportCode={}, sessionId={}",
+                    profile,
+                    action,
+                    username,
+                    json.has("educationCode") ? json.get("educationCode").asText() : "none",
+                    json.has("supportCode") ? json.get("supportCode").asText() : "none",
+                    session.getId()
+            );
 
             return;
         }
@@ -165,10 +177,13 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
         commandDispatchService.dispatch(pcId, command);
 
-        System.out.println("✅ Command allowed: profile=" + profile
-                + ", action=" + action
-                + ", username=" + username
-                + ", pcId=" + pcId);
+        log.debug(
+                "Command allowed: profile={}, action={}, username={}, pcId={}",
+                profile,
+                action,
+                username,
+                pcId
+        );
     }
 
     public void broadcastFrame(Long pcId, String base64Image) {
@@ -187,7 +202,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         clientSessionService.closeSession(session);
         remoteFileWebSocketService.removeOwnerSession(session);
-        System.out.println("Web client disconnected: " + session.getId());
+
+        log.info(
+                "Web client disconnected: sessionId={}, status={}",
+                session.getId(),
+                status
+        );
     }
 
     private String normalizeConnectionProfile(String profile) {
