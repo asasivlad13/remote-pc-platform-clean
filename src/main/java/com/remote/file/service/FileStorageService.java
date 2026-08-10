@@ -8,6 +8,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,30 +27,39 @@ public class FileStorageService {
     public FileStorageService(
             @Value("${remote.files.storage-dir:uploads/remote-files}") String storageDir,
             FileCryptoService fileCryptoService
-    ) throws Exception {
+    ) throws IOException {
         this.storageDir = Path.of(storageDir).toAbsolutePath().normalize();
         this.fileCryptoService = fileCryptoService;
 
         Files.createDirectories(this.storageDir);
 
-        log.info("Remote file storage initialized: storageDir={}", this.storageDir);
+        log.info(
+                "Remote file storage initialized: storageDir={}",
+                this.storageDir
+        );
     }
 
-    public StoredFileInfo storeEncrypted(MultipartFile file, String publicBaseUrl) throws Exception {
+    public StoredFileInfo storeEncrypted(MultipartFile file,
+                                         String publicBaseUrl) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
 
         String fileId = UUID.randomUUID().toString();
         String originalFileName = sanitizeFileName(file.getOriginalFilename());
-        String storedFileName = fileId + "_" + originalFileName + ".enc";
+        String storedFileName =
+                fileId + "_" + originalFileName + ".enc";
 
-        Path targetPath = storageDir.resolve(storedFileName).normalize();
+        Path targetPath = storageDir
+                .resolve(storedFileName)
+                .normalize();
 
-        FileCryptoService.CryptoData cryptoData = fileCryptoService.generateCryptoData();
+        FileCryptoService.CryptoData cryptoData =
+                fileCryptoService.generateCryptoData();
 
         try (var inputStream = file.getInputStream();
              var outputStream = Files.newOutputStream(targetPath)) {
+
             fileCryptoService.encrypt(
                     inputStream,
                     outputStream,
@@ -58,7 +68,8 @@ public class FileStorageService {
             );
         }
 
-        String downloadUrl = publicBaseUrl + "/api/files/download/" + fileId;
+        String downloadUrl =
+                publicBaseUrl + "/api/files/download/" + fileId;
 
         StoredFileInfo info = new StoredFileInfo(
                 fileId,
@@ -82,30 +93,52 @@ public class FileStorageService {
         return info;
     }
 
-    public synchronized Resource loadEncryptedAsResourceOnce(String fileId) throws Exception {
+    public synchronized Resource loadEncryptedAsResourceOnce(String fileId) {
         StoredFileInfo info = files.get(fileId);
 
         if (info == null) {
-            throw new IllegalArgumentException("File not found by id: " + fileId);
+            throw new IllegalArgumentException(
+                    "File not found by id: " + fileId
+            );
         }
 
         if (info.isDownloaded()) {
-            throw new IllegalStateException("Download link already used: " + fileId);
+            throw new IllegalStateException(
+                    "Download link already used: " + fileId
+            );
         }
 
-        Path filePath = storageDir.resolve(fileId + "_" + info.getFileName() + ".enc").normalize();
+        Path filePath = storageDir
+                .resolve(
+                        fileId
+                                + "_"
+                                + info.getFileName()
+                                + ".enc"
+                )
+                .normalize();
 
         if (!Files.exists(filePath)) {
-            throw new IllegalArgumentException("Encrypted file does not exist on disk");
+            throw new IllegalArgumentException(
+                    "Encrypted file does not exist on disk"
+            );
         }
 
         info.markDownloaded();
 
         try {
-            log.info("One-time encrypted file resource loaded: fileId={}, fileName={}", fileId, info.getFileName());
+            log.info(
+                    "One-time encrypted file resource loaded: fileId={}, fileName={}",
+                    fileId,
+                    info.getFileName()
+            );
+
             return new UrlResource(filePath.toUri());
+
         } catch (MalformedURLException e) {
-            throw new IllegalArgumentException("Cannot load encrypted file", e);
+            throw new IllegalArgumentException(
+                    "Cannot load encrypted file",
+                    e
+            );
         }
     }
 
@@ -118,6 +151,9 @@ public class FileStorageService {
             return "unknown_file";
         }
 
-        return fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+        return fileName.replaceAll(
+                "[\\\\/:*?\"<>|]",
+                "_"
+        );
     }
 }
