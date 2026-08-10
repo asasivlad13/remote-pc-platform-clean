@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -19,23 +20,30 @@ public class WakeOnLanService {
     private int wolPort;
 
     public void wake(String macAddress) {
+        byte[] macBytes = parseMacAddress(macAddress);
+        byte[] magicPacket = new byte[6 + 16 * macBytes.length];
+
+        for (int i = 0; i < 6; i++) {
+            magicPacket[i] = (byte) 0xFF;
+        }
+
+        for (int i = 6; i < magicPacket.length; i += macBytes.length) {
+            System.arraycopy(macBytes, 0, magicPacket, i, macBytes.length);
+        }
+
         try {
-            byte[] macBytes = parseMacAddress(macAddress);
-            byte[] magicPacket = new byte[6 + 16 * macBytes.length];
-
-            for (int i = 0; i < 6; i++) {
-                magicPacket[i] = (byte) 0xFF;
-            }
-
-            for (int i = 6; i < magicPacket.length; i += macBytes.length) {
-                System.arraycopy(macBytes, 0, magicPacket, i, macBytes.length);
-            }
-
             InetAddress address = InetAddress.getByName(broadcastAddress);
 
             try (DatagramSocket socket = new DatagramSocket()) {
                 socket.setBroadcast(true);
-                socket.send(new DatagramPacket(magicPacket, magicPacket.length, address, wolPort));
+                socket.send(
+                        new DatagramPacket(
+                                magicPacket,
+                                magicPacket.length,
+                                address,
+                                wolPort
+                        )
+                );
             }
 
             log.info(
@@ -45,8 +53,11 @@ public class WakeOnLanService {
                     wolPort
             );
 
-        } catch (Exception e) {
-            throw new RuntimeException("Ошибка отправки Wake-on-LAN пакета", e);
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Ошибка отправки Wake-on-LAN пакета",
+                    e
+            );
         }
     }
 
@@ -54,13 +65,18 @@ public class WakeOnLanService {
         String cleanMac = macAddress.replace(":", "").replace("-", "");
 
         if (cleanMac.length() != 12) {
-            throw new IllegalArgumentException("Некорректный MAC-адрес: " + macAddress);
+            throw new IllegalArgumentException(
+                    "Некорректный MAC-адрес: " + macAddress
+            );
         }
 
         byte[] result = new byte[6];
 
         for (int i = 0; i < 6; i++) {
-            result[i] = (byte) Integer.parseInt(cleanMac.substring(i * 2, i * 2 + 2), 16);
+            result[i] = (byte) Integer.parseInt(
+                    cleanMac.substring(i * 2, i * 2 + 2),
+                    16
+            );
         }
 
         return result;

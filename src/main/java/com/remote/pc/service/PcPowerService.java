@@ -57,10 +57,14 @@ public class PcPowerService {
 
     private Pc findUserPc(Long pcId, String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
         Pc pc = pcRepository.findById(pcId)
-                .orElseThrow(() -> new IllegalArgumentException("ПК не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "ПК не найден"
+                ));
 
         if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("Доступ запрещён");
@@ -79,7 +83,10 @@ public class PcPowerService {
             agentWebSocketHandler.sendCommandToAgent(pc.getId(), command);
 
         } catch (Exception e) {
-            throw new IllegalStateException("Не удалось отправить команду агенту");
+            throw new IllegalStateException(
+                    "Не удалось отправить команду агенту",
+                    e
+            );
         }
     }
 }

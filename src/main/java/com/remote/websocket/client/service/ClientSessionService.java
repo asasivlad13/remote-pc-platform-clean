@@ -7,6 +7,7 @@ import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -69,7 +70,13 @@ public class ClientSessionService {
         Pc pc = pcRepository.findById(pcId).orElse(null);
 
         if (pc != null) {
-            ConnectionLog connectionLog = new ConnectionLog(username, pc.getName(), "CONNECT", clientIp);
+            ConnectionLog connectionLog = new ConnectionLog(
+                    username,
+                    pc.getName(),
+                    "CONNECT",
+                    clientIp
+            );
+
             connectionLog.setPc(pc);
             connectionLog.setClientInfo(clientInfo);
             connectionLog.setMode(mode);
@@ -92,7 +99,10 @@ public class ClientSessionService {
                             + " | IP: " + clientIp
                             + " | Устройство: " + clientInfo;
 
-            agentWebSocketHandler.sendNotificationToAgent(pcId, notificationMessage);
+            agentWebSocketHandler.sendNotificationToAgent(
+                    pcId,
+                    notificationMessage
+            );
 
             log.info(
                     "Connection logged: username={}, pcId={}, pcName={}",
@@ -116,8 +126,15 @@ public class ClientSessionService {
         }
 
         String lastFrame = lastFrameCache.get(pcId);
+
         if (lastFrame != null) {
-            session.sendMessage(new TextMessage("{\"type\":\"frame\",\"image\":\"" + lastFrame + "\"}"));
+            session.sendMessage(
+                    new TextMessage(
+                            "{\"type\":\"frame\",\"image\":\""
+                                    + lastFrame
+                                    + "\"}"
+                    )
+            );
         }
     }
 
@@ -128,9 +145,17 @@ public class ClientSessionService {
             return;
         }
 
-        double fps = json.has("fps") ? json.get("fps").asDouble(0.0) : 0.0;
-        double latency = json.has("latency") ? json.get("latency").asDouble(0.0) : 0.0;
-        String mode = json.has("mode") ? json.get("mode").asText("Control") : "Control";
+        double fps = json.has("fps")
+                ? json.get("fps").asDouble(0.0)
+                : 0.0;
+
+        double latency = json.has("latency")
+                ? json.get("latency").asDouble(0.0)
+                : 0.0;
+
+        String mode = json.has("mode")
+                ? json.get("mode").asText("Control")
+                : "Control";
 
         fpsSum.merge(session.getId(), fps, Double::sum);
         latencySum.merge(session.getId(), latency, Double::sum);
@@ -142,8 +167,11 @@ public class ClientSessionService {
             return;
         }
 
-        double avgFps = fpsSum.getOrDefault(session.getId(), 0.0) / count;
-        double avgLatency = latencySum.getOrDefault(session.getId(), 0.0) / count;
+        double avgFps =
+                fpsSum.getOrDefault(session.getId(), 0.0) / count;
+
+        double avgLatency =
+                latencySum.getOrDefault(session.getId(), 0.0) / count;
 
         connectionLogRepository.findById(logId).ifPresent(connectionLog -> {
             connectionLog.setAvgFps(round(avgFps));
@@ -177,7 +205,9 @@ public class ClientSessionService {
                         disconnectedAt
                 ).getSeconds();
 
-                connectionLog.setDurationSeconds((int) Math.max(seconds, 0));
+                connectionLog.setDurationSeconds(
+                        (int) Math.max(seconds, 0)
+                );
             }
 
             connectionLogRepository.save(connectionLog);
@@ -191,11 +221,17 @@ public class ClientSessionService {
     }
 
     public String getProfile(String sessionId) {
-        return sessionProfiles.getOrDefault(sessionId, PROFILE_PERSONAL);
+        return sessionProfiles.getOrDefault(
+                sessionId,
+                PROFILE_PERSONAL
+        );
     }
 
     public String getUsername(String sessionId) {
-        return sessionUsernames.getOrDefault(sessionId, "unknown");
+        return sessionUsernames.getOrDefault(
+                sessionId,
+                "unknown"
+        );
     }
 
     private String extractUsernameFromJson(JsonNode json) {
@@ -207,8 +243,11 @@ public class ClientSessionService {
                     return jwtUtil.extractUsername(token);
                 }
             }
-        } catch (Exception e) {
-            log.warn("Cannot extract username from WebSocket token", e);
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn(
+                    "Cannot extract username from WebSocket token",
+                    e
+            );
         }
 
         return "unknown";
