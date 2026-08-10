@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.remote.education.service.EducationControlService;
 import com.remote.service.SessionPermissionService;
 import com.remote.support.service.SupportSessionService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import static com.remote.common.ServerConstants.*;
@@ -12,14 +11,17 @@ import static com.remote.common.ServerConstants.*;
 @Service
 public class CommandAuthorizationService {
 
-    @Autowired
-    private SessionPermissionService sessionPermissionService;
+    private final SessionPermissionService sessionPermissionService;
+    private final EducationControlService educationControlService;
+    private final SupportSessionService supportSessionService;
 
-    @Autowired
-    private EducationControlService educationControlService;
-
-    @Autowired
-    private SupportSessionService supportSessionService;
+    public CommandAuthorizationService(SessionPermissionService sessionPermissionService,
+                                       EducationControlService educationControlService,
+                                       SupportSessionService supportSessionService) {
+        this.sessionPermissionService = sessionPermissionService;
+        this.educationControlService = educationControlService;
+        this.supportSessionService = supportSessionService;
+    }
 
     public boolean isAllowed(String profile,
                              String action,
