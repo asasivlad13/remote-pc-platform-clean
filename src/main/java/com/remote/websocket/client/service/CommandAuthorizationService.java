@@ -7,15 +7,7 @@ import com.remote.support.service.SupportSessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import static com.remote.common.ServerConstants.ACTION_GAMEPAD_CONNECT;
-import static com.remote.common.ServerConstants.ACTION_GAMEPAD_DISCONNECT;
-import static com.remote.common.ServerConstants.ACTION_GAMEPAD_STATE;
-import static com.remote.common.ServerConstants.ACTION_KEY_COMBO;
-import static com.remote.common.ServerConstants.ACTION_KEY_PRESS;
-import static com.remote.common.ServerConstants.ACTION_KEY_RELEASE;
-import static com.remote.common.ServerConstants.ACTION_MOUSE_CLICK;
-import static com.remote.common.ServerConstants.ACTION_MOUSE_MOVE;
-import static com.remote.common.ServerConstants.ACTION_MOUSE_WHEEL;
+import static com.remote.common.ServerConstants.*;
 
 @Service
 public class CommandAuthorizationService {
@@ -35,12 +27,12 @@ public class CommandAuthorizationService {
                              Long pcId,
                              JsonNode json) {
 
-        if ("personal".equals(profile)) {
+        if (PROFILE_PERSONAL.equals(profile)) {
             return sessionPermissionService.isCommandAllowed(profile, action)
                     || isGamepadAction(action);
         }
 
-        if ("education_student".equals(profile)) {
+        if (PROFILE_EDUCATION_STUDENT.equals(profile)) {
             String educationCode = json.has("educationCode")
                     ? json.get("educationCode").asText()
                     : null;
@@ -52,7 +44,7 @@ public class CommandAuthorizationService {
                     && educationControlService.hasControlInSession(username, educationCode);
         }
 
-        if ("support_operator_view_client".equals(profile)) {
+        if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
             String supportCode = json.has("supportCode")
                     ? json.get("supportCode").asText()
                     : null;

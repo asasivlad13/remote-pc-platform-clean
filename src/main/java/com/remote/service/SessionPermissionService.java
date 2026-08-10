@@ -61,17 +61,17 @@ public class SessionPermissionService {
         }
 
         return switch (normalizedProfile) {
-            case "personal" -> PERSONAL_ALLOWED_ACTIONS.contains(action);
-            case "education_student" -> EDUCATION_STUDENT_ALLOWED_ACTIONS.contains(action);
+            case PROFILE_PERSONAL -> PERSONAL_ALLOWED_ACTIONS.contains(action);
+            case PROFILE_EDUCATION_STUDENT -> EDUCATION_STUDENT_ALLOWED_ACTIONS.contains(action);
             case "support_operator" -> SUPPORT_OPERATOR_ALLOWED_ACTIONS.contains(action);
-            case "presentation_remote" -> PRESENTATION_REMOTE_ALLOWED_ACTIONS.contains(action);
+            case PROFILE_PRESENTATION_REMOTE -> PRESENTATION_REMOTE_ALLOWED_ACTIONS.contains(action);
             default -> false;
         };
     }
 
     public String normalizeProfile(String profile) {
         if (profile == null || profile.isBlank()) {
-            return "personal";
+            return PROFILE_PERSONAL;
         }
 
         return profile.trim().toLowerCase();

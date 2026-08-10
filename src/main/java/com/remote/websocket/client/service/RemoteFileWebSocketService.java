@@ -15,6 +15,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.remote.common.ServerConstants.PROFILE_EDUCATION_STUDENT;
+import static com.remote.common.ServerConstants.PROFILE_PERSONAL;
+import static com.remote.common.ServerConstants.PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT;
+
 @Service
 public class RemoteFileWebSocketService {
 
@@ -127,11 +131,11 @@ public class RemoteFileWebSocketService {
     }
 
     private boolean isAccessAllowed(String profile, String username, Long pcId, JsonNode json) {
-        if ("personal".equals(profile)) {
+        if (PROFILE_PERSONAL.equals(profile)) {
             return true;
         }
 
-        if ("education_student".equals(profile)) {
+        if (PROFILE_EDUCATION_STUDENT.equals(profile)) {
             String educationCode = json.has("educationCode")
                     ? json.get("educationCode").asText()
                     : null;
@@ -142,7 +146,7 @@ public class RemoteFileWebSocketService {
                     && educationControlService.hasControlInSession(username, educationCode);
         }
 
-        if ("support_operator_view_client".equals(profile)) {
+        if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
             String supportCode = json.has("supportCode")
                     ? json.get("supportCode").asText()
                     : null;

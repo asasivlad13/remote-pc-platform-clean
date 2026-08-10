@@ -2,6 +2,11 @@ package com.remote.common;
 
 public final class ServerConstants {
 
+    public static final String PROFILE_PERSONAL = "personal";
+    public static final String PROFILE_EDUCATION_STUDENT = "education_student";
+    public static final String PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT = "support_operator_view_client";
+    public static final String PROFILE_PRESENTATION_REMOTE = "presentation_remote";
+
     public static final String ACTION_MOUSE_MOVE = "MOUSE_MOVE";
     public static final String ACTION_MOUSE_CLICK = "MOUSE_CLICK";
     public static final String ACTION_MOUSE_WHEEL = "MOUSE_WHEEL";

@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.remote.common.ServerConstants.PROFILE_PERSONAL;
+
 @Slf4j
 @Service
 public class ClientSessionService {
@@ -189,7 +191,7 @@ public class ClientSessionService {
     }
 
     public String getProfile(String sessionId) {
-        return sessionProfiles.getOrDefault(sessionId, "personal");
+        return sessionProfiles.getOrDefault(sessionId, PROFILE_PERSONAL);
     }
 
     public String getUsername(String sessionId) {

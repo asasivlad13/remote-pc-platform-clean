@@ -16,6 +16,9 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import static com.remote.common.ServerConstants.PROFILE_PERSONAL;
+import static com.remote.common.ServerConstants.PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT;
+
 @Slf4j
 @Component
 public class WebSocketClientHandler extends TextWebSocketHandler {
@@ -77,8 +80,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
 
         if ("watch".equals(type)) {
             String profile = json.has("profile")
-                    ? json.get("profile").asText("personal")
-                    : "personal";
+                    ? json.get("profile").asText(PROFILE_PERSONAL)
+                    : PROFILE_PERSONAL;
 
             profile = normalizeConnectionProfile(profile);
 
@@ -211,7 +214,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     }
 
     private String normalizeConnectionProfile(String profile) {
-        if ("support_operator_view_client".equals(profile)) {
+        if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
             return profile;
         }
 
