@@ -7,12 +7,14 @@ import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.model.PcStatus;
 import com.remote.pc.repository.PcRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 public class AgentSessionService {
 
@@ -60,39 +62,75 @@ public class AgentSessionService {
             pc.setName(pcName);
             pc.setMacAddress(mac);
             pc.setUser(user);
-            System.out.println("Creating new PC record for MAC: " + mac);
+
+            log.info(
+                    "Creating new PC record: mac={}, username={}",
+                    mac,
+                    username
+            );
         } else {
             if (!pc.getName().equals(pcName)) {
                 pc.setName(pcName);
-                System.out.println("Updating PC name to '" + pcName + "'");
+
+                log.info(
+                        "PC name updated: mac={}, pcName={}",
+                        mac,
+                        pcName
+                );
             }
 
             if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
                 pc.setUser(user);
-                System.out.println("Re-assigning PC to user: " + username);
+
+                log.info(
+                        "PC reassigned to user: mac={}, username={}",
+                        mac,
+                        username
+                );
             }
         }
 
         if (json.has("screenWidth") && json.has("screenHeight")) {
             pc.setScreenWidth(json.get("screenWidth").asInt());
             pc.setScreenHeight(json.get("screenHeight").asInt());
-            System.out.println("Screen size saved: " + pc.getScreenWidth() + "x" + pc.getScreenHeight());
+
+            log.debug(
+                    "PC screen size updated: mac={}, width={}, height={}",
+                    mac,
+                    pc.getScreenWidth(),
+                    pc.getScreenHeight()
+            );
         }
 
         if (json.has("scaleX") && json.has("scaleY")) {
             double scaleX = json.get("scaleX").asDouble();
             double scaleY = json.get("scaleY").asDouble();
-            System.out.println("Scale factors: " + scaleX + " x " + scaleY);
+
+            log.debug(
+                    "Agent scale factors received: mac={}, scaleX={}, scaleY={}",
+                    mac,
+                    scaleX,
+                    scaleY
+            );
         }
 
         if (json.has("webrtcUrl")) {
             pc.setWebrtcUrl(json.get("webrtcUrl").asText());
-            System.out.println("WebRTC URL saved: " + pc.getWebrtcUrl());
+
+            log.debug(
+                    "WebRTC URL updated: mac={}",
+                    mac
+            );
         }
 
         if (json.has("streamName")) {
             pc.setStreamName(json.get("streamName").asText());
-            System.out.println("Stream name saved: " + pc.getStreamName());
+
+            log.debug(
+                    "Stream name updated: mac={}, streamName={}",
+                    mac,
+                    pc.getStreamName()
+            );
         }
 
         pc.setStatus(PcStatus.ONLINE);
@@ -104,7 +142,13 @@ public class AgentSessionService {
 
         session.sendMessage(new TextMessage("{\"status\":\"registered\"}"));
 
-        System.out.println("Agent registered: " + pcName + " (" + mac + ") for user: " + username);
+        log.info(
+                "Agent registered: pcId={}, pcName={}, mac={}, username={}",
+                savedPc.getId(),
+                pcName,
+                mac,
+                username
+        );
     }
 
     public void handleHeartbeat(WebSocketSession session) {
@@ -127,7 +171,12 @@ public class AgentSessionService {
         }
 
         pcRepository.save(pc);
-        System.out.println("Heartbeat from: " + mac);
+
+        log.debug(
+                "Agent heartbeat processed: mac={}, status={}",
+                mac,
+                pc.getStatus()
+        );
     }
 
     public void closeSession(WebSocketSession session) {
@@ -139,7 +188,13 @@ public class AgentSessionService {
             if (pc != null) {
                 pc.setStatus(PcStatus.OFFLINE);
                 pcRepository.save(pc);
-                System.out.println("PC " + pc.getName() + " (" + mac + ") set to OFFLINE");
+
+                log.info(
+                        "PC set to OFFLINE: pcId={}, pcName={}, mac={}",
+                        pc.getId(),
+                        pc.getName(),
+                        mac
+                );
             }
         }
 
