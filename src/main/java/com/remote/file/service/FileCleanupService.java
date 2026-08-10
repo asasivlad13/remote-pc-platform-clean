@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -21,7 +22,7 @@ public class FileCleanupService {
     public FileCleanupService(
             @Value("${remote.files.storage-dir:uploads/remote-files}") String storageDir,
             @Value("${remote.files.max-age-hours:24}") long maxAgeHours
-    ) throws Exception {
+    ) throws IOException {
         this.storageDir = Path.of(storageDir).toAbsolutePath().normalize();
         this.maxAge = Duration.ofHours(maxAgeHours);
 
@@ -42,7 +43,8 @@ public class FileCleanupService {
                         .filter(Files::isRegularFile)
                         .forEach(path -> {
                             try {
-                                Instant lastModified = Files.getLastModifiedTime(path).toInstant();
+                                Instant lastModified =
+                                        Files.getLastModifiedTime(path).toInstant();
 
                                 if (lastModified.plus(maxAge).isBefore(now)) {
                                     Files.deleteIfExists(path);
@@ -52,7 +54,7 @@ public class FileCleanupService {
                                             path.getFileName()
                                     );
                                 }
-                            } catch (Exception e) {
+                            } catch (IOException e) {
                                 log.warn(
                                         "Failed to clean up uploaded file: path={}",
                                         path,
@@ -62,7 +64,7 @@ public class FileCleanupService {
                         });
             }
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             log.error(
                     "File cleanup failed: storageDir={}",
                     storageDir,

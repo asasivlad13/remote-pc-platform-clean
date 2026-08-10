@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.Map;
 
 @Service
@@ -82,7 +83,7 @@ public class PcPowerService {
 
             agentWebSocketHandler.sendCommandToAgent(pc.getId(), command);
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IllegalStateException(
                     "Не удалось отправить команду агенту",
                     e
