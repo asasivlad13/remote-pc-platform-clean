@@ -1,26 +1,32 @@
 package com.remote.education.service;
 
 import com.remote.core.model.User;
-import com.remote.education.model.*;
+import com.remote.core.repository.UserRepository;
+import com.remote.education.dto.EducationFileResponse;
+import com.remote.education.model.EducationFileTransfer;
+import com.remote.education.model.EducationFileTransferStatus;
+import com.remote.education.model.EducationParticipantStatus;
+import com.remote.education.model.EducationSession;
+import com.remote.education.model.EducationSessionEventType;
+import com.remote.education.model.EducationSessionStatus;
 import com.remote.education.repository.EducationFileTransferRepository;
 import com.remote.education.repository.EducationSessionParticipantRepository;
 import com.remote.education.repository.EducationSessionRepository;
-import com.remote.core.repository.UserRepository;
+import com.remote.history.service.ConnectionLogActivityService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-import com.remote.history.service.ConnectionLogActivityService;
-import com.remote.education.dto.EducationFileResponse;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -40,12 +46,15 @@ public class EducationFileTransferService {
     private final EducationSessionEventService eventService;
     private final EducationCryptoService cryptoService;
 
-    public EducationFileTransferService(ConnectionLogActivityService connectionLogActivityService, EducationFileTransferRepository fileRepository,
-                                        EducationSessionRepository sessionRepository,
-                                        EducationSessionParticipantRepository participantRepository,
-                                        UserRepository userRepository,
-                                        EducationSessionEventService eventService,
-                                        EducationCryptoService cryptoService) {
+    public EducationFileTransferService(
+            ConnectionLogActivityService connectionLogActivityService,
+            EducationFileTransferRepository fileRepository,
+            EducationSessionRepository sessionRepository,
+            EducationSessionParticipantRepository participantRepository,
+            UserRepository userRepository,
+            EducationSessionEventService eventService,
+            EducationCryptoService cryptoService
+    ) {
         this.connectionLogActivityService = connectionLogActivityService;
         this.fileRepository = fileRepository;
         this.sessionRepository = sessionRepository;
@@ -65,34 +74,52 @@ public class EducationFileTransferService {
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Файл слишком большой. Максимум 100 МБ");
+            throw new IllegalArgumentException(
+                    "Файл слишком большой. Максимум 100 МБ"
+            );
         }
 
-        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+        EducationSession session = sessionRepository
+                .findBySessionCode(sessionCode)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Учебная сессия не найдена"
+                ));
 
         if (session.getStatus() != EducationSessionStatus.ACTIVE) {
-            throw new IllegalArgumentException("Учебная сессия не активна");
+            throw new IllegalArgumentException(
+                    "Учебная сессия не активна"
+            );
         }
 
         User sender = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
-        boolean senderIsTeacher = session.getTeacher().getId().equals(sender.getId());
+        boolean senderIsTeacher =
+                session.getTeacher().getId().equals(sender.getId());
+
         boolean senderIsApprovedStudent = participantRepository
                 .findByEducationSessionAndStudent(session, sender)
-                .map(p -> p.getStatus() == EducationParticipantStatus.APPROVED)
+                .map(participant ->
+                        participant.getStatus()
+                                == EducationParticipantStatus.APPROVED
+                )
                 .orElse(false);
 
         if (!senderIsTeacher && !senderIsApprovedStudent) {
-            throw new IllegalArgumentException("Вы не являетесь участником этой сессии");
+            throw new IllegalArgumentException(
+                    "Вы не являетесь участником этой сессии"
+            );
         }
 
         User recipient = null;
 
         if (recipientId != null) {
             recipient = userRepository.findById(recipientId)
-                    .orElseThrow(() -> new IllegalArgumentException("Получатель не найден"));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Получатель не найден"
+                    ));
         }
 
         if (!senderIsTeacher) {
@@ -102,17 +129,29 @@ public class EducationFileTransferService {
         try {
             Files.createDirectories(STORAGE_DIR);
 
-            String originalFilename = safeFilename(file.getOriginalFilename());
-            String storedFilename = UUID.randomUUID() + "_" + originalFilename + ".enc";
+            String originalFilename =
+                    safeFilename(file.getOriginalFilename());
+
+            String storedFilename =
+                    UUID.randomUUID()
+                            + "_"
+                            + originalFilename
+                            + ".enc";
 
             Path target = STORAGE_DIR.resolve(storedFilename);
 
             try (InputStream inputStream = file.getInputStream();
                  var outputStream = Files.newOutputStream(target)) {
-                cryptoService.encryptStream(inputStream, outputStream);
+
+                cryptoService.encryptStream(
+                        inputStream,
+                        outputStream
+                );
             }
 
-            EducationFileTransfer transfer = new EducationFileTransfer();
+            EducationFileTransfer transfer =
+                    new EducationFileTransfer();
+
             transfer.setEducationSession(session);
             transfer.setSender(sender);
             transfer.setRecipient(recipient);
@@ -121,13 +160,17 @@ public class EducationFileTransferService {
             transfer.setContentType(file.getContentType());
             transfer.setSizeBytes(file.getSize());
 
-            EducationFileTransfer saved = fileRepository.save(transfer);
+            EducationFileTransfer saved =
+                    fileRepository.save(transfer);
 
             String pcName = session.getTeacherPc() != null
                     ? session.getTeacherPc().getName()
                     : null;
 
-            connectionLogActivityService.incrementFilesSent(sender.getUsername(), pcName);
+            connectionLogActivityService.incrementFilesSent(
+                    sender.getUsername(),
+                    pcName
+            );
 
             String recipientText = recipient == null
                     ? "всем участникам"
@@ -137,59 +180,109 @@ public class EducationFileTransferService {
                     session,
                     sender,
                     EducationSessionEventType.FILE_SENT,
-                    "Пользователь " + sender.getUsername() + " отправил файл \"" + originalFilename + "\" " + recipientText
+                    "Пользователь "
+                            + sender.getUsername()
+                            + " отправил файл \""
+                            + originalFilename
+                            + "\" "
+                            + recipientText
             );
 
             return saved;
 
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Не удалось сохранить файл: " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "Не удалось сохранить файл: " + e.getMessage(),
+                    e
+            );
         }
     }
 
     @Transactional(readOnly = true)
-    public List<EducationFileTransfer> getVisibleFiles(String username, String sessionCode) {
-        EducationSession session = sessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+    public List<EducationFileTransfer> getVisibleFiles(
+            String username,
+            String sessionCode
+    ) {
+        EducationSession session = sessionRepository
+                .findBySessionCode(sessionCode)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Учебная сессия не найдена"
+                ));
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
-        boolean isTeacher = session.getTeacher().getId().equals(user.getId());
+        boolean isTeacher =
+                session.getTeacher().getId().equals(user.getId());
 
-        List<EducationFileTransfer> files = fileRepository.findByEducationSessionOrderByCreatedAtDesc(session);
+        List<EducationFileTransfer> files =
+                fileRepository
+                        .findByEducationSessionOrderByCreatedAtDesc(session);
 
         if (isTeacher) {
             return files;
         }
 
         return files.stream()
-                .filter(file -> file.getStatus() == EducationFileTransferStatus.AVAILABLE)
+                .filter(file ->
+                        file.getStatus()
+                                == EducationFileTransferStatus.AVAILABLE
+                )
                 .filter(file ->
                         file.getRecipient() == null
-                                || file.getRecipient().getId().equals(user.getId())
-                                || file.getSender().getId().equals(user.getId())
+                                || file.getRecipient()
+                                .getId()
+                                .equals(user.getId())
+                                || file.getSender()
+                                .getId()
+                                .equals(user.getId())
                 )
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public EducationFileTransfer getFileForDownload(String username, Long fileId) {
+    public EducationFileTransfer getFileForDownload(
+            String username,
+            Long fileId
+    ) {
         EducationFileTransfer file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("Файл не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Файл не найден"
+                ));
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
-        EducationSession session = file.getEducationSession();
+        EducationSession session =
+                file.getEducationSession();
 
-        boolean isTeacher = session.getTeacher().getId().equals(user.getId());
-        boolean isSender = file.getSender().getId().equals(user.getId());
-        boolean isRecipient = file.getRecipient() != null && file.getRecipient().getId().equals(user.getId());
-        boolean isForAll = file.getRecipient() == null;
+        boolean isTeacher =
+                session.getTeacher().getId().equals(user.getId());
 
-        if (!isTeacher && !isSender && !isRecipient && !isForAll) {
-            throw new IllegalArgumentException("Нет доступа к файлу");
+        boolean isSender =
+                file.getSender().getId().equals(user.getId());
+
+        boolean isRecipient =
+                file.getRecipient() != null
+                        && file.getRecipient()
+                        .getId()
+                        .equals(user.getId());
+
+        boolean isForAll =
+                file.getRecipient() == null;
+
+        if (!isTeacher
+                && !isSender
+                && !isRecipient
+                && !isForAll) {
+
+            throw new IllegalArgumentException(
+                    "Нет доступа к файлу"
+            );
         }
 
         return file;
@@ -197,22 +290,39 @@ public class EducationFileTransferService {
 
     public Resource loadResource(EducationFileTransfer file) {
         try {
-            Path path = STORAGE_DIR.resolve(file.getStoredFilename()).normalize();
+            Path path = STORAGE_DIR
+                    .resolve(file.getStoredFilename())
+                    .normalize();
 
             if (!Files.exists(path) || !Files.isReadable(path)) {
-                throw new IllegalArgumentException("Файл недоступен");
+                throw new IllegalArgumentException(
+                        "Файл недоступен"
+                );
             }
 
-            if (file.getStoredFilename() != null && file.getStoredFilename().endsWith(".enc")) {
-                InputStream encryptedInputStream = Files.newInputStream(path);
-                InputStream decryptedInputStream = cryptoService.decryptStream(encryptedInputStream);
-                return new InputStreamResource(decryptedInputStream);
+            if (file.getStoredFilename() != null
+                    && file.getStoredFilename().endsWith(".enc")) {
+
+                InputStream encryptedInputStream =
+                        Files.newInputStream(path);
+
+                InputStream decryptedInputStream =
+                        cryptoService.decryptStream(
+                                encryptedInputStream
+                        );
+
+                return new InputStreamResource(
+                        decryptedInputStream
+                );
             }
 
             return new UrlResource(path.toUri());
 
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Не удалось прочитать файл: " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "Не удалось прочитать файл: " + e.getMessage(),
+                    e
+            );
         }
     }
 
@@ -221,19 +331,34 @@ public class EducationFileTransferService {
             return "file";
         }
 
-        return filename.replaceAll("[\\\\/:*?\"<>|]", "_");
+        return filename.replaceAll(
+                "[\\\\/:*?\"<>|]",
+                "_"
+        );
     }
 
     @Transactional
-    public EducationFileResponse uploadAndReturnResponse(String username,
-                                                         String sessionCode,
-                                                         Long recipientId,
-                                                         MultipartFile file) {
-        return toResponse(upload(username, sessionCode, recipientId, file));
+    public EducationFileResponse uploadAndReturnResponse(
+            String username,
+            String sessionCode,
+            Long recipientId,
+            MultipartFile file
+    ) {
+        return toResponse(
+                upload(
+                        username,
+                        sessionCode,
+                        recipientId,
+                        file
+                )
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<EducationFileResponse> getVisibleFileResponses(String username, String sessionCode) {
+    public List<EducationFileResponse> getVisibleFileResponses(
+            String username,
+            String sessionCode
+    ) {
         return getVisibleFiles(username, sessionCode)
                 .stream()
                 .map(this::toResponse)
@@ -241,32 +366,59 @@ public class EducationFileTransferService {
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<Resource> downloadResponse(String username, Long fileId) {
-        EducationFileTransfer file = getFileForDownload(username, fileId);
-        Resource resource = loadResource(file);
+    public ResponseEntity<Resource> downloadResponse(
+            String username,
+            Long fileId
+    ) {
+        EducationFileTransfer file =
+                getFileForDownload(username, fileId);
 
-        ContentDisposition disposition = ContentDisposition.attachment()
-                .filename(file.getOriginalFilename(), StandardCharsets.UTF_8)
-                .build();
+        Resource resource =
+                loadResource(file);
+
+        ContentDisposition disposition =
+                ContentDisposition.attachment()
+                        .filename(
+                                file.getOriginalFilename(),
+                                StandardCharsets.UTF_8
+                        )
+                        .build();
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(
-                        file.getContentType() != null ? file.getContentType() : "application/octet-stream"
-                ))
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(
+                        MediaType.parseMediaType(
+                                file.getContentType() != null
+                                        ? file.getContentType()
+                                        : "application/octet-stream"
+                        )
+                )
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        disposition.toString()
+                )
                 .body(resource);
     }
 
-    private EducationFileResponse toResponse(EducationFileTransfer file) {
+    private EducationFileResponse toResponse(
+            EducationFileTransfer file
+    ) {
         return new EducationFileResponse(
                 file.getId(),
                 file.getOriginalFilename(),
                 file.getContentType(),
                 file.getSizeBytes(),
-                file.getSender() != null ? file.getSender().getId() : null,
-                file.getSender() != null ? file.getSender().getUsername() : null,
-                file.getRecipient() != null ? file.getRecipient().getId() : null,
-                file.getRecipient() != null ? file.getRecipient().getUsername() : null,
+                file.getSender() != null
+                        ? file.getSender().getId()
+                        : null,
+                file.getSender() != null
+                        ? file.getSender().getUsername()
+                        : null,
+                file.getRecipient() != null
+                        ? file.getRecipient().getId()
+                        : null,
+                file.getRecipient() != null
+                        ? file.getRecipient().getUsername()
+                        : null,
                 file.getStatus().name(),
                 file.getCreatedAt()
         );
