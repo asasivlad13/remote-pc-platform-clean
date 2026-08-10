@@ -15,6 +15,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_DOWNLOAD;
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE;
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_ERROR;
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_LIST;
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_LIST_RESULT;
 import static com.remote.common.ServerConstants.PROFILE_EDUCATION_STUDENT;
 import static com.remote.common.ServerConstants.PROFILE_PERSONAL;
 import static com.remote.common.ServerConstants.PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT;
@@ -56,14 +61,18 @@ public class RemoteFileWebSocketService {
                 : "ROOTS";
 
         if (!isAccessAllowed(profile, username, pcId, json)) {
-            sendError(session, requestId, "Доступ к файлам удалённого ПК запрещён для текущего сценария");
+            sendError(
+                    session,
+                    requestId,
+                    "Доступ к файлам удалённого ПК запрещён для текущего сценария"
+            );
             return;
         }
 
         requestOwners.put(requestId, session);
 
         ObjectNode command = objectMapper.createObjectNode();
-        command.put("type", "REMOTE_FILE_LIST");
+        command.put("type", MESSAGE_REMOTE_FILE_LIST);
         command.put("requestId", requestId);
         command.put("path", path);
 
@@ -87,14 +96,18 @@ public class RemoteFileWebSocketService {
         String path = json.get("path").asText();
 
         if (!isAccessAllowed(profile, username, pcId, json)) {
-            sendError(session, requestId, "Скачивание файлов с удалённого ПК запрещено для текущего сценария");
+            sendError(
+                    session,
+                    requestId,
+                    "Скачивание файлов с удалённого ПК запрещено для текущего сценария"
+            );
             return;
         }
 
         requestOwners.put(requestId, session);
 
         ObjectNode command = objectMapper.createObjectNode();
-        command.put("type", "REMOTE_FILE_DOWNLOAD");
+        command.put("type", MESSAGE_REMOTE_FILE_DOWNLOAD);
         command.put("requestId", requestId);
         command.put("path", path);
 
@@ -102,7 +115,9 @@ public class RemoteFileWebSocketService {
     }
 
     public void forwardRemoteFileMessage(JsonNode json) throws Exception {
-        String requestId = json.has("requestId") ? json.get("requestId").asText() : null;
+        String requestId = json.has("requestId")
+                ? json.get("requestId").asText()
+                : null;
 
         if (requestId == null || requestId.isBlank()) {
             return;
@@ -115,22 +130,30 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        owner.sendMessage(new TextMessage(objectMapper.writeValueAsString(json)));
+        owner.sendMessage(
+                new TextMessage(objectMapper.writeValueAsString(json))
+        );
 
-        String type = json.has("type") ? json.get("type").asText() : "";
+        String type = json.has("type")
+                ? json.get("type").asText()
+                : "";
 
-        if ("REMOTE_FILE_LIST_RESULT".equals(type)
-                || "REMOTE_FILE_DOWNLOAD_COMPLETE".equals(type)
-                || "REMOTE_FILE_ERROR".equals(type)) {
+        if (MESSAGE_REMOTE_FILE_LIST_RESULT.equals(type)
+                || MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE.equals(type)
+                || MESSAGE_REMOTE_FILE_ERROR.equals(type)) {
             requestOwners.remove(requestId);
         }
     }
 
     public void removeOwnerSession(WebSocketSession session) {
-        requestOwners.entrySet().removeIf(entry -> entry.getValue().getId().equals(session.getId()));
+        requestOwners.entrySet()
+                .removeIf(entry -> entry.getValue().getId().equals(session.getId()));
     }
 
-    private boolean isAccessAllowed(String profile, String username, Long pcId, JsonNode json) {
+    private boolean isAccessAllowed(String profile,
+                                    String username,
+                                    Long pcId,
+                                    JsonNode json) {
         if (PROFILE_PERSONAL.equals(profile)) {
             return true;
         }
@@ -143,7 +166,10 @@ public class RemoteFileWebSocketService {
             return educationCode != null
                     && !educationCode.isBlank()
                     && !"unknown".equals(username)
-                    && educationControlService.hasControlInSession(username, educationCode);
+                    && educationControlService.hasControlInSession(
+                    username,
+                    educationCode
+            );
         }
 
         if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
@@ -154,15 +180,21 @@ public class RemoteFileWebSocketService {
             return supportCode != null
                     && !supportCode.isBlank()
                     && !"unknown".equals(username)
-                    && supportSessionService.hasOperatorControl(username, supportCode, pcId);
+                    && supportSessionService.hasOperatorControl(
+                    username,
+                    supportCode,
+                    pcId
+            );
         }
 
         return false;
     }
 
-    private void sendError(WebSocketSession session, String requestId, String message) throws Exception {
+    private void sendError(WebSocketSession session,
+                           String requestId,
+                           String message) throws Exception {
         ObjectNode error = objectMapper.createObjectNode();
-        error.put("type", "REMOTE_FILE_ERROR");
+        error.put("type", MESSAGE_REMOTE_FILE_ERROR);
 
         if (requestId != null) {
             error.put("requestId", requestId);

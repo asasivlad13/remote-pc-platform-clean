@@ -30,6 +30,15 @@ public final class ServerConstants {
     public static final String ACTION_GAMEPAD_STATE = "GAMEPAD_STATE";
     public static final String ACTION_GAMEPAD_DISCONNECT = "GAMEPAD_DISCONNECT";
 
+    public static final String MESSAGE_FILE_PROGRESS = "FILE_PROGRESS";
+
+    public static final String MESSAGE_REMOTE_FILE_PREFIX = "REMOTE_FILE_";
+    public static final String MESSAGE_REMOTE_FILE_LIST = "REMOTE_FILE_LIST";
+    public static final String MESSAGE_REMOTE_FILE_DOWNLOAD = "REMOTE_FILE_DOWNLOAD";
+    public static final String MESSAGE_REMOTE_FILE_LIST_RESULT = "REMOTE_FILE_LIST_RESULT";
+    public static final String MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE = "REMOTE_FILE_DOWNLOAD_COMPLETE";
+    public static final String MESSAGE_REMOTE_FILE_ERROR = "REMOTE_FILE_ERROR";
+
     public static final String AUTH_BEARER_PREFIX = "Bearer ";
 
     private ServerConstants() {
