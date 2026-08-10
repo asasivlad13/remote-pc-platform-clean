@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -33,7 +34,7 @@ public class AgentSessionService {
         this.agentSessionRegistry = agentSessionRegistry;
     }
 
-    public void register(WebSocketSession session, JsonNode json) throws Exception {
+    public void register(WebSocketSession session, JsonNode json) throws IOException {
         String token = json.get("token").asText();
         String pcName = json.get("pcName").asText();
         String mac = json.get("mac").asText();

@@ -6,6 +6,8 @@ import com.remote.websocket.agent.AgentWebSocketHandler;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+
 @Service
 public class CommandDispatchService {
 
@@ -15,11 +17,11 @@ public class CommandDispatchService {
         this.agentWebSocketHandler = agentWebSocketHandler;
     }
 
-    public void dispatch(Long pcId, ObjectNode command) throws Exception {
+    public void dispatch(Long pcId, ObjectNode command) throws IOException {
         agentWebSocketHandler.sendCommandToAgent(pcId, command);
     }
 
-    public void sendSettings(Long pcId, JsonNode json) throws Exception {
+    public void sendSettings(Long pcId, JsonNode json) throws IOException {
         agentWebSocketHandler.sendCommandToAgent(pcId, json);
     }
 }

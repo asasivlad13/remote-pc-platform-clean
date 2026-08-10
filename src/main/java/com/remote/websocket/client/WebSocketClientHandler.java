@@ -62,7 +62,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     protected void handleTextMessage(
             WebSocketSession session,
             TextMessage message
-    ) throws Exception {
+    ) throws IOException {
         String payload = message.getPayload();
 
         JsonNode json =
@@ -201,7 +201,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     private void handleCommand(
             WebSocketSession session,
             JsonNode json
-    ) throws Exception {
+    ) throws IOException {
         if (!json.has("pcId") || !json.has("action")) {
             session.sendMessage(
                     new TextMessage(
@@ -240,18 +240,9 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         if (!allowed) {
             String errorJson =
                     objectMapper.createObjectNode()
-                            .put(
-                                    "type",
-                                    "command_denied"
-                            )
-                            .put(
-                                    "profile",
-                                    profile
-                            )
-                            .put(
-                                    "action",
-                                    action
-                            )
+                            .put("type", "command_denied")
+                            .put("profile", profile)
+                            .put("action", action)
                             .put(
                                     "message",
                                     "Command is not allowed for current scenario"

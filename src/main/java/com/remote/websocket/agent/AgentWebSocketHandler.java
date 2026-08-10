@@ -48,7 +48,8 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(WebSocketSession session,
+                                     TextMessage message) throws IOException {
         String payload = message.getPayload();
 
         log.debug(
@@ -130,7 +131,8 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
+    protected void handleBinaryMessage(WebSocketSession session,
+                                       BinaryMessage message) {
         byte[] imageData = new byte[message.getPayload().remaining()];
         message.getPayload().get(imageData);
 
@@ -154,7 +156,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        webSocketClientHandler.broadcastBinaryFrame(pc.getId(), imageData);
+        webSocketClientHandler.broadcastBinaryFrame(
+                pc.getId(),
+                imageData
+        );
 
         log.debug(
                 "Binary frame forwarded: pcId={}, mac={}, sizeBytes={}",
@@ -180,11 +185,16 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendCommandToAgent(Long pcId, JsonNode command) throws IOException {
-        WebSocketSession agentSession = agentSessionRegistry.getByPcId(pcId);
+        WebSocketSession agentSession =
+                agentSessionRegistry.getByPcId(pcId);
 
         if (agentSession != null && agentSession.isOpen()) {
-            String commandJson = objectMapper.writeValueAsString(command);
-            agentSession.sendMessage(new TextMessage(commandJson));
+            String commandJson =
+                    objectMapper.writeValueAsString(command);
+
+            agentSession.sendMessage(
+                    new TextMessage(commandJson)
+            );
 
             String action = command.has("action")
                     ? command.get("action").asText()
@@ -203,18 +213,25 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void sendNotificationToAgent(Long pcId, String message) throws IOException {
-        WebSocketSession agentSession = agentSessionRegistry.getByPcId(pcId);
+    public void sendNotificationToAgent(Long pcId,
+                                        String message) throws IOException {
+        WebSocketSession agentSession =
+                agentSessionRegistry.getByPcId(pcId);
 
         if (agentSession != null && agentSession.isOpen()) {
             Map<String, String> notification = Map.of(
-                    "type", "notification",
-                    "message", message
+                    "type",
+                    "notification",
+                    "message",
+                    message
             );
 
-            String json = objectMapper.writeValueAsString(notification);
+            String json =
+                    objectMapper.writeValueAsString(notification);
 
-            agentSession.sendMessage(new TextMessage(json));
+            agentSession.sendMessage(
+                    new TextMessage(json)
+            );
 
             log.info(
                     "Notification sent to agent: pcId={}",
@@ -229,7 +246,8 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+    public void afterConnectionClosed(WebSocketSession session,
+                                      CloseStatus status) {
         agentSessionService.closeSession(session);
 
         log.info(

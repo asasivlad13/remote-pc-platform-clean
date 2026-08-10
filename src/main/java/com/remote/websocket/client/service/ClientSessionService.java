@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -55,7 +56,9 @@ public class ClientSessionService {
         this.lastFrameCache = lastFrameCache;
     }
 
-    public void handleWatch(WebSocketSession session, JsonNode json, String profile) throws Exception {
+    public void handleWatch(WebSocketSession session,
+                            JsonNode json,
+                            String profile) throws IOException {
         Long pcId = json.get("pcId").asLong();
         clientViewerRegistry.addViewer(pcId, session);
 
