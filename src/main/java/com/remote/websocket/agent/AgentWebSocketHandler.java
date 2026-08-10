@@ -15,6 +15,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static com.remote.common.ServerConstants.MESSAGE_FILE_PROGRESS;
@@ -50,20 +51,33 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
 
-        log.debug("Agent text message received: sessionId={}, length={}", session.getId(), payload.length());
+        log.debug(
+                "Agent text message received: sessionId={}, length={}",
+                session.getId(),
+                payload.length()
+        );
 
         if (log.isTraceEnabled()) {
             if (payload.length() > 1000) {
-                log.trace("Agent message payload preview: {}", payload.substring(0, 100));
+                log.trace(
+                        "Agent message payload preview: {}",
+                        payload.substring(0, 100)
+                );
             } else {
-                log.trace("Agent message payload: {}", payload);
+                log.trace(
+                        "Agent message payload: {}",
+                        payload
+                );
             }
         }
 
         JsonNode json = objectMapper.readTree(payload);
 
         if (!json.has("type")) {
-            log.warn("Agent message ignored because type is missing: sessionId={}", session.getId());
+            log.warn(
+                    "Agent message ignored because type is missing: sessionId={}",
+                    session.getId()
+            );
             return;
         }
 
@@ -133,7 +147,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         Pc pc = pcRepository.findByMacAddress(mac);
 
         if (pc == null) {
-            log.warn("Binary frame ignored because PC was not found: mac={}", mac);
+            log.warn(
+                    "Binary frame ignored because PC was not found: mac={}",
+                    mac
+            );
             return;
         }
 
@@ -162,7 +179,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void sendCommandToAgent(Long pcId, JsonNode command) throws Exception {
+    public void sendCommandToAgent(Long pcId, JsonNode command) throws IOException {
         WebSocketSession agentSession = agentSessionRegistry.getByPcId(pcId);
 
         if (agentSession != null && agentSession.isOpen()) {
@@ -186,7 +203,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void sendNotificationToAgent(Long pcId, String message) throws Exception {
+    public void sendNotificationToAgent(Long pcId, String message) throws IOException {
         WebSocketSession agentSession = agentSessionRegistry.getByPcId(pcId);
 
         if (agentSession != null && agentSession.isOpen()) {
@@ -198,7 +215,11 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             String json = objectMapper.writeValueAsString(notification);
 
             agentSession.sendMessage(new TextMessage(json));
-            log.info("Notification sent to agent: pcId={}", pcId);
+
+            log.info(
+                    "Notification sent to agent: pcId={}",
+                    pcId
+            );
         } else {
             log.warn(
                     "Notification was not sent because agent is not connected: pcId={}",

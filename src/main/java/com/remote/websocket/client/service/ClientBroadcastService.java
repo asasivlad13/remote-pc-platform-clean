@@ -7,6 +7,8 @@ import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
+
 @Slf4j
 @Service
 public class ClientBroadcastService {
@@ -28,10 +30,12 @@ public class ClientBroadcastService {
                 try {
                     session.sendMessage(
                             new TextMessage(
-                                    "{\"type\":\"frame\",\"image\":\"" + base64Image + "\"}"
+                                    "{\"type\":\"frame\",\"image\":\""
+                                            + base64Image
+                                            + "\"}"
                             )
                     );
-                } catch (Exception e) {
+                } catch (IOException e) {
                     log.warn(
                             "Failed to send frame: pcId={}, sessionId={}",
                             pcId,
@@ -47,8 +51,10 @@ public class ClientBroadcastService {
         for (WebSocketSession session : clientViewerRegistry.getViewers(pcId)) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(new BinaryMessage(imageData));
-                } catch (Exception e) {
+                    session.sendMessage(
+                            new BinaryMessage(imageData)
+                    );
+                } catch (IOException e) {
                     log.warn(
                             "Failed to send binary frame: pcId={}, sessionId={}",
                             pcId,
@@ -64,8 +70,10 @@ public class ClientBroadcastService {
         for (WebSocketSession session : clientViewerRegistry.getViewers(pcId)) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(new TextMessage(progressJson.toString()));
-                } catch (Exception e) {
+                    session.sendMessage(
+                            new TextMessage(progressJson.toString())
+                    );
+                } catch (IOException e) {
                     log.warn(
                             "Failed to send file progress: pcId={}, sessionId={}",
                             pcId,
