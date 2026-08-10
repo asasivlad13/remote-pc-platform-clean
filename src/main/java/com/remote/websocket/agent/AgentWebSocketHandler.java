@@ -17,6 +17,9 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.Map;
 
+import static com.remote.common.ServerConstants.MESSAGE_FILE_PROGRESS;
+import static com.remote.common.ServerConstants.MESSAGE_REMOTE_FILE_PREFIX;
+
 @Slf4j
 @Component
 public class AgentWebSocketHandler extends TextWebSocketHandler {
@@ -66,27 +69,32 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
         String type = json.get("type").asText();
 
-        if ("FILE_PROGRESS".equals(type)) {
+        if (MESSAGE_FILE_PROGRESS.equals(type)) {
             Long pcId = agentSessionRegistry.getPcIdBySession(session);
 
             if (pcId != null) {
                 webSocketClientHandler.broadcastFileProgress(pcId, json);
             } else {
-                log.warn("File progress ignored because PC id was not found for agent session: sessionId={}", session.getId());
+                log.warn(
+                        "File progress ignored because PC id was not found for agent session: sessionId={}",
+                        session.getId()
+                );
             }
 
             return;
         }
 
-        if (type.startsWith("REMOTE_FILE_")) {
+        if (type.startsWith(MESSAGE_REMOTE_FILE_PREFIX)) {
             Long pcId = agentSessionRegistry.getPcIdBySession(session);
 
             if (pcId != null) {
                 webSocketClientHandler.forwardRemoteFileMessage(pcId, json);
             } else {
-                log.warn("Remote file message ignored because PC id was not found for agent session: sessionId={}, type={}",
+                log.warn(
+                        "Remote file message ignored because PC id was not found for agent session: sessionId={}, type={}",
                         session.getId(),
-                        type);
+                        type
+                );
             }
 
             return;
@@ -99,7 +107,11 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         } else if ("frame".equals(type)) {
             handleFrame(session, json);
         } else {
-            log.debug("Unknown agent message type ignored: sessionId={}, type={}", session.getId(), type);
+            log.debug(
+                    "Unknown agent message type ignored: sessionId={}, type={}",
+                    session.getId(),
+                    type
+            );
         }
     }
 
@@ -111,7 +123,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         String mac = agentSessionRegistry.getMacBySession(session);
 
         if (mac == null) {
-            log.warn("Binary frame ignored because MAC was not found for session: sessionId={}", session.getId());
+            log.warn(
+                    "Binary frame ignored because MAC was not found for session: sessionId={}",
+                    session.getId()
+            );
             return;
         }
 
@@ -124,7 +139,12 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
         webSocketClientHandler.broadcastBinaryFrame(pc.getId(), imageData);
 
-        log.debug("Binary frame forwarded: pcId={}, mac={}, sizeBytes={}", pc.getId(), mac, imageData.length);
+        log.debug(
+                "Binary frame forwarded: pcId={}, mac={}, sizeBytes={}",
+                pc.getId(),
+                mac,
+                imageData.length
+        );
     }
 
     private void handleFrame(WebSocketSession session, JsonNode json) {
@@ -132,10 +152,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
         if (mac != null && json.has("image")) {
             String imageBase64 = json.get("image").asText();
-            log.debug("Text frame received from agent: sessionId={}, mac={}, sizeChars={}",
+
+            log.debug(
+                    "Text frame received from agent: sessionId={}, mac={}, sizeChars={}",
                     session.getId(),
                     mac,
-                    imageBase64.length());
+                    imageBase64.length()
+            );
         }
     }
 
@@ -146,10 +169,20 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             String commandJson = objectMapper.writeValueAsString(command);
             agentSession.sendMessage(new TextMessage(commandJson));
 
-            String action = command.has("action") ? command.get("action").asText() : "unknown";
-            log.info("Command forwarded to agent: pcId={}, action={}", pcId, action);
+            String action = command.has("action")
+                    ? command.get("action").asText()
+                    : "unknown";
+
+            log.info(
+                    "Command forwarded to agent: pcId={}, action={}",
+                    pcId,
+                    action
+            );
         } else {
-            log.warn("Command was not sent because agent is not connected: pcId={}", pcId);
+            log.warn(
+                    "Command was not sent because agent is not connected: pcId={}",
+                    pcId
+            );
         }
     }
 
@@ -167,13 +200,21 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             agentSession.sendMessage(new TextMessage(json));
             log.info("Notification sent to agent: pcId={}", pcId);
         } else {
-            log.warn("Notification was not sent because agent is not connected: pcId={}", pcId);
+            log.warn(
+                    "Notification was not sent because agent is not connected: pcId={}",
+                    pcId
+            );
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         agentSessionService.closeSession(session);
-        log.info("Agent WebSocket disconnected: sessionId={}, status={}", session.getId(), status);
+
+        log.info(
+                "Agent WebSocket disconnected: sessionId={}, status={}",
+                session.getId(),
+                status
+        );
     }
 }

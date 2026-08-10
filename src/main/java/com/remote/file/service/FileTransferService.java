@@ -21,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.remote.common.ServerConstants.ACTION_FILE_DOWNLOAD;
+
 @Slf4j
 @RequiredArgsConstructor
 @Service
@@ -48,7 +50,7 @@ public class FileTransferService {
         Map<String, Object> command = new HashMap<>();
         command.put("type", "command");
         command.put("pcId", pcId);
-        command.put("action", "FILE_DOWNLOAD");
+        command.put("action", ACTION_FILE_DOWNLOAD);
         command.put("fileId", storedFileInfo.getFileId());
         command.put("fileName", storedFileInfo.getFileName());
         command.put("fileSize", storedFileInfo.getFileSize());

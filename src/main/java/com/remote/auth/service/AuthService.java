@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
+
 @Service
 public class AuthService {
 
@@ -139,14 +141,20 @@ public class AuthService {
     }
 
     private String extractUsernameFromAuthHeader(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authorization header is missing");
+        if (authHeader == null || !authHeader.startsWith(AUTH_BEARER_PREFIX)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authorization header is missing"
+            );
         }
 
-        String token = authHeader.substring(7);
+        String token = authHeader.substring(AUTH_BEARER_PREFIX.length());
 
         if (!jwtUtil.validateToken(token)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid token"
+            );
         }
 
         return jwtUtil.extractUsername(token);

@@ -1,0 +1,46 @@
+package com.remote.common;
+
+public final class ServerConstants {
+
+    public static final String PROFILE_PERSONAL = "personal";
+    public static final String PROFILE_EDUCATION_STUDENT = "education_student";
+    public static final String PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT = "support_operator_view_client";
+    public static final String PROFILE_PRESENTATION_REMOTE = "presentation_remote";
+
+    public static final String ACTION_MOUSE_MOVE = "MOUSE_MOVE";
+    public static final String ACTION_MOUSE_CLICK = "MOUSE_CLICK";
+    public static final String ACTION_MOUSE_WHEEL = "MOUSE_WHEEL";
+
+    public static final String ACTION_KEY_PRESS = "KEY_PRESS";
+    public static final String ACTION_KEY_RELEASE = "KEY_RELEASE";
+    public static final String ACTION_KEY_COMBO = "KEY_COMBO";
+
+    public static final String ACTION_SOFT_SLEEP = "SOFT_SLEEP";
+    public static final String ACTION_SOFT_WAKE = "SOFT_WAKE";
+
+    public static final String ACTION_FILE_DOWNLOAD = "FILE_DOWNLOAD";
+    public static final String ACTION_FILE_PAUSE = "FILE_PAUSE";
+    public static final String ACTION_FILE_RESUME = "FILE_RESUME";
+    public static final String ACTION_FILE_CANCEL = "FILE_CANCEL";
+    public static final String ACTION_FILE_START = "FILE_START";
+    public static final String ACTION_FILE_CHUNK = "FILE_CHUNK";
+    public static final String ACTION_FILE_END = "FILE_END";
+
+    public static final String ACTION_GAMEPAD_CONNECT = "GAMEPAD_CONNECT";
+    public static final String ACTION_GAMEPAD_STATE = "GAMEPAD_STATE";
+    public static final String ACTION_GAMEPAD_DISCONNECT = "GAMEPAD_DISCONNECT";
+
+    public static final String MESSAGE_FILE_PROGRESS = "FILE_PROGRESS";
+
+    public static final String MESSAGE_REMOTE_FILE_PREFIX = "REMOTE_FILE_";
+    public static final String MESSAGE_REMOTE_FILE_LIST = "REMOTE_FILE_LIST";
+    public static final String MESSAGE_REMOTE_FILE_DOWNLOAD = "REMOTE_FILE_DOWNLOAD";
+    public static final String MESSAGE_REMOTE_FILE_LIST_RESULT = "REMOTE_FILE_LIST_RESULT";
+    public static final String MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE = "REMOTE_FILE_DOWNLOAD_COMPLETE";
+    public static final String MESSAGE_REMOTE_FILE_ERROR = "REMOTE_FILE_ERROR";
+
+    public static final String AUTH_BEARER_PREFIX = "Bearer ";
+
+    private ServerConstants() {
+    }
+}
