@@ -30,6 +30,8 @@ public final class ServerConstants {
     public static final String ACTION_GAMEPAD_STATE = "GAMEPAD_STATE";
     public static final String ACTION_GAMEPAD_DISCONNECT = "GAMEPAD_DISCONNECT";
 
+    public static final String AUTH_BEARER_PREFIX = "Bearer ";
+
     private ServerConstants() {
     }
 }

@@ -15,6 +15,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
+
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
@@ -35,8 +37,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+        if (authHeader != null && authHeader.startsWith(AUTH_BEARER_PREFIX)) {
+            String token = authHeader.substring(AUTH_BEARER_PREFIX.length());
 
             if (jwtUtil.validateToken(token)) {
                 String username = jwtUtil.extractUsername(token);
