@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/files")
@@ -20,9 +22,14 @@ public class FileTransferController {
     @PostMapping("/upload")
     public StoredFileInfo uploadFile(@RequestParam("pcId") Long pcId,
                                      @RequestParam("file") MultipartFile file,
-                                     HttpServletRequest request) throws Exception {
+                                     HttpServletRequest request) throws IOException {
         String baseUrl = serverUrlService.getBaseUrl(request);
-        return fileTransferService.uploadFile(pcId, file, baseUrl);
+
+        return fileTransferService.uploadFile(
+                pcId,
+                file,
+                baseUrl
+        );
     }
 
     @GetMapping("/download/{fileId}")

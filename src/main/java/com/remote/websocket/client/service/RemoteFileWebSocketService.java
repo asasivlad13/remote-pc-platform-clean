@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,11 +33,14 @@ public class RemoteFileWebSocketService {
     private final SupportSessionService supportSessionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, WebSocketSession> requestOwners = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> requestOwners =
+            new ConcurrentHashMap<>();
 
-    public RemoteFileWebSocketService(@Lazy AgentWebSocketHandler agentWebSocketHandler,
-                                      EducationControlService educationControlService,
-                                      SupportSessionService supportSessionService) {
+    public RemoteFileWebSocketService(
+            @Lazy AgentWebSocketHandler agentWebSocketHandler,
+            EducationControlService educationControlService,
+            SupportSessionService supportSessionService
+    ) {
         this.agentWebSocketHandler = agentWebSocketHandler;
         this.educationControlService = educationControlService;
         this.supportSessionService = supportSessionService;
@@ -45,13 +49,18 @@ public class RemoteFileWebSocketService {
     public void handleRemoteFileList(WebSocketSession session,
                                      JsonNode json,
                                      String profile,
-                                     String username) throws Exception {
+                                     String username) throws IOException {
         if (!json.has("pcId")) {
-            sendError(session, null, "PC is not specified");
+            sendError(
+                    session,
+                    null,
+                    "PC is not specified"
+            );
             return;
         }
 
         Long pcId = json.get("pcId").asLong();
+
         String requestId = json.has("requestId")
                 ? json.get("requestId").asText()
                 : UUID.randomUUID().toString();
@@ -60,7 +69,12 @@ public class RemoteFileWebSocketService {
                 ? json.get("path").asText()
                 : "ROOTS";
 
-        if (!isAccessAllowed(profile, username, pcId, json)) {
+        if (!isAccessAllowed(
+                profile,
+                username,
+                pcId,
+                json
+        )) {
             sendError(
                     session,
                     requestId,
@@ -69,33 +83,63 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        requestOwners.put(requestId, session);
+        requestOwners.put(
+                requestId,
+                session
+        );
 
-        ObjectNode command = objectMapper.createObjectNode();
-        command.put("type", MESSAGE_REMOTE_FILE_LIST);
-        command.put("requestId", requestId);
-        command.put("path", path);
+        ObjectNode command =
+                objectMapper.createObjectNode();
 
-        agentWebSocketHandler.sendCommandToAgent(pcId, command);
+        command.put(
+                "type",
+                MESSAGE_REMOTE_FILE_LIST
+        );
+
+        command.put(
+                "requestId",
+                requestId
+        );
+
+        command.put(
+                "path",
+                path
+        );
+
+        agentWebSocketHandler.sendCommandToAgent(
+                pcId,
+                command
+        );
     }
 
     public void handleRemoteFileDownload(WebSocketSession session,
                                          JsonNode json,
                                          String profile,
-                                         String username) throws Exception {
+                                         String username) throws IOException {
         if (!json.has("pcId") || !json.has("path")) {
-            sendError(session, null, "PC or file path is not specified");
+            sendError(
+                    session,
+                    null,
+                    "PC or file path is not specified"
+            );
             return;
         }
 
         Long pcId = json.get("pcId").asLong();
+
         String requestId = json.has("requestId")
                 ? json.get("requestId").asText()
                 : UUID.randomUUID().toString();
 
-        String path = json.get("path").asText();
+        String path =
+                json.get("path").asText();
 
-        if (!isAccessAllowed(profile, username, pcId, json)) {
+        if (!isAccessAllowed(
+                profile,
+                username,
+                pcId,
+                json
+        )) {
             sendError(
                     session,
                     requestId,
@@ -104,17 +148,36 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        requestOwners.put(requestId, session);
+        requestOwners.put(
+                requestId,
+                session
+        );
 
-        ObjectNode command = objectMapper.createObjectNode();
-        command.put("type", MESSAGE_REMOTE_FILE_DOWNLOAD);
-        command.put("requestId", requestId);
-        command.put("path", path);
+        ObjectNode command =
+                objectMapper.createObjectNode();
 
-        agentWebSocketHandler.sendCommandToAgent(pcId, command);
+        command.put(
+                "type",
+                MESSAGE_REMOTE_FILE_DOWNLOAD
+        );
+
+        command.put(
+                "requestId",
+                requestId
+        );
+
+        command.put(
+                "path",
+                path
+        );
+
+        agentWebSocketHandler.sendCommandToAgent(
+                pcId,
+                command
+        );
     }
 
-    public void forwardRemoteFileMessage(JsonNode json) throws Exception {
+    public void forwardRemoteFileMessage(JsonNode json) throws IOException {
         String requestId = json.has("requestId")
                 ? json.get("requestId").asText()
                 : null;
@@ -123,7 +186,8 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        WebSocketSession owner = requestOwners.get(requestId);
+        WebSocketSession owner =
+                requestOwners.get(requestId);
 
         if (owner == null || !owner.isOpen()) {
             requestOwners.remove(requestId);
@@ -131,7 +195,9 @@ public class RemoteFileWebSocketService {
         }
 
         owner.sendMessage(
-                new TextMessage(objectMapper.writeValueAsString(json))
+                new TextMessage(
+                        objectMapper.writeValueAsString(json)
+                )
         );
 
         String type = json.has("type")
@@ -141,13 +207,18 @@ public class RemoteFileWebSocketService {
         if (MESSAGE_REMOTE_FILE_LIST_RESULT.equals(type)
                 || MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE.equals(type)
                 || MESSAGE_REMOTE_FILE_ERROR.equals(type)) {
+
             requestOwners.remove(requestId);
         }
     }
 
     public void removeOwnerSession(WebSocketSession session) {
         requestOwners.entrySet()
-                .removeIf(entry -> entry.getValue().getId().equals(session.getId()));
+                .removeIf(entry ->
+                        entry.getValue()
+                                .getId()
+                                .equals(session.getId())
+                );
     }
 
     private boolean isAccessAllowed(String profile,
@@ -192,16 +263,29 @@ public class RemoteFileWebSocketService {
 
     private void sendError(WebSocketSession session,
                            String requestId,
-                           String message) throws Exception {
-        ObjectNode error = objectMapper.createObjectNode();
-        error.put("type", MESSAGE_REMOTE_FILE_ERROR);
+                           String message) throws IOException {
+        ObjectNode error =
+                objectMapper.createObjectNode();
+
+        error.put(
+                "type",
+                MESSAGE_REMOTE_FILE_ERROR
+        );
 
         if (requestId != null) {
-            error.put("requestId", requestId);
+            error.put(
+                    "requestId",
+                    requestId
+            );
         }
 
-        error.put("message", message);
+        error.put(
+                "message",
+                message
+        );
 
-        session.sendMessage(new TextMessage(error.toString()));
+        session.sendMessage(
+                new TextMessage(error.toString())
+        );
     }
 }
