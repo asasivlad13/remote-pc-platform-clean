@@ -9,6 +9,7 @@ import com.remote.websocket.client.service.ClientSessionService;
 import com.remote.websocket.client.service.CommandAuthorizationService;
 import com.remote.websocket.client.service.CommandDispatchService;
 import com.remote.websocket.client.service.RemoteFileWebSocketService;
+import com.remote.websocket.common.WebSocketMessageSender;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -31,6 +32,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     private final CommandAuthorizationService commandAuthorizationService;
     private final ClientBroadcastService clientBroadcastService;
     private final CommandDispatchService commandDispatchService;
+    private final WebSocketMessageSender webSocketMessageSender;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -40,7 +42,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             RemoteFileWebSocketService remoteFileWebSocketService,
             CommandAuthorizationService commandAuthorizationService,
             ClientBroadcastService clientBroadcastService,
-            CommandDispatchService commandDispatchService
+            CommandDispatchService commandDispatchService,
+            WebSocketMessageSender webSocketMessageSender
     ) {
         this.sessionPermissionService = sessionPermissionService;
         this.clientSessionService = clientSessionService;
@@ -48,6 +51,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         this.commandAuthorizationService = commandAuthorizationService;
         this.clientBroadcastService = clientBroadcastService;
         this.commandDispatchService = commandDispatchService;
+        this.webSocketMessageSender = webSocketMessageSender;
     }
 
     @Override
@@ -83,7 +87,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         );
 
         if ("ping".equals(type)) {
-            session.sendMessage(
+            webSocketMessageSender.send(
+                    session,
                     new TextMessage(
                             payload.replace(
                                     "\"ping\"",
@@ -183,7 +188,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                     json
             );
 
-            session.sendMessage(
+            webSocketMessageSender.send(
+                    session,
                     new TextMessage(
                             "{\"type\":\"settings_applied\"}"
                     )
@@ -200,7 +206,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             JsonNode json
     ) throws IOException {
         if (!json.has("pcId") || !json.has("action")) {
-            session.sendMessage(
+            webSocketMessageSender.send(
+                    session,
                     new TextMessage(
                             "{\"type\":\"error\",\"message\":\"Invalid command payload\"}"
                     )
@@ -246,7 +253,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                             )
                             .toString();
 
-            session.sendMessage(
+            webSocketMessageSender.send(
+                    session,
                     new TextMessage(errorJson)
             );
 

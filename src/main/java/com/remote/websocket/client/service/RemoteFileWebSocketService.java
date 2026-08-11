@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.remote.education.service.EducationControlService;
 import com.remote.support.service.SupportSessionService;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import com.remote.websocket.common.WebSocketMessageSender;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
@@ -31,19 +32,23 @@ public class RemoteFileWebSocketService {
     private final AgentWebSocketHandler agentWebSocketHandler;
     private final EducationControlService educationControlService;
     private final SupportSessionService supportSessionService;
+    private final WebSocketMessageSender webSocketMessageSender;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
     private final Map<String, WebSocketSession> requestOwners =
             new ConcurrentHashMap<>();
 
     public RemoteFileWebSocketService(
             @Lazy AgentWebSocketHandler agentWebSocketHandler,
             EducationControlService educationControlService,
-            SupportSessionService supportSessionService
+            SupportSessionService supportSessionService,
+            WebSocketMessageSender webSocketMessageSender
     ) {
         this.agentWebSocketHandler = agentWebSocketHandler;
         this.educationControlService = educationControlService;
         this.supportSessionService = supportSessionService;
+        this.webSocketMessageSender = webSocketMessageSender;
     }
 
     public void handleRemoteFileList(WebSocketSession session,
@@ -194,7 +199,8 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        owner.sendMessage(
+        webSocketMessageSender.send(
+                owner,
                 new TextMessage(
                         objectMapper.writeValueAsString(json)
                 )
@@ -284,7 +290,8 @@ public class RemoteFileWebSocketService {
                 message
         );
 
-        session.sendMessage(
+        webSocketMessageSender.send(
+                session,
                 new TextMessage(error.toString())
         );
     }

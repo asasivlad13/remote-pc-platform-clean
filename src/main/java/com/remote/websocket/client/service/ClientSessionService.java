@@ -7,6 +7,7 @@ import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import com.remote.websocket.common.WebSocketMessageSender;
 import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -33,6 +34,7 @@ public class ClientSessionService {
     private final JwtUtil jwtUtil;
     private final ClientViewerRegistry clientViewerRegistry;
     private final LastFrameCache lastFrameCache;
+    private final WebSocketMessageSender webSocketMessageSender;
 
     private final Map<String, Long> sessionLogIds = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProfiles = new ConcurrentHashMap<>();
@@ -47,13 +49,15 @@ public class ClientSessionService {
                                 @Lazy AgentWebSocketHandler agentWebSocketHandler,
                                 JwtUtil jwtUtil,
                                 ClientViewerRegistry clientViewerRegistry,
-                                LastFrameCache lastFrameCache) {
+                                LastFrameCache lastFrameCache,
+                                WebSocketMessageSender webSocketMessageSender) {
         this.pcRepository = pcRepository;
         this.connectionLogRepository = connectionLogRepository;
         this.agentWebSocketHandler = agentWebSocketHandler;
         this.jwtUtil = jwtUtil;
         this.clientViewerRegistry = clientViewerRegistry;
         this.lastFrameCache = lastFrameCache;
+        this.webSocketMessageSender = webSocketMessageSender;
     }
 
     public void handleWatch(WebSocketSession session,
@@ -131,7 +135,8 @@ public class ClientSessionService {
         String lastFrame = lastFrameCache.get(pcId);
 
         if (lastFrame != null) {
-            session.sendMessage(
+            webSocketMessageSender.send(
+                    session,
                     new TextMessage(
                             "{\"type\":\"frame\",\"image\":\""
                                     + lastFrame
