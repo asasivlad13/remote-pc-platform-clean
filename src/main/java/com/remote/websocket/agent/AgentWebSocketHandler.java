@@ -103,7 +103,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             Long pcId = agentSessionRegistry.getPcIdBySession(session);
 
             if (pcId != null) {
-                webSocketClientHandler.forwardRemoteFileMessage(pcId, json);
+                webSocketClientHandler.forwardRemoteFileMessage(json);
             } else {
                 log.warn(
                         "Remote file message ignored because PC id was not found for agent session: sessionId={}, type={}",

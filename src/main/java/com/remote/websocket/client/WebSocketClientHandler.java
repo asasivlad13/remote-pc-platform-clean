@@ -191,10 +191,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
     }
 
-    public void forwardRemoteFileMessage(
-            Long pcId,
-            JsonNode json
-    ) throws IOException {
+    public void forwardRemoteFileMessage(JsonNode json) throws IOException {
         remoteFileWebSocketService.forwardRemoteFileMessage(json);
     }
 
