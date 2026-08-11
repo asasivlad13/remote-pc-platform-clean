@@ -7,6 +7,7 @@ import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.model.PcStatus;
 import com.remote.pc.repository.PcRepository;
+import com.remote.websocket.common.WebSocketMessageSender;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
@@ -23,43 +24,67 @@ public class AgentSessionService {
     private final PcRepository pcRepository;
     private final UserRepository userRepository;
     private final AgentSessionRegistry agentSessionRegistry;
+    private final WebSocketMessageSender webSocketMessageSender;
 
     public AgentSessionService(JwtUtil jwtUtil,
                                PcRepository pcRepository,
                                UserRepository userRepository,
-                               AgentSessionRegistry agentSessionRegistry) {
+                               AgentSessionRegistry agentSessionRegistry,
+                               WebSocketMessageSender webSocketMessageSender) {
         this.jwtUtil = jwtUtil;
         this.pcRepository = pcRepository;
         this.userRepository = userRepository;
         this.agentSessionRegistry = agentSessionRegistry;
+        this.webSocketMessageSender = webSocketMessageSender;
     }
 
-    public void register(WebSocketSession session, JsonNode json) throws IOException {
-        String token = json.get("token").asText();
-        String pcName = json.get("pcName").asText();
-        String mac = json.get("mac").asText();
+    public void register(WebSocketSession session,
+                         JsonNode json) throws IOException {
+        String token =
+                json.get("token").asText();
+
+        String pcName =
+                json.get("pcName").asText();
+
+        String mac =
+                json.get("mac").asText();
 
         if (!jwtUtil.validateToken(token)) {
-            session.sendMessage(new TextMessage("{\"error\":\"Invalid token\"}"));
+            webSocketMessageSender.send(
+                    session,
+                    new TextMessage(
+                            "{\"error\":\"Invalid token\"}"
+                    )
+            );
+
             session.close();
             return;
         }
 
-        String username = jwtUtil.extractUsername(token);
+        String username =
+                jwtUtil.extractUsername(token);
 
         User user = userRepository.findByUsername(username)
                 .orElse(null);
 
         if (user == null) {
-            session.sendMessage(new TextMessage("{\"error\":\"User not found\"}"));
+            webSocketMessageSender.send(
+                    session,
+                    new TextMessage(
+                            "{\"error\":\"User not found\"}"
+                    )
+            );
+
             session.close();
             return;
         }
 
-        Pc pc = pcRepository.findByMacAddress(mac);
+        Pc pc =
+                pcRepository.findByMacAddress(mac);
 
         if (pc == null) {
             pc = new Pc();
+
             pc.setName(pcName);
             pc.setMacAddress(mac);
             pc.setUser(user);
@@ -80,7 +105,9 @@ public class AgentSessionService {
                 );
             }
 
-            if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
+            if (pc.getUser() == null
+                    || !pc.getUser().getId().equals(user.getId())) {
+
                 pc.setUser(user);
 
                 log.info(
@@ -91,9 +118,16 @@ public class AgentSessionService {
             }
         }
 
-        if (json.has("screenWidth") && json.has("screenHeight")) {
-            pc.setScreenWidth(json.get("screenWidth").asInt());
-            pc.setScreenHeight(json.get("screenHeight").asInt());
+        if (json.has("screenWidth")
+                && json.has("screenHeight")) {
+
+            pc.setScreenWidth(
+                    json.get("screenWidth").asInt()
+            );
+
+            pc.setScreenHeight(
+                    json.get("screenHeight").asInt()
+            );
 
             log.debug(
                     "PC screen size updated: mac={}, width={}, height={}",
@@ -103,9 +137,14 @@ public class AgentSessionService {
             );
         }
 
-        if (json.has("scaleX") && json.has("scaleY")) {
-            double scaleX = json.get("scaleX").asDouble();
-            double scaleY = json.get("scaleY").asDouble();
+        if (json.has("scaleX")
+                && json.has("scaleY")) {
+
+            double scaleX =
+                    json.get("scaleX").asDouble();
+
+            double scaleY =
+                    json.get("scaleY").asDouble();
 
             log.debug(
                     "Agent scale factors received: mac={}, scaleX={}, scaleY={}",
@@ -116,7 +155,9 @@ public class AgentSessionService {
         }
 
         if (json.has("webrtcUrl")) {
-            pc.setWebrtcUrl(json.get("webrtcUrl").asText());
+            pc.setWebrtcUrl(
+                    json.get("webrtcUrl").asText()
+            );
 
             log.debug(
                     "WebRTC URL updated: mac={}",
@@ -125,7 +166,9 @@ public class AgentSessionService {
         }
 
         if (json.has("streamName")) {
-            pc.setStreamName(json.get("streamName").asText());
+            pc.setStreamName(
+                    json.get("streamName").asText()
+            );
 
             log.debug(
                     "Stream name updated: mac={}, streamName={}",
@@ -137,11 +180,21 @@ public class AgentSessionService {
         pc.setStatus(PcStatus.ONLINE);
         pc.setLastConnection(LocalDateTime.now());
 
-        Pc savedPc = pcRepository.save(pc);
+        Pc savedPc =
+                pcRepository.save(pc);
 
-        agentSessionRegistry.register(mac, savedPc.getId(), session);
+        agentSessionRegistry.register(
+                mac,
+                savedPc.getId(),
+                session
+        );
 
-        session.sendMessage(new TextMessage("{\"status\":\"registered\"}"));
+        webSocketMessageSender.send(
+                session,
+                new TextMessage(
+                        "{\"status\":\"registered\"}"
+                )
+        );
 
         log.info(
                 "Agent registered: pcId={}, pcName={}, mac={}, username={}",
@@ -153,13 +206,15 @@ public class AgentSessionService {
     }
 
     public void handleHeartbeat(WebSocketSession session) {
-        String mac = agentSessionRegistry.getMacBySession(session);
+        String mac =
+                agentSessionRegistry.getMacBySession(session);
 
         if (mac == null) {
             return;
         }
 
-        Pc pc = pcRepository.findByMacAddress(mac);
+        Pc pc =
+                pcRepository.findByMacAddress(mac);
 
         if (pc == null) {
             return;
@@ -181,13 +236,16 @@ public class AgentSessionService {
     }
 
     public void closeSession(WebSocketSession session) {
-        String mac = agentSessionRegistry.getMacBySession(session);
+        String mac =
+                agentSessionRegistry.getMacBySession(session);
 
         if (mac != null) {
-            Pc pc = pcRepository.findByMacAddress(mac);
+            Pc pc =
+                    pcRepository.findByMacAddress(mac);
 
             if (pc != null) {
                 pc.setStatus(PcStatus.OFFLINE);
+
                 pcRepository.save(pc);
 
                 log.info(
