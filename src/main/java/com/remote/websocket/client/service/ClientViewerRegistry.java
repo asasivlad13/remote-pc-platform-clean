@@ -17,15 +17,10 @@ public class ClientViewerRegistry {
     }
 
     public void removeViewer(Long pcId, WebSocketSession session) {
-        Set<WebSocketSession> sessions = viewers.get(pcId);
-
-        if (sessions != null) {
+        viewers.computeIfPresent(pcId, (id, sessions) -> {
             sessions.remove(session);
-
-            if (sessions.isEmpty()) {
-                viewers.remove(pcId);
-            }
-        }
+            return sessions.isEmpty() ? null : sessions;
+        });
     }
 
     public Set<WebSocketSession> getViewers(Long pcId) {
@@ -33,7 +28,11 @@ public class ClientViewerRegistry {
     }
 
     public void removeSessionEverywhere(WebSocketSession session) {
-        viewers.values().forEach(set -> set.remove(session));
-        viewers.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        viewers.forEach((pcId, sessions) ->
+                viewers.computeIfPresent(pcId, (id, currentSessions) -> {
+                    currentSessions.remove(session);
+                    return currentSessions.isEmpty() ? null : currentSessions;
+                })
+        );
     }
 }
