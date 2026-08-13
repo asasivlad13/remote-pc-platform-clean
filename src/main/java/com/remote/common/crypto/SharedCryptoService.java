@@ -1,4 +1,4 @@
-package com.remote.education.service;
+package com.remote.common.crypto;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 @Service
-public class EducationCryptoService {
+public class SharedCryptoService {
 
     private static final String ALGORITHM = "AES";
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
@@ -27,7 +27,7 @@ public class EducationCryptoService {
     private final SecretKeySpec keySpec;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public EducationCryptoService(
+    public SharedCryptoService(
             @Value("${education.crypto.key}") String base64Key
     ) {
         byte[] keyBytes = Base64.getDecoder().decode(base64Key);
@@ -110,6 +110,7 @@ public class EducationCryptoService {
             }
 
             byte[] iv = new byte[IV_LENGTH_BYTES];
+
             byte[] encrypted =
                     new byte[input.length - IV_LENGTH_BYTES];
 

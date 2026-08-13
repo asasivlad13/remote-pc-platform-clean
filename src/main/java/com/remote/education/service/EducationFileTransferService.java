@@ -1,5 +1,6 @@
 package com.remote.education.service;
 
+import com.remote.common.crypto.SharedCryptoService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.education.dto.EducationFileResponse;
@@ -44,7 +45,7 @@ public class EducationFileTransferService {
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final EducationSessionEventService eventService;
-    private final EducationCryptoService cryptoService;
+    private final SharedCryptoService cryptoService;
 
     public EducationFileTransferService(
             ConnectionLogActivityService connectionLogActivityService,
@@ -53,7 +54,7 @@ public class EducationFileTransferService {
             EducationSessionParticipantRepository participantRepository,
             UserRepository userRepository,
             EducationSessionEventService eventService,
-            EducationCryptoService cryptoService
+            SharedCryptoService cryptoService
     ) {
         this.connectionLogActivityService = connectionLogActivityService;
         this.fileRepository = fileRepository;

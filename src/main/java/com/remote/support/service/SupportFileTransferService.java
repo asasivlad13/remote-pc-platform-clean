@@ -1,8 +1,8 @@
 package com.remote.support.service;
 
+import com.remote.common.crypto.SharedCryptoService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
-import com.remote.education.service.EducationCryptoService;
 import com.remote.history.service.ConnectionLogActivityService;
 import com.remote.support.dto.SupportFileTransferResponse;
 import com.remote.support.model.SupportFileTransfer;
@@ -47,14 +47,14 @@ public class SupportFileTransferService {
     private final SupportFileTransferRepository supportFileTransferRepository;
     private final SupportSessionRepository supportSessionRepository;
     private final UserRepository userRepository;
-    private final EducationCryptoService educationCryptoService;
+    private final SharedCryptoService cryptoService;
     private final ConnectionLogActivityService connectionLogActivityService;
 
     public SupportFileTransferService(
             SupportFileTransferRepository supportFileTransferRepository,
             SupportSessionRepository supportSessionRepository,
             UserRepository userRepository,
-            EducationCryptoService educationCryptoService,
+            SharedCryptoService cryptoService,
             ConnectionLogActivityService connectionLogActivityService
     ) {
         this.supportFileTransferRepository =
@@ -66,8 +66,8 @@ public class SupportFileTransferService {
         this.userRepository =
                 userRepository;
 
-        this.educationCryptoService =
-                educationCryptoService;
+        this.cryptoService =
+                cryptoService;
 
         this.connectionLogActivityService =
                 connectionLogActivityService;
@@ -123,7 +123,7 @@ public class SupportFileTransferService {
             ByteArrayOutputStream encryptedOutputStream =
                     new ByteArrayOutputStream();
 
-            educationCryptoService.encryptStream(
+            cryptoService.encryptStream(
                     multipartFile.getInputStream(),
                     encryptedOutputStream
             );
@@ -363,7 +363,7 @@ public class SupportFileTransferService {
 
         try {
             InputStream decryptedInputStream =
-                    educationCryptoService.decryptStream(
+                    cryptoService.decryptStream(
                             new ByteArrayInputStream(
                                     file.getFileData()
                             )

@@ -1,5 +1,6 @@
 package com.remote.education.service;
 
+import com.remote.common.crypto.SharedCryptoService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.education.model.EducationChatMessage;
@@ -22,13 +23,13 @@ public class EducationChatService {
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final EducationCryptoService cryptoService;
+    private final SharedCryptoService cryptoService;
 
     public EducationChatService(EducationChatMessageRepository chatRepository,
                                 EducationSessionRepository sessionRepository,
                                 EducationSessionParticipantRepository participantRepository,
                                 UserRepository userRepository,
-                                EducationCryptoService cryptoService) {
+                                SharedCryptoService cryptoService) {
         this.chatRepository = chatRepository;
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
