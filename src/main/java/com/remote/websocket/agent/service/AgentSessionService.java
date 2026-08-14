@@ -1,6 +1,6 @@
 package com.remote.websocket.agent.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.remote.auth.security.JwtUtil;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;

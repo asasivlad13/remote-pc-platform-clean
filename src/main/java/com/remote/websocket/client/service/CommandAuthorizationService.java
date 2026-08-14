@@ -1,6 +1,6 @@
 package com.remote.websocket.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.remote.education.service.EducationControlService;
 import com.remote.service.SessionPermissionService;
 import com.remote.support.service.SupportSessionService;

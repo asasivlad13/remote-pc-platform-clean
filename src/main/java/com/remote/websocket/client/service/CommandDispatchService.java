@@ -1,7 +1,7 @@
 package com.remote.websocket.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.remote.websocket.agent.AgentWebSocketHandler;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;

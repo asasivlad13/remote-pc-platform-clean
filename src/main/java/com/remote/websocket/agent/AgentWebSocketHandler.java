@@ -1,7 +1,7 @@
 package com.remote.websocket.agent;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.agent.service.AgentSessionRegistry;
@@ -31,19 +31,22 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     private final AgentSessionRegistry agentSessionRegistry;
     private final AgentSessionService agentSessionService;
     private final WebSocketMessageSender webSocketMessageSender;
+    private final ObjectMapper objectMapper;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public AgentWebSocketHandler(PcRepository pcRepository,
-                                 WebSocketClientHandler webSocketClientHandler,
-                                 AgentSessionRegistry agentSessionRegistry,
-                                 AgentSessionService agentSessionService,
-                                 WebSocketMessageSender webSocketMessageSender) {
+    public AgentWebSocketHandler(
+            PcRepository pcRepository,
+            WebSocketClientHandler webSocketClientHandler,
+            AgentSessionRegistry agentSessionRegistry,
+            AgentSessionService agentSessionService,
+            WebSocketMessageSender webSocketMessageSender,
+            ObjectMapper objectMapper
+    ) {
         this.pcRepository = pcRepository;
         this.webSocketClientHandler = webSocketClientHandler;
         this.agentSessionRegistry = agentSessionRegistry;
         this.agentSessionService = agentSessionService;
         this.webSocketMessageSender = webSocketMessageSender;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -55,8 +58,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session,
-                                     TextMessage message) throws IOException {
+    protected void handleTextMessage(
+            WebSocketSession session,
+            TextMessage message
+    ) throws IOException {
         String payload = message.getPayload();
 
         log.debug(
@@ -79,7 +84,8 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        JsonNode json = objectMapper.readTree(payload);
+        JsonNode json =
+                objectMapper.readTree(payload);
 
         if (!json.has("type")) {
             log.warn(
@@ -89,10 +95,12 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        String type = json.get("type").asText();
+        String type =
+                json.get("type").asText();
 
         if (MESSAGE_FILE_PROGRESS.equals(type)) {
-            Long pcId = agentSessionRegistry.getPcIdBySession(session);
+            Long pcId =
+                    agentSessionRegistry.getPcIdBySession(session);
 
             if (pcId != null) {
                 webSocketClientHandler.broadcastFileProgress(
@@ -110,10 +118,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
 
         if (type.startsWith(MESSAGE_REMOTE_FILE_PREFIX)) {
-            Long pcId = agentSessionRegistry.getPcIdBySession(session);
+            Long pcId =
+                    agentSessionRegistry.getPcIdBySession(session);
 
             if (pcId != null) {
-                webSocketClientHandler.forwardRemoteFileMessage(json);
+                webSocketClientHandler.forwardRemoteFileMessage(
+                        json
+                );
             } else {
                 log.warn(
                         "Remote file message ignored because PC id was not found for agent session: sessionId={}, type={}",
@@ -130,13 +141,18 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
                     session,
                     json
             );
+
         } else if ("heartbeat".equals(type)) {
-            agentSessionService.handleHeartbeat(session);
+            agentSessionService.handleHeartbeat(
+                    session
+            );
+
         } else if ("frame".equals(type)) {
             handleFrame(
                     session,
                     json
             );
+
         } else {
             log.debug(
                     "Unknown agent message type ignored: sessionId={}, type={}",
@@ -147,8 +163,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleBinaryMessage(WebSocketSession session,
-                                       BinaryMessage message) {
+    protected void handleBinaryMessage(
+            WebSocketSession session,
+            BinaryMessage message
+    ) {
         byte[] imageData =
                 new byte[message.getPayload().remaining()];
 
@@ -189,8 +207,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         );
     }
 
-    private void handleFrame(WebSocketSession session,
-                             JsonNode json) {
+    private void handleFrame(
+            WebSocketSession session,
+            JsonNode json
+    ) {
         String mac =
                 agentSessionRegistry.getMacBySession(session);
 
@@ -207,8 +227,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void sendCommandToAgent(Long pcId,
-                                   JsonNode command) throws IOException {
+    public void sendCommandToAgent(
+            Long pcId,
+            JsonNode command
+    ) throws IOException {
         WebSocketSession agentSession =
                 agentSessionRegistry.getByPcId(pcId);
 
@@ -221,15 +243,17 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
                     new TextMessage(commandJson)
             );
 
-            String action = command.has("action")
-                    ? command.get("action").asText()
-                    : "unknown";
+            String action =
+                    command.has("action")
+                            ? command.get("action").asText()
+                            : "unknown";
 
             log.info(
                     "Command forwarded to agent: pcId={}, action={}",
                     pcId,
                     action
             );
+
         } else {
             log.warn(
                     "Command was not sent because agent is not connected: pcId={}",
@@ -238,8 +262,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void sendNotificationToAgent(Long pcId,
-                                        String message) throws IOException {
+    public void sendNotificationToAgent(
+            Long pcId,
+            String message
+    ) throws IOException {
         WebSocketSession agentSession =
                 agentSessionRegistry.getByPcId(pcId);
 
@@ -263,6 +289,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
                     "Notification sent to agent: pcId={}",
                     pcId
             );
+
         } else {
             log.warn(
                     "Notification was not sent because agent is not connected: pcId={}",
@@ -272,8 +299,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session,
-                                      CloseStatus status) {
+    public void afterConnectionClosed(
+            WebSocketSession session,
+            CloseStatus status
+    ) {
         agentSessionService.closeSession(session);
 
         log.info(

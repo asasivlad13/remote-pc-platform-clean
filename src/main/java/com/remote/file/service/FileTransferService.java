@@ -1,6 +1,6 @@
 package com.remote.file.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.remote.file.dto.StoredFileInfo;
 import com.remote.history.service.ConnectionLogActivityService;
 import com.remote.pc.model.Pc;
@@ -34,7 +34,7 @@ public class FileTransferService {
     private final ConnectionLogActivityService connectionLogActivityService;
     private final PcRepository pcRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public StoredFileInfo uploadFile(Long pcId,
                                      MultipartFile file,

@@ -1,7 +1,7 @@
 package com.remote.pc.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
@@ -15,28 +15,32 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.remote.common.ServerConstants.ACTION_SOFT_SLEEP;
+import static com.remote.common.ServerConstants.ACTION_SOFT_WAKE;
+
 @Service
 public class PcPowerService {
 
     private final PcRepository pcRepository;
     private final UserRepository userRepository;
     private final AgentWebSocketHandler agentWebSocketHandler;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public PcPowerService(PcRepository pcRepository,
                           UserRepository userRepository,
-                          @Lazy AgentWebSocketHandler agentWebSocketHandler) {
+                          @Lazy AgentWebSocketHandler agentWebSocketHandler,
+                          ObjectMapper objectMapper) {
         this.pcRepository = pcRepository;
         this.userRepository = userRepository;
         this.agentWebSocketHandler = agentWebSocketHandler;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
     public Map<String, String> enableSoftSleep(Long pcId, String username) {
         Pc pc = findUserPc(pcId, username);
 
-        sendPowerCommand(pc, "SOFT_SLEEP");
+        sendPowerCommand(pc, ACTION_SOFT_SLEEP);
 
         pc.setStatus(PcStatus.SLEEP);
         pcRepository.save(pc);
@@ -48,7 +52,7 @@ public class PcPowerService {
     public Map<String, String> disableSoftSleep(Long pcId, String username) {
         Pc pc = findUserPc(pcId, username);
 
-        sendPowerCommand(pc, "SOFT_WAKE");
+        sendPowerCommand(pc, ACTION_SOFT_WAKE);
 
         pc.setStatus(PcStatus.ONLINE);
         pcRepository.save(pc);
@@ -67,8 +71,11 @@ public class PcPowerService {
                         "ПК не найден"
                 ));
 
-        if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Доступ запрещён");
+        if (pc.getUser() == null
+                || !pc.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException(
+                    "Доступ запрещён"
+            );
         }
 
         return pc;
@@ -77,11 +84,15 @@ public class PcPowerService {
     private void sendPowerCommand(Pc pc, String action) {
         try {
             ObjectNode command = objectMapper.createObjectNode();
+
             command.put("type", "command");
             command.put("pcId", pc.getId());
             command.put("action", action);
 
-            agentWebSocketHandler.sendCommandToAgent(pc.getId(), command);
+            agentWebSocketHandler.sendCommandToAgent(
+                    pc.getId(),
+                    command
+            );
 
         } catch (IOException e) {
             throw new IllegalStateException(

@@ -1,8 +1,8 @@
 package com.remote.websocket.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.remote.education.service.EducationControlService;
 import com.remote.support.service.SupportSessionService;
 import com.remote.websocket.agent.AgentWebSocketHandler;
@@ -33,8 +33,7 @@ public class RemoteFileWebSocketService {
     private final EducationControlService educationControlService;
     private final SupportSessionService supportSessionService;
     private final WebSocketMessageSender webSocketMessageSender;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     private final Map<String, WebSocketSession> requestOwners =
             new ConcurrentHashMap<>();
@@ -43,18 +42,22 @@ public class RemoteFileWebSocketService {
             @Lazy AgentWebSocketHandler agentWebSocketHandler,
             EducationControlService educationControlService,
             SupportSessionService supportSessionService,
-            WebSocketMessageSender webSocketMessageSender
+            WebSocketMessageSender webSocketMessageSender,
+            ObjectMapper objectMapper
     ) {
         this.agentWebSocketHandler = agentWebSocketHandler;
         this.educationControlService = educationControlService;
         this.supportSessionService = supportSessionService;
         this.webSocketMessageSender = webSocketMessageSender;
+        this.objectMapper = objectMapper;
     }
 
-    public void handleRemoteFileList(WebSocketSession session,
-                                     JsonNode json,
-                                     String profile,
-                                     String username) throws IOException {
+    public void handleRemoteFileList(
+            WebSocketSession session,
+            JsonNode json,
+            String profile,
+            String username
+    ) throws IOException {
         if (!json.has("pcId")) {
             sendError(
                     session,
@@ -64,15 +67,18 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        Long pcId = json.get("pcId").asLong();
+        Long pcId =
+                json.get("pcId").asLong();
 
-        String requestId = json.has("requestId")
-                ? json.get("requestId").asText()
-                : UUID.randomUUID().toString();
+        String requestId =
+                json.has("requestId")
+                        ? json.get("requestId").asText()
+                        : UUID.randomUUID().toString();
 
-        String path = json.has("path") && !json.get("path").isNull()
-                ? json.get("path").asText()
-                : "ROOTS";
+        String path =
+                json.has("path") && !json.get("path").isNull()
+                        ? json.get("path").asText()
+                        : "ROOTS";
 
         if (!isAccessAllowed(
                 profile,
@@ -117,10 +123,12 @@ public class RemoteFileWebSocketService {
         );
     }
 
-    public void handleRemoteFileDownload(WebSocketSession session,
-                                         JsonNode json,
-                                         String profile,
-                                         String username) throws IOException {
+    public void handleRemoteFileDownload(
+            WebSocketSession session,
+            JsonNode json,
+            String profile,
+            String username
+    ) throws IOException {
         if (!json.has("pcId") || !json.has("path")) {
             sendError(
                     session,
@@ -130,11 +138,13 @@ public class RemoteFileWebSocketService {
             return;
         }
 
-        Long pcId = json.get("pcId").asLong();
+        Long pcId =
+                json.get("pcId").asLong();
 
-        String requestId = json.has("requestId")
-                ? json.get("requestId").asText()
-                : UUID.randomUUID().toString();
+        String requestId =
+                json.has("requestId")
+                        ? json.get("requestId").asText()
+                        : UUID.randomUUID().toString();
 
         String path =
                 json.get("path").asText();
@@ -182,10 +192,13 @@ public class RemoteFileWebSocketService {
         );
     }
 
-    public void forwardRemoteFileMessage(JsonNode json) throws IOException {
-        String requestId = json.has("requestId")
-                ? json.get("requestId").asText()
-                : null;
+    public void forwardRemoteFileMessage(
+            JsonNode json
+    ) throws IOException {
+        String requestId =
+                json.has("requestId")
+                        ? json.get("requestId").asText()
+                        : null;
 
         if (requestId == null || requestId.isBlank()) {
             return;
@@ -206,9 +219,10 @@ public class RemoteFileWebSocketService {
                 )
         );
 
-        String type = json.has("type")
-                ? json.get("type").asText()
-                : "";
+        String type =
+                json.has("type")
+                        ? json.get("type").asText()
+                        : "";
 
         if (MESSAGE_REMOTE_FILE_LIST_RESULT.equals(type)
                 || MESSAGE_REMOTE_FILE_DOWNLOAD_COMPLETE.equals(type)
@@ -227,18 +241,21 @@ public class RemoteFileWebSocketService {
                 );
     }
 
-    private boolean isAccessAllowed(String profile,
-                                    String username,
-                                    Long pcId,
-                                    JsonNode json) {
+    private boolean isAccessAllowed(
+            String profile,
+            String username,
+            Long pcId,
+            JsonNode json
+    ) {
         if (PROFILE_PERSONAL.equals(profile)) {
             return true;
         }
 
         if (PROFILE_EDUCATION_STUDENT.equals(profile)) {
-            String educationCode = json.has("educationCode")
-                    ? json.get("educationCode").asText()
-                    : null;
+            String educationCode =
+                    json.has("educationCode")
+                            ? json.get("educationCode").asText()
+                            : null;
 
             return educationCode != null
                     && !educationCode.isBlank()
@@ -250,9 +267,10 @@ public class RemoteFileWebSocketService {
         }
 
         if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
-            String supportCode = json.has("supportCode")
-                    ? json.get("supportCode").asText()
-                    : null;
+            String supportCode =
+                    json.has("supportCode")
+                            ? json.get("supportCode").asText()
+                            : null;
 
             return supportCode != null
                     && !supportCode.isBlank()
@@ -267,9 +285,11 @@ public class RemoteFileWebSocketService {
         return false;
     }
 
-    private void sendError(WebSocketSession session,
-                           String requestId,
-                           String message) throws IOException {
+    private void sendError(
+            WebSocketSession session,
+            String requestId,
+            String message
+    ) throws IOException {
         ObjectNode error =
                 objectMapper.createObjectNode();
 
@@ -292,7 +312,9 @@ public class RemoteFileWebSocketService {
 
         webSocketMessageSender.send(
                 session,
-                new TextMessage(error.toString())
+                new TextMessage(
+                        error.toString()
+                )
         );
     }
 }

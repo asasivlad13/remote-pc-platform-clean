@@ -1,8 +1,8 @@
 package com.remote.websocket.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.remote.service.SessionPermissionService;
 import com.remote.websocket.client.service.ClientBroadcastService;
 import com.remote.websocket.client.service.ClientSessionService;
@@ -33,8 +33,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
     private final ClientBroadcastService clientBroadcastService;
     private final CommandDispatchService commandDispatchService;
     private final WebSocketMessageSender webSocketMessageSender;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public WebSocketClientHandler(
             SessionPermissionService sessionPermissionService,
@@ -43,7 +42,8 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
             CommandAuthorizationService commandAuthorizationService,
             ClientBroadcastService clientBroadcastService,
             CommandDispatchService commandDispatchService,
-            WebSocketMessageSender webSocketMessageSender
+            WebSocketMessageSender webSocketMessageSender,
+            ObjectMapper objectMapper
     ) {
         this.sessionPermissionService = sessionPermissionService;
         this.clientSessionService = clientSessionService;
@@ -52,6 +52,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         this.clientBroadcastService = clientBroadcastService;
         this.commandDispatchService = commandDispatchService;
         this.webSocketMessageSender = webSocketMessageSender;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -100,9 +101,10 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         if ("watch".equals(type)) {
-            String profile = json.has("profile")
-                    ? json.get("profile").asText(PROFILE_PERSONAL)
-                    : PROFILE_PERSONAL;
+            String profile =
+                    json.has("profile")
+                            ? json.get("profile").asText(PROFILE_PERSONAL)
+                            : PROFILE_PERSONAL;
 
             profile =
                     normalizeConnectionProfile(profile);
@@ -138,11 +140,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         if ("remote_file_list".equals(type)) {
-            String profile = normalizeConnectionProfile(
-                    clientSessionService.getProfile(
-                            session.getId()
-                    )
-            );
+            String profile =
+                    normalizeConnectionProfile(
+                            clientSessionService.getProfile(
+                                    session.getId()
+                            )
+                    );
 
             String username =
                     clientSessionService.getUsername(
@@ -159,11 +162,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         if ("remote_file_download".equals(type)) {
-            String profile = normalizeConnectionProfile(
-                    clientSessionService.getProfile(
-                            session.getId()
-                    )
-            );
+            String profile =
+                    normalizeConnectionProfile(
+                            clientSessionService.getProfile(
+                                    session.getId()
+                            )
+                    );
 
             String username =
                     clientSessionService.getUsername(
@@ -197,8 +201,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
     }
 
-    public void forwardRemoteFileMessage(JsonNode json) throws IOException {
-        remoteFileWebSocketService.forwardRemoteFileMessage(json);
+    public void forwardRemoteFileMessage(
+            JsonNode json
+    ) throws IOException {
+        remoteFileWebSocketService.forwardRemoteFileMessage(
+                json
+        );
     }
 
     private void handleCommand(
@@ -221,11 +229,12 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         String action =
                 json.get("action").asText();
 
-        String profile = normalizeConnectionProfile(
-                clientSessionService.getProfile(
-                        session.getId()
-                )
-        );
+        String profile =
+                normalizeConnectionProfile(
+                        clientSessionService.getProfile(
+                                session.getId()
+                        )
+                );
 
         String username =
                 clientSessionService.getUsername(
@@ -276,7 +285,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         ObjectNode command =
-                json.deepCopy();
+                (ObjectNode) json.deepCopy();
 
         command.put(
                 "profile",
