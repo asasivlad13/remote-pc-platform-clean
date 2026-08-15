@@ -1,6 +1,6 @@
 package com.remote.file.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.remote.file.dto.StoredFileInfo;
 import com.remote.history.service.ConnectionLogActivityService;
 import com.remote.pc.model.Pc;
@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -33,11 +34,11 @@ public class FileTransferService {
     private final ConnectionLogActivityService connectionLogActivityService;
     private final PcRepository pcRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public StoredFileInfo uploadFile(Long pcId,
                                      MultipartFile file,
-                                     String baseUrl) throws Exception {
+                                     String baseUrl) throws IOException {
         Pc pc = pcRepository.findById(pcId)
                 .orElseThrow(() -> new IllegalArgumentException("ПК не найден"));
 
@@ -45,7 +46,8 @@ public class FileTransferService {
             throw new IllegalArgumentException("У ПК не найден владелец");
         }
 
-        StoredFileInfo storedFileInfo = fileStorageService.storeEncrypted(file, baseUrl);
+        StoredFileInfo storedFileInfo =
+                fileStorageService.storeEncrypted(file, baseUrl);
 
         Map<String, Object> command = new HashMap<>();
         command.put("type", "command");
@@ -68,7 +70,7 @@ public class FileTransferService {
                     pc.getUser().getUsername(),
                     pc.getName()
             );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn(
                     "Failed to update files sent counter, but file command was already sent: pcId={}, fileId={}",
                     pcId,
@@ -93,14 +95,22 @@ public class FileTransferService {
             StoredFileInfo info = fileStorageService.getInfo(fileId);
 
             if (info == null) {
-                log.warn("File download requested but file info was not found: fileId={}", fileId);
+                log.warn(
+                        "File download requested but file info was not found: fileId={}",
+                        fileId
+                );
+
                 return ResponseEntity.notFound().build();
             }
 
-            Resource resource = fileStorageService.loadEncryptedAsResourceOnce(fileId);
+            Resource resource =
+                    fileStorageService.loadEncryptedAsResourceOnce(fileId);
 
             String encodedFileName = URLEncoder
-                    .encode(info.getFileName() + ".enc", StandardCharsets.UTF_8)
+                    .encode(
+                            info.getFileName() + ".enc",
+                            StandardCharsets.UTF_8
+                    )
                     .replace("+", "%20");
 
             log.info(
@@ -118,14 +128,21 @@ public class FileTransferService {
                     .body(resource);
 
         } catch (IllegalStateException e) {
-            log.warn("One-time download link already used: fileId={}", fileId);
+            log.warn(
+                    "One-time download link already used: fileId={}",
+                    fileId
+            );
 
             return ResponseEntity
                     .status(HttpStatus.GONE)
                     .body("Download link already used");
 
-        } catch (Exception e) {
-            log.error("Encrypted file download failed: fileId={}", fileId, e);
+        } catch (RuntimeException e) {
+            log.error(
+                    "Encrypted file download failed: fileId={}",
+                    fileId,
+                    e
+            );
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)

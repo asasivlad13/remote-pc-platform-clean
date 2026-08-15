@@ -1,18 +1,21 @@
 package com.remote.websocket.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.remote.auth.security.JwtUtil;
 import com.remote.history.model.ConnectionLog;
 import com.remote.history.repository.ConnectionLogRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
+import com.remote.websocket.common.WebSocketMessageSender;
+import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -31,6 +34,7 @@ public class ClientSessionService {
     private final JwtUtil jwtUtil;
     private final ClientViewerRegistry clientViewerRegistry;
     private final LastFrameCache lastFrameCache;
+    private final WebSocketMessageSender webSocketMessageSender;
 
     private final Map<String, Long> sessionLogIds = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProfiles = new ConcurrentHashMap<>();
@@ -45,16 +49,20 @@ public class ClientSessionService {
                                 @Lazy AgentWebSocketHandler agentWebSocketHandler,
                                 JwtUtil jwtUtil,
                                 ClientViewerRegistry clientViewerRegistry,
-                                LastFrameCache lastFrameCache) {
+                                LastFrameCache lastFrameCache,
+                                WebSocketMessageSender webSocketMessageSender) {
         this.pcRepository = pcRepository;
         this.connectionLogRepository = connectionLogRepository;
         this.agentWebSocketHandler = agentWebSocketHandler;
         this.jwtUtil = jwtUtil;
         this.clientViewerRegistry = clientViewerRegistry;
         this.lastFrameCache = lastFrameCache;
+        this.webSocketMessageSender = webSocketMessageSender;
     }
 
-    public void handleWatch(WebSocketSession session, JsonNode json, String profile) throws Exception {
+    public void handleWatch(WebSocketSession session,
+                            JsonNode json,
+                            String profile) throws IOException {
         Long pcId = json.get("pcId").asLong();
         clientViewerRegistry.addViewer(pcId, session);
 
@@ -64,12 +72,18 @@ public class ClientSessionService {
 
         String clientIp = extractClientIp(session);
         String clientInfo = extractClientInfo(json);
-        String mode = json.has("mode") ? json.get("mode").asText() : "Control";
+        String mode = json.has("mode") ? json.get("mode").asString() : "Control";
 
         Pc pc = pcRepository.findById(pcId).orElse(null);
 
         if (pc != null) {
-            ConnectionLog connectionLog = new ConnectionLog(username, pc.getName(), "CONNECT", clientIp);
+            ConnectionLog connectionLog = new ConnectionLog(
+                    username,
+                    pc.getName(),
+                    "CONNECT",
+                    clientIp
+            );
+
             connectionLog.setPc(pc);
             connectionLog.setClientInfo(clientInfo);
             connectionLog.setMode(mode);
@@ -92,7 +106,10 @@ public class ClientSessionService {
                             + " | IP: " + clientIp
                             + " | Устройство: " + clientInfo;
 
-            agentWebSocketHandler.sendNotificationToAgent(pcId, notificationMessage);
+            agentWebSocketHandler.sendNotificationToAgent(
+                    pcId,
+                    notificationMessage
+            );
 
             log.info(
                     "Connection logged: username={}, pcId={}, pcName={}",
@@ -116,8 +133,16 @@ public class ClientSessionService {
         }
 
         String lastFrame = lastFrameCache.get(pcId);
+
         if (lastFrame != null) {
-            session.sendMessage(new TextMessage("{\"type\":\"frame\",\"image\":\"" + lastFrame + "\"}"));
+            webSocketMessageSender.send(
+                    session,
+                    new TextMessage(
+                            "{\"type\":\"frame\",\"image\":\""
+                                    + lastFrame
+                                    + "\"}"
+                    )
+            );
         }
     }
 
@@ -128,9 +153,17 @@ public class ClientSessionService {
             return;
         }
 
-        double fps = json.has("fps") ? json.get("fps").asDouble(0.0) : 0.0;
-        double latency = json.has("latency") ? json.get("latency").asDouble(0.0) : 0.0;
-        String mode = json.has("mode") ? json.get("mode").asText("Control") : "Control";
+        double fps = json.has("fps")
+                ? json.get("fps").asDouble(0.0)
+                : 0.0;
+
+        double latency = json.has("latency")
+                ? json.get("latency").asDouble(0.0)
+                : 0.0;
+
+        String mode = json.has("mode")
+                ? json.get("mode").asString("Control")
+                : "Control";
 
         fpsSum.merge(session.getId(), fps, Double::sum);
         latencySum.merge(session.getId(), latency, Double::sum);
@@ -142,8 +175,11 @@ public class ClientSessionService {
             return;
         }
 
-        double avgFps = fpsSum.getOrDefault(session.getId(), 0.0) / count;
-        double avgLatency = latencySum.getOrDefault(session.getId(), 0.0) / count;
+        double avgFps =
+                fpsSum.getOrDefault(session.getId(), 0.0) / count;
+
+        double avgLatency =
+                latencySum.getOrDefault(session.getId(), 0.0) / count;
 
         connectionLogRepository.findById(logId).ifPresent(connectionLog -> {
             connectionLog.setAvgFps(round(avgFps));
@@ -177,7 +213,9 @@ public class ClientSessionService {
                         disconnectedAt
                 ).getSeconds();
 
-                connectionLog.setDurationSeconds((int) Math.max(seconds, 0));
+                connectionLog.setDurationSeconds(
+                        (int) Math.max(seconds, 0)
+                );
             }
 
             connectionLogRepository.save(connectionLog);
@@ -191,24 +229,33 @@ public class ClientSessionService {
     }
 
     public String getProfile(String sessionId) {
-        return sessionProfiles.getOrDefault(sessionId, PROFILE_PERSONAL);
+        return sessionProfiles.getOrDefault(
+                sessionId,
+                PROFILE_PERSONAL
+        );
     }
 
     public String getUsername(String sessionId) {
-        return sessionUsernames.getOrDefault(sessionId, "unknown");
+        return sessionUsernames.getOrDefault(
+                sessionId,
+                "unknown"
+        );
     }
 
     private String extractUsernameFromJson(JsonNode json) {
         try {
             if (json.has("token")) {
-                String token = json.get("token").asText();
+                String token = json.get("token").asString();
 
                 if (token != null && jwtUtil.validateToken(token)) {
                     return jwtUtil.extractUsername(token);
                 }
             }
-        } catch (Exception e) {
-            log.warn("Cannot extract username from WebSocket token", e);
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn(
+                    "Cannot extract username from WebSocket token",
+                    e
+            );
         }
 
         return "unknown";
@@ -226,11 +273,11 @@ public class ClientSessionService {
 
     private String extractClientInfo(JsonNode json) {
         String platform = json.has("platform")
-                ? json.get("platform").asText()
+                ? json.get("platform").asString()
                 : "unknown platform";
 
         String browser = json.has("browser")
-                ? json.get("browser").asText()
+                ? json.get("browser").asString()
                 : "unknown browser";
 
         return platform + ", " + browser;

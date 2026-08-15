@@ -1,5 +1,6 @@
 package com.remote.education.service;
 
+import com.remote.common.crypto.SharedCryptoService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.education.model.EducationChatMessage;
@@ -22,13 +23,13 @@ public class EducationChatService {
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final EducationCryptoService cryptoService;
+    private final SharedCryptoService cryptoService;
 
     public EducationChatService(EducationChatMessageRepository chatRepository,
                                 EducationSessionRepository sessionRepository,
                                 EducationSessionParticipantRepository participantRepository,
                                 UserRepository userRepository,
-                                EducationCryptoService cryptoService) {
+                                SharedCryptoService cryptoService) {
         this.chatRepository = chatRepository;
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
@@ -38,67 +39,105 @@ public class EducationChatService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getMessages(String sessionCode) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
         User currentUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
         EducationSession session = sessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Учебная сессия не найдена"
+                ));
 
-        boolean isTeacher = session.getTeacher().getId().equals(currentUser.getId());
+        boolean isTeacher = session.getTeacher()
+                .getId()
+                .equals(currentUser.getId());
 
-        return chatRepository.findByEducationSessionOrderByCreatedAtAsc(session)
+        return chatRepository
+                .findByEducationSessionOrderByCreatedAtAsc(session)
                 .stream()
-                .filter(message -> isVisibleForUser(message, currentUser, isTeacher))
+                .filter(message ->
+                        isVisibleForUser(
+                                message,
+                                currentUser,
+                                isTeacher
+                        )
+                )
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional
-    public Map<String, Object> sendMessage(String sessionCode, String text, Long recipientId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+    public Map<String, Object> sendMessage(String sessionCode,
+                                           String text,
+                                           Long recipientId) {
+        String username = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
         User sender = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Пользователь не найден"
+                ));
 
         EducationSession session = sessionRepository.findBySessionCode(sessionCode)
-                .orElseThrow(() -> new IllegalArgumentException("Учебная сессия не найдена"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Учебная сессия не найдена"
+                ));
 
         if (text == null || text.isBlank()) {
-            throw new IllegalArgumentException("Сообщение не может быть пустым");
+            throw new IllegalArgumentException(
+                    "Сообщение не может быть пустым"
+            );
         }
 
         if (text.length() > 2000) {
-            throw new IllegalArgumentException("Сообщение слишком длинное");
+            throw new IllegalArgumentException(
+                    "Сообщение слишком длинное"
+            );
         }
 
-        boolean isTeacher = session.getTeacher().getId().equals(sender.getId());
+        boolean isTeacher = session.getTeacher()
+                .getId()
+                .equals(sender.getId());
 
         User recipient = null;
 
         if (isTeacher) {
             if (recipientId != null) {
                 recipient = userRepository.findById(recipientId)
-                        .orElseThrow(() -> new IllegalArgumentException("Получатель не найден"));
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Получатель не найден"
+                        ));
             }
         } else {
             recipient = session.getTeacher();
         }
 
-        String encryptedText = cryptoService.encryptText(text.trim());
+        String encryptedText =
+                cryptoService.encryptText(text.trim());
 
-        EducationChatMessage message = new EducationChatMessage();
+        EducationChatMessage message =
+                new EducationChatMessage();
+
         message.setEducationSession(session);
         message.setSender(sender);
         message.setRecipient(recipient);
         message.setMessage(encryptedText);
 
-        EducationChatMessage saved = chatRepository.save(message);
+        EducationChatMessage saved =
+                chatRepository.save(message);
 
         /*
          * Принудительно обращаемся к lazy-полям внутри транзакции,
-         * чтобы при формировании ответа не было проблем с загрузкой sender/recipient.
+         * чтобы при формировании ответа не было проблем
+         * с загрузкой sender/recipient.
          */
         saved.getSender().getUsername();
 
@@ -109,7 +148,9 @@ public class EducationChatService {
         return toResponse(saved);
     }
 
-    private boolean isVisibleForUser(EducationChatMessage message, User currentUser, boolean isTeacher) {
+    private boolean isVisibleForUser(EducationChatMessage message,
+                                     User currentUser,
+                                     boolean isTeacher) {
         if (isTeacher) {
             return true;
         }
@@ -118,60 +159,117 @@ public class EducationChatService {
             return true;
         }
 
-        if (message.getSender().getId().equals(currentUser.getId())) {
+        if (message.getSender()
+                .getId()
+                .equals(currentUser.getId())) {
             return true;
         }
 
-        return message.getRecipient().getId().equals(currentUser.getId());
+        return message.getRecipient()
+                .getId()
+                .equals(currentUser.getId());
     }
 
     private Map<String, Object> toResponse(EducationChatMessage message) {
-        Map<String, Object> response = new LinkedHashMap<>();
+        Map<String, Object> response =
+                new LinkedHashMap<>();
 
-        response.put("id", message.getId());
-
-        response.put("senderId", message.getSender().getId());
-        response.put("senderUsername", message.getSender().getUsername());
         response.put(
-                "senderDisplayName",
-                resolveUserDisplayName(message.getEducationSession(), message.getSender())
+                "id",
+                message.getId()
         );
 
-        response.put("recipientId", message.getRecipient() != null ? message.getRecipient().getId() : null);
-        response.put("recipientUsername", message.getRecipient() != null ? message.getRecipient().getUsername() : null);
         response.put(
-                "recipientDisplayName",
+                "senderId",
+                message.getSender().getId()
+        );
+
+        response.put(
+                "senderUsername",
+                message.getSender().getUsername()
+        );
+
+        response.put(
+                "senderDisplayName",
+                resolveUserDisplayName(
+                        message.getEducationSession(),
+                        message.getSender()
+                )
+        );
+
+        response.put(
+                "recipientId",
                 message.getRecipient() != null
-                        ? resolveUserDisplayName(message.getEducationSession(), message.getRecipient())
+                        ? message.getRecipient().getId()
                         : null
         );
 
-        response.put("message", decryptMessageSafe(message.getMessage()));
-        response.put("createdAt", message.getCreatedAt());
+        response.put(
+                "recipientUsername",
+                message.getRecipient() != null
+                        ? message.getRecipient().getUsername()
+                        : null
+        );
+
+        response.put(
+                "recipientDisplayName",
+                message.getRecipient() != null
+                        ? resolveUserDisplayName(
+                        message.getEducationSession(),
+                        message.getRecipient()
+                )
+                        : null
+        );
+
+        response.put(
+                "message",
+                decryptMessageSafe(message.getMessage())
+        );
+
+        response.put(
+                "createdAt",
+                message.getCreatedAt()
+        );
 
         return response;
     }
 
-    private String resolveUserDisplayName(EducationSession session, User user) {
+    private String resolveUserDisplayName(EducationSession session,
+                                          User user) {
         if (session == null || user == null) {
             return null;
         }
 
-        if (session.getTeacher() != null && session.getTeacher().getId().equals(user.getId())) {
-            return resolveDisplayName(session.getTeacherDisplayName(), user.getUsername());
+        if (session.getTeacher() != null
+                && session.getTeacher()
+                .getId()
+                .equals(user.getId())) {
+
+            return resolveDisplayName(
+                    session.getTeacherDisplayName(),
+                    user.getUsername()
+            );
         }
 
-        return participantRepository.findByEducationSessionAndStudent(session, user)
-                .map(participant -> resolveDisplayName(participant.getDisplayName(), user.getUsername()))
+        return participantRepository
+                .findByEducationSessionAndStudent(session, user)
+                .map(participant ->
+                        resolveDisplayName(
+                                participant.getDisplayName(),
+                                user.getUsername()
+                        )
+                )
                 .orElse(user.getUsername());
     }
 
-    private String resolveDisplayName(String displayName, String fallbackUsername) {
+    private String resolveDisplayName(String displayName,
+                                      String fallbackUsername) {
         if (displayName != null && !displayName.isBlank()) {
             return displayName.trim();
         }
 
-        if (fallbackUsername != null && !fallbackUsername.isBlank()) {
+        if (fallbackUsername != null
+                && !fallbackUsername.isBlank()) {
             return fallbackUsername;
         }
 
@@ -185,7 +283,7 @@ public class EducationChatService {
 
         try {
             return cryptoService.decryptText(value);
-        } catch (Exception e) {
+        } catch (IllegalStateException e) {
             return value;
         }
     }
