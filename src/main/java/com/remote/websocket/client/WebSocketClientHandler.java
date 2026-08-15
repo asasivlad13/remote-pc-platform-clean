@@ -78,7 +78,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         }
 
         String type =
-                json.get("type").asText();
+                json.get("type").asString();
 
         log.debug(
                 "WebSocket message received: sessionId={}, type={}, payloadLength={}",
@@ -103,7 +103,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
         if ("watch".equals(type)) {
             String profile =
                     json.has("profile")
-                            ? json.get("profile").asText(PROFILE_PERSONAL)
+                            ? json.get("profile").asString(PROFILE_PERSONAL)
                             : PROFILE_PERSONAL;
 
             profile =
@@ -227,7 +227,7 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                 json.get("pcId").asLong();
 
         String action =
-                json.get("action").asText();
+                json.get("action").asString();
 
         String profile =
                 normalizeConnectionProfile(
@@ -273,10 +273,10 @@ public class WebSocketClientHandler extends TextWebSocketHandler {
                     action,
                     username,
                     json.has("educationCode")
-                            ? json.get("educationCode").asText()
+                            ? json.get("educationCode").asString()
                             : "none",
                     json.has("supportCode")
-                            ? json.get("supportCode").asText()
+                            ? json.get("supportCode").asString()
                             : "none",
                     session.getId()
             );

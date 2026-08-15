@@ -36,7 +36,7 @@ public class CommandAuthorizationService {
 
         if (PROFILE_EDUCATION_STUDENT.equals(profile)) {
             String educationCode = json.has("educationCode")
-                    ? json.get("educationCode").asText()
+                    ? json.get("educationCode").asString()
                     : null;
 
             return educationCode != null
@@ -48,7 +48,7 @@ public class CommandAuthorizationService {
 
         if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
             String supportCode = json.has("supportCode")
-                    ? json.get("supportCode").asText()
+                    ? json.get("supportCode").asString()
                     : null;
 
             return supportCode != null

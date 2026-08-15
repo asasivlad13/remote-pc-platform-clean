@@ -72,12 +72,12 @@ public class RemoteFileWebSocketService {
 
         String requestId =
                 json.has("requestId")
-                        ? json.get("requestId").asText()
+                        ? json.get("requestId").asString()
                         : UUID.randomUUID().toString();
 
         String path =
                 json.has("path") && !json.get("path").isNull()
-                        ? json.get("path").asText()
+                        ? json.get("path").asString()
                         : "ROOTS";
 
         if (!isAccessAllowed(
@@ -143,11 +143,11 @@ public class RemoteFileWebSocketService {
 
         String requestId =
                 json.has("requestId")
-                        ? json.get("requestId").asText()
+                        ? json.get("requestId").asString()
                         : UUID.randomUUID().toString();
 
         String path =
-                json.get("path").asText();
+                json.get("path").asString();
 
         if (!isAccessAllowed(
                 profile,
@@ -197,7 +197,7 @@ public class RemoteFileWebSocketService {
     ) throws IOException {
         String requestId =
                 json.has("requestId")
-                        ? json.get("requestId").asText()
+                        ? json.get("requestId").asString()
                         : null;
 
         if (requestId == null || requestId.isBlank()) {
@@ -221,7 +221,7 @@ public class RemoteFileWebSocketService {
 
         String type =
                 json.has("type")
-                        ? json.get("type").asText()
+                        ? json.get("type").asString()
                         : "";
 
         if (MESSAGE_REMOTE_FILE_LIST_RESULT.equals(type)
@@ -254,7 +254,7 @@ public class RemoteFileWebSocketService {
         if (PROFILE_EDUCATION_STUDENT.equals(profile)) {
             String educationCode =
                     json.has("educationCode")
-                            ? json.get("educationCode").asText()
+                            ? json.get("educationCode").asString()
                             : null;
 
             return educationCode != null
@@ -269,7 +269,7 @@ public class RemoteFileWebSocketService {
         if (PROFILE_SUPPORT_OPERATOR_VIEW_CLIENT.equals(profile)) {
             String supportCode =
                     json.has("supportCode")
-                            ? json.get("supportCode").asText()
+                            ? json.get("supportCode").asString()
                             : null;
 
             return supportCode != null

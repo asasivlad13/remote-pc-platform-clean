@@ -96,7 +96,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
 
         String type =
-                json.get("type").asText();
+                json.get("type").asString();
 
         if (MESSAGE_FILE_PROGRESS.equals(type)) {
             Long pcId =
@@ -216,7 +216,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
         if (mac != null && json.has("image")) {
             String imageBase64 =
-                    json.get("image").asText();
+                    json.get("image").asString();
 
             log.debug(
                     "Text frame received from agent: sessionId={}, mac={}, sizeChars={}",
@@ -245,7 +245,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
             String action =
                     command.has("action")
-                            ? command.get("action").asText()
+                            ? command.get("action").asString()
                             : "unknown";
 
             log.info(

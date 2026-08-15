@@ -72,7 +72,7 @@ public class ClientSessionService {
 
         String clientIp = extractClientIp(session);
         String clientInfo = extractClientInfo(json);
-        String mode = json.has("mode") ? json.get("mode").asText() : "Control";
+        String mode = json.has("mode") ? json.get("mode").asString() : "Control";
 
         Pc pc = pcRepository.findById(pcId).orElse(null);
 
@@ -162,7 +162,7 @@ public class ClientSessionService {
                 : 0.0;
 
         String mode = json.has("mode")
-                ? json.get("mode").asText("Control")
+                ? json.get("mode").asString("Control")
                 : "Control";
 
         fpsSum.merge(session.getId(), fps, Double::sum);
@@ -245,7 +245,7 @@ public class ClientSessionService {
     private String extractUsernameFromJson(JsonNode json) {
         try {
             if (json.has("token")) {
-                String token = json.get("token").asText();
+                String token = json.get("token").asString();
 
                 if (token != null && jwtUtil.validateToken(token)) {
                     return jwtUtil.extractUsername(token);
@@ -273,11 +273,11 @@ public class ClientSessionService {
 
     private String extractClientInfo(JsonNode json) {
         String platform = json.has("platform")
-                ? json.get("platform").asText()
+                ? json.get("platform").asString()
                 : "unknown platform";
 
         String browser = json.has("browser")
-                ? json.get("browser").asText()
+                ? json.get("browser").asString()
                 : "unknown browser";
 
         return platform + ", " + browser;

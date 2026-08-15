@@ -41,13 +41,13 @@ public class AgentSessionService {
     public void register(WebSocketSession session,
                          JsonNode json) throws IOException {
         String token =
-                json.get("token").asText();
+                json.get("token").asString();
 
         String pcName =
-                json.get("pcName").asText();
+                json.get("pcName").asString();
 
         String mac =
-                json.get("mac").asText();
+                json.get("mac").asString();
 
         if (!jwtUtil.validateToken(token)) {
             webSocketMessageSender.send(
@@ -156,7 +156,7 @@ public class AgentSessionService {
 
         if (json.has("webrtcUrl")) {
             pc.setWebrtcUrl(
-                    json.get("webrtcUrl").asText()
+                    json.get("webrtcUrl").asString()
             );
 
             log.debug(
@@ -167,7 +167,7 @@ public class AgentSessionService {
 
         if (json.has("streamName")) {
             pc.setStreamName(
-                    json.get("streamName").asText()
+                    json.get("streamName").asString()
             );
 
             log.debug(
