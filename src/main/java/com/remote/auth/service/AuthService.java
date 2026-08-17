@@ -1,12 +1,16 @@
 package com.remote.auth.service;
 
 import com.remote.auth.dto.AuthMessageResponse;
-import com.remote.auth.dto.AuthRequest;
 import com.remote.auth.dto.AuthTokenResponse;
 import com.remote.auth.dto.ChangePasswordRequest;
+import com.remote.auth.dto.LoginRequest;
+import com.remote.auth.dto.RegisterRequest;
+import com.remote.auth.dto.RegisterResponse;
+import com.remote.auth.dto.VerifyEmailRequest;
 import com.remote.auth.model.LoginAttempt;
 import com.remote.auth.repository.LoginAttemptRepository;
 import com.remote.auth.security.JwtUtil;
+import com.remote.core.model.AccountStatus;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.history.model.ConnectionLog;
@@ -14,10 +18,15 @@ import com.remote.history.repository.ConnectionLogRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
 
@@ -27,48 +36,145 @@ public class AuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int BLOCK_MINUTES = 15;
 
+    private static final Set<String> COMMON_PASSWORDS = Set.of(
+            "password123!",
+            "qwerty123456!",
+            "admin123456!",
+            "welcome123!",
+            "letmein123!"
+    );
+
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final LoginAttemptRepository loginAttemptRepository;
     private final ConnectionLogRepository connectionLogRepository;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final EmailVerificationService emailVerificationService;
 
-    public AuthService(UserRepository userRepository,
-                       JwtUtil jwtUtil,
-                       LoginAttemptRepository loginAttemptRepository,
-                       ConnectionLogRepository connectionLogRepository) {
+    private final BCryptPasswordEncoder encoder =
+            new BCryptPasswordEncoder();
+
+    public AuthService(
+            UserRepository userRepository,
+            JwtUtil jwtUtil,
+            LoginAttemptRepository loginAttemptRepository,
+            ConnectionLogRepository connectionLogRepository,
+            EmailVerificationService emailVerificationService
+    ) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.loginAttemptRepository = loginAttemptRepository;
         this.connectionLogRepository = connectionLogRepository;
+        this.emailVerificationService = emailVerificationService;
     }
 
-    public AuthMessageResponse register(AuthRequest request, String ipAddress) {
-        checkIpNotBlocked(ipAddress, "Too many attempts. Try again later.");
+    @Transactional
+    public RegisterResponse register(
+            RegisterRequest request,
+            String ipAddress
+    ) {
+        checkIpNotBlocked(
+                ipAddress,
+                "Too many attempts. Try again later."
+        );
 
-        if (userRepository.findByUsername(request.username()).isPresent()) {
+        String email = normalizeEmail(request.email());
+        String displayName =
+                normalizeDisplayName(request.displayName());
+
+        validateRegistrationPassword(
+                email,
+                request.password(),
+                request.confirmPassword()
+        );
+
+        if (userRepository.existsByEmail(email)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Username already exists"
+                    "Email already exists"
             );
         }
 
         User user = new User();
-        user.setUsername(request.username());
-        user.setPassword(encoder.encode(request.password()));
 
-        userRepository.save(user);
+        /*
+         * Временный compatibility-мост.
+         *
+         * Пока остальной backend использует username,
+         * туда записывается тот же нормализованный email.
+         */
+        user.setUsername(email);
 
-        return new AuthMessageResponse("User registered successfully");
+        user.setEmail(email);
+        user.setDisplayName(displayName);
+
+        user.setPassword(
+                encoder.encode(request.password())
+        );
+
+        user.setStatus(
+                AccountStatus.EMAIL_NOT_VERIFIED
+        );
+
+        user.setPasswordChangedAt(
+                Instant.now()
+        );
+
+        User savedUser =
+                userRepository.save(user);
+
+        /*
+         * Создание пользователя и verification token
+         * выполняются в одной транзакции.
+         *
+         * Если токен создать не удастся,
+         * регистрация пользователя также откатится.
+         */
+        String verificationToken =
+                emailVerificationService.createToken(
+                        savedUser
+                );
+
+        return new RegisterResponse(
+                "User registered successfully. Email verification required.",
+                verificationToken
+        );
     }
 
-    public AuthTokenResponse login(AuthRequest request, String ipAddress) {
-        checkIpNotBlocked(ipAddress, "Too many failed attempts. Try again in 15 minutes.");
+    @Transactional
+    public AuthMessageResponse verifyEmail(
+            VerifyEmailRequest request
+    ) {
+        emailVerificationService.verify(
+                request.token()
+        );
 
-        User user = userRepository.findByUsername(request.username())
-                .orElse(null);
+        return new AuthMessageResponse(
+                "Email verified successfully"
+        );
+    }
 
-        if (user == null || !encoder.matches(request.password(), user.getPassword())) {
+    @Transactional
+    public AuthTokenResponse login(
+            LoginRequest request,
+            String ipAddress
+    ) {
+        checkIpNotBlocked(
+                ipAddress,
+                "Too many failed attempts. Try again in 15 minutes."
+        );
+
+        String email =
+                normalizeEmail(request.identifier());
+
+        User user =
+                userRepository.findByEmail(email)
+                        .orElse(null);
+
+        if (user == null
+                || !encoder.matches(
+                request.password(),
+                user.getPassword()
+        )) {
             registerFailedAttempt(ipAddress);
 
             throw new ResponseStatusException(
@@ -77,78 +183,386 @@ public class AuthService {
             );
         }
 
-        loginAttemptRepository.findByIpAddress(ipAddress)
-                .ifPresent(loginAttemptRepository::delete);
+        checkAccountCanLogin(user);
 
-        String token = jwtUtil.generateToken(user.getUsername());
+        loginAttemptRepository
+                .findByIpAddress(ipAddress)
+                .ifPresent(
+                        loginAttemptRepository::delete
+                );
+
+        String token =
+                jwtUtil.generateToken(
+                        user.getEmail()
+                );
 
         return new AuthTokenResponse(token);
     }
 
-    public AuthMessageResponse changePassword(String authHeader, ChangePasswordRequest request) {
-        String username = extractUsernameFromAuthHeader(authHeader);
+    @Transactional
+    public AuthMessageResponse changePassword(
+            String authHeader,
+            ChangePasswordRequest request
+    ) {
+        String email =
+                extractEmailFromAuthHeader(
+                        authHeader
+                );
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "User not found"
-                ));
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(
+                                () -> new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "User not found"
+                                )
+                        );
 
-        if (!encoder.matches(request.oldPassword(), user.getPassword())) {
+        if (!encoder.matches(
+                request.oldPassword(),
+                user.getPassword()
+        )) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Old password is incorrect"
             );
         }
 
-        user.setPassword(encoder.encode(request.newPassword()));
+        validatePasswordStrength(
+                email,
+                request.newPassword()
+        );
+
+        user.setPassword(
+                encoder.encode(
+                        request.newPassword()
+                )
+        );
+
+        user.setPasswordChangedAt(
+                Instant.now()
+        );
+
         userRepository.save(user);
 
-        return new AuthMessageResponse("Password changed successfully");
+        return new AuthMessageResponse(
+                "Password changed successfully"
+        );
     }
 
-    public List<ConnectionLog> getLogs(String authHeader) {
-        String username = extractUsernameFromAuthHeader(authHeader);
-        return connectionLogRepository.findByUsernameOrderByTimestampDesc(username);
+    @Transactional(readOnly = true)
+    public List<ConnectionLog> getLogs(
+            String authHeader
+    ) {
+        String email =
+                extractEmailFromAuthHeader(
+                        authHeader
+                );
+
+        /*
+         * ConnectionLog пока является legacy-моделью.
+         * В колонке username временно хранится email.
+         */
+        return connectionLogRepository
+                .findByUsernameOrderByTimestampDesc(
+                        email
+                );
     }
 
-    private void checkIpNotBlocked(String ipAddress, String message) {
-        if (isBlocked(ipAddress)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
+    private void checkAccountCanLogin(
+            User user
+    ) {
+        if (user.getStatus()
+                == AccountStatus.EMAIL_NOT_VERIFIED) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Email is not verified"
+            );
+        }
+
+        if (user.getStatus()
+                == AccountStatus.BLOCKED) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Account is blocked"
+            );
+        }
+
+        if (user.getStatus()
+                == AccountStatus.DISABLED) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Account is disabled"
+            );
+        }
+
+        if (user.getStatus()
+                != AccountStatus.ACTIVE) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Account is not active"
+            );
         }
     }
 
-    private boolean isBlocked(String ipAddress) {
-        return loginAttemptRepository.findByIpAddress(ipAddress)
-                .filter(attempt -> attempt.getBlockUntil() != null)
-                .filter(attempt -> LocalDateTime.now().isBefore(attempt.getBlockUntil()))
+    private void validateRegistrationPassword(
+            String email,
+            String password,
+            String confirmPassword
+    ) {
+        if (!password.equals(confirmPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Passwords do not match"
+            );
+        }
+
+        validatePasswordStrength(
+                email,
+                password
+        );
+    }
+
+    private void validatePasswordStrength(
+            String email,
+            String password
+    ) {
+        if (password == null
+                || password.length() < 12) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must contain at least 12 characters"
+            );
+        }
+
+        if (password.length() > 64) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password is too long"
+            );
+        }
+
+        if (password
+                .getBytes(StandardCharsets.UTF_8)
+                .length > 72) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password is too long for the current password encoder"
+            );
+        }
+
+        boolean hasLowercase =
+                password.chars()
+                        .anyMatch(
+                                Character::isLowerCase
+                        );
+
+        boolean hasUppercase =
+                password.chars()
+                        .anyMatch(
+                                Character::isUpperCase
+                        );
+
+        boolean hasDigit =
+                password.chars()
+                        .anyMatch(
+                                Character::isDigit
+                        );
+
+        boolean hasSpecial =
+                password.chars()
+                        .anyMatch(
+                                character ->
+                                        !Character.isLetterOrDigit(
+                                                character
+                                        )
+                        );
+
+        if (!hasLowercase
+                || !hasUppercase
+                || !hasDigit
+                || !hasSpecial) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must contain lowercase and uppercase letters, a digit and a special character"
+            );
+        }
+
+        if (password.equalsIgnoreCase(email)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must not be the same as email"
+            );
+        }
+
+        String normalizedPassword =
+                password.toLowerCase(
+                        Locale.ROOT
+                );
+
+        if (COMMON_PASSWORDS.contains(
+                normalizedPassword
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password is too common"
+            );
+        }
+    }
+
+    private String normalizeEmail(
+            String value
+    ) {
+        if (value == null
+                || value.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Email is required"
+            );
+        }
+
+        String email =
+                value.strip()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
+
+        if (email.length() > 254
+                || email.contains(" ")
+                || !email.matches(
+                "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid email"
+            );
+        }
+
+        return email;
+    }
+
+    private String normalizeDisplayName(
+            String value
+    ) {
+        if (value == null
+                || value.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Display name is required"
+            );
+        }
+
+        String displayName =
+                value.strip();
+
+        if (displayName.length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Display name is too long"
+            );
+        }
+
+        return displayName;
+    }
+
+    private void checkIpNotBlocked(
+            String ipAddress,
+            String message
+    ) {
+        if (isBlocked(ipAddress)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    message
+            );
+        }
+    }
+
+    private boolean isBlocked(
+            String ipAddress
+    ) {
+        return loginAttemptRepository
+                .findByIpAddress(ipAddress)
+                .filter(
+                        attempt ->
+                                attempt.getBlockUntil()
+                                        != null
+                )
+                .filter(
+                        attempt ->
+                                LocalDateTime.now()
+                                        .isBefore(
+                                                attempt.getBlockUntil()
+                                        )
+                )
                 .isPresent();
     }
 
-    private void registerFailedAttempt(String ipAddress) {
-        LoginAttempt attempt = loginAttemptRepository.findByIpAddress(ipAddress)
-                .orElse(new LoginAttempt(ipAddress));
+    private void registerFailedAttempt(
+            String ipAddress
+    ) {
+        LoginAttempt attempt =
+                loginAttemptRepository
+                        .findByIpAddress(
+                                ipAddress
+                        )
+                        .orElse(
+                                new LoginAttempt(
+                                        ipAddress
+                                )
+                        );
 
-        attempt.setAttempts(attempt.getAttempts() + 1);
-        attempt.setLastAttempt(LocalDateTime.now());
+        attempt.setAttempts(
+                attempt.getAttempts() + 1
+        );
 
-        if (attempt.getAttempts() >= MAX_FAILED_ATTEMPTS) {
-            attempt.setBlockUntil(LocalDateTime.now().plusMinutes(BLOCK_MINUTES));
+        attempt.setLastAttempt(
+                LocalDateTime.now()
+        );
+
+        if (attempt.getAttempts()
+                >= MAX_FAILED_ATTEMPTS) {
+
+            attempt.setBlockUntil(
+                    LocalDateTime.now()
+                            .plusMinutes(
+                                    BLOCK_MINUTES
+                            )
+            );
+
             attempt.setAttempts(0);
         }
 
-        loginAttemptRepository.save(attempt);
+        loginAttemptRepository.save(
+                attempt
+        );
     }
 
-    private String extractUsernameFromAuthHeader(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith(AUTH_BEARER_PREFIX)) {
+    private String extractEmailFromAuthHeader(
+            String authHeader
+    ) {
+        if (authHeader == null
+                || !authHeader.startsWith(
+                AUTH_BEARER_PREFIX
+        )) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Authorization header is missing"
             );
         }
 
-        String token = authHeader.substring(AUTH_BEARER_PREFIX.length());
+        String token =
+                authHeader.substring(
+                        AUTH_BEARER_PREFIX.length()
+                );
 
         if (!jwtUtil.validateToken(token)) {
             throw new ResponseStatusException(
@@ -157,6 +571,8 @@ public class AuthService {
             );
         }
 
-        return jwtUtil.extractUsername(token);
+        return normalizeEmail(
+                jwtUtil.extractUsername(token)
+        );
     }
 }

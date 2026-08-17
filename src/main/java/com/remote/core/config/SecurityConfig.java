@@ -17,28 +17,46 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
 
-    public SecurityConfig(UserRepository userRepository) {
+    public SecurityConfig(
+            UserRepository userRepository
+    ) {
         this.userRepository = userRepository;
     }
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        return email ->
+                userRepository.findByEmail(email)
+                        .orElseThrow(
+                                () -> new UsernameNotFoundException(
+                                        "User not found"
+                                )
+                        );
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtFilter jwtFilter) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtFilter jwtFilter
+    ) throws Exception {
+
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .headers(headers -> headers
-                        .frameOptions(frameOptions -> frameOptions.disable())
+                        .frameOptions(
+                                frameOptions ->
+                                        frameOptions.disable()
+                        )
                 )
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll()
                 )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                );
 
         return http.build();
     }

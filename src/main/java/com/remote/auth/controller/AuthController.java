@@ -1,9 +1,12 @@
 package com.remote.auth.controller;
 
 import com.remote.auth.dto.AuthMessageResponse;
-import com.remote.auth.dto.AuthRequest;
 import com.remote.auth.dto.AuthTokenResponse;
 import com.remote.auth.dto.ChangePasswordRequest;
+import com.remote.auth.dto.LoginRequest;
+import com.remote.auth.dto.RegisterRequest;
+import com.remote.auth.dto.RegisterResponse;
+import com.remote.auth.dto.VerifyEmailRequest;
 import com.remote.auth.service.AuthService;
 import com.remote.core.service.ClientIpService;
 import com.remote.history.model.ConnectionLog;
@@ -23,25 +26,57 @@ public class AuthController {
     private final ClientIpService clientIpService;
 
     @PostMapping("/register")
-    public AuthMessageResponse register(@Valid @RequestBody AuthRequest request,
-                                        HttpServletRequest httpRequest) {
-        return authService.register(request, clientIpService.getClientIp(httpRequest));
+    public RegisterResponse register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return authService.register(
+                request,
+                clientIpService.getClientIp(
+                        httpRequest
+                )
+        );
+    }
+
+    @PostMapping("/verify-email")
+    public AuthMessageResponse verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request
+    ) {
+        return authService.verifyEmail(
+                request
+        );
     }
 
     @PostMapping("/login")
-    public AuthTokenResponse login(@Valid @RequestBody AuthRequest request,
-                                   HttpServletRequest httpRequest) {
-        return authService.login(request, clientIpService.getClientIp(httpRequest));
+    public AuthTokenResponse login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return authService.login(
+                request,
+                clientIpService.getClientIp(
+                        httpRequest
+                )
+        );
     }
 
     @PostMapping("/change-password")
-    public AuthMessageResponse changePassword(@Valid @RequestBody ChangePasswordRequest request,
-                                              @RequestHeader("Authorization") String authHeader) {
-        return authService.changePassword(authHeader, request);
+    public AuthMessageResponse changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        return authService.changePassword(
+                authHeader,
+                request
+        );
     }
 
     @GetMapping("/logs")
-    public List<ConnectionLog> getLogs(@RequestHeader("Authorization") String authHeader) {
-        return authService.getLogs(authHeader);
+    public List<ConnectionLog> getLogs(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        return authService.getLogs(
+                authHeader
+        );
     }
 }

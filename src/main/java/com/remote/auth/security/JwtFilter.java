@@ -1,5 +1,6 @@
 package com.remote.auth.security;
 
+import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -7,13 +8,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
 
@@ -23,48 +21,72 @@ public class JwtFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
 
-    public JwtFilter(JwtUtil jwtUtil,
-                     UserRepository userRepository) {
+    public JwtFilter(
+            JwtUtil jwtUtil,
+            UserRepository userRepository
+    ) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain
+    ) throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        String authHeader =
+                request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith(AUTH_BEARER_PREFIX)) {
-            String token = authHeader.substring(AUTH_BEARER_PREFIX.length());
+        if (authHeader != null
+                && authHeader.startsWith(
+                AUTH_BEARER_PREFIX
+        )) {
 
-            if (jwtUtil.validateToken(token)) {
-                String username = jwtUtil.extractUsername(token);
-
-                com.remote.core.model.User userFromDb = userRepository.findByUsername(username)
-                        .orElse(null);
-
-                if (userFromDb != null) {
-                    UserDetails userDetails = new User(
-                            userFromDb.getUsername(),
-                            userFromDb.getPassword(),
-                            new ArrayList<>()
+            String token =
+                    authHeader.substring(
+                            AUTH_BEARER_PREFIX.length()
                     );
 
-                    UsernamePasswordAuthenticationToken auth =
+            if (jwtUtil.validateToken(token)) {
+
+                /*
+                 * JWT subject теперь содержит email.
+                 *
+                 * Метод JwtUtil пока называется extractUsername()
+                 * только ради совместимости с остальным backend.
+                 */
+                String email =
+                        jwtUtil.extractUsername(token);
+
+                User user =
+                        userRepository.findByEmail(email)
+                                .orElse(null);
+
+                if (user != null
+                        && user.isEnabled()
+                        && user.isAccountNonLocked()
+                        && user.isAccountNonExpired()
+                        && user.isCredentialsNonExpired()) {
+
+                    UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    userDetails,
+                                    user,
                                     null,
-                                    userDetails.getAuthorities()
+                                    user.getAuthorities()
                             );
 
-                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    SecurityContextHolder
+                            .getContext()
+                            .setAuthentication(authentication);
                 }
             }
         }
 
-        chain.doFilter(request, response);
+        chain.doFilter(
+                request,
+                response
+        );
     }
 }
