@@ -21,12 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
 
@@ -36,19 +34,12 @@ public class AuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int BLOCK_MINUTES = 15;
 
-    private static final Set<String> COMMON_PASSWORDS = Set.of(
-            "password123!",
-            "qwerty123456!",
-            "admin123456!",
-            "welcome123!",
-            "letmein123!"
-    );
-
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final LoginAttemptRepository loginAttemptRepository;
     private final ConnectionLogRepository connectionLogRepository;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordPolicyService passwordPolicyService;
 
     private final BCryptPasswordEncoder encoder =
             new BCryptPasswordEncoder();
@@ -58,13 +49,19 @@ public class AuthService {
             JwtUtil jwtUtil,
             LoginAttemptRepository loginAttemptRepository,
             ConnectionLogRepository connectionLogRepository,
-            EmailVerificationService emailVerificationService
+            EmailVerificationService emailVerificationService,
+            PasswordPolicyService passwordPolicyService
     ) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
-        this.loginAttemptRepository = loginAttemptRepository;
-        this.connectionLogRepository = connectionLogRepository;
-        this.emailVerificationService = emailVerificationService;
+        this.loginAttemptRepository =
+                loginAttemptRepository;
+        this.connectionLogRepository =
+                connectionLogRepository;
+        this.emailVerificationService =
+                emailVerificationService;
+        this.passwordPolicyService =
+                passwordPolicyService;
     }
 
     @Transactional
@@ -77,15 +74,22 @@ public class AuthService {
                 "Too many attempts. Try again later."
         );
 
-        String email = normalizeEmail(request.email());
-        String displayName =
-                normalizeDisplayName(request.displayName());
+        String email =
+                normalizeEmail(
+                        request.email()
+                );
 
-        validateRegistrationPassword(
-                email,
-                request.password(),
-                request.confirmPassword()
-        );
+        String displayName =
+                normalizeDisplayName(
+                        request.displayName()
+                );
+
+        passwordPolicyService
+                .validateRegistrationPassword(
+                        email,
+                        request.password(),
+                        request.confirmPassword()
+                );
 
         if (userRepository.existsByEmail(email)) {
             throw new ResponseStatusException(
@@ -94,7 +98,8 @@ public class AuthService {
             );
         }
 
-        User user = new User();
+        User user =
+                new User();
 
         /*
          * Временный compatibility-мост.
@@ -108,7 +113,9 @@ public class AuthService {
         user.setDisplayName(displayName);
 
         user.setPassword(
-                encoder.encode(request.password())
+                encoder.encode(
+                        request.password()
+                )
         );
 
         user.setStatus(
@@ -125,14 +132,12 @@ public class AuthService {
         /*
          * Создание пользователя и verification token
          * выполняются в одной транзакции.
-         *
-         * Если токен создать не удастся,
-         * регистрация пользователя также откатится.
          */
         String verificationToken =
-                emailVerificationService.createToken(
-                        savedUser
-                );
+                emailVerificationService
+                        .createToken(
+                                savedUser
+                        );
 
         return new RegisterResponse(
                 "User registered successfully. Email verification required.",
@@ -164,10 +169,13 @@ public class AuthService {
         );
 
         String email =
-                normalizeEmail(request.identifier());
+                normalizeEmail(
+                        request.identifier()
+                );
 
         User user =
-                userRepository.findByEmail(email)
+                userRepository
+                        .findByEmail(email)
                         .orElse(null);
 
         if (user == null
@@ -175,7 +183,9 @@ public class AuthService {
                 request.password(),
                 user.getPassword()
         )) {
-            registerFailedAttempt(ipAddress);
+            registerFailedAttempt(
+                    ipAddress
+            );
 
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -196,7 +206,9 @@ public class AuthService {
                         user.getEmail()
                 );
 
-        return new AuthTokenResponse(token);
+        return new AuthTokenResponse(
+                token
+        );
     }
 
     @Transactional
@@ -210,12 +222,14 @@ public class AuthService {
                 );
 
         User user =
-                userRepository.findByEmail(email)
+                userRepository
+                        .findByEmail(email)
                         .orElseThrow(
-                                () -> new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "User not found"
-                                )
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "User not found"
+                                        )
                         );
 
         if (!encoder.matches(
@@ -228,10 +242,11 @@ public class AuthService {
             );
         }
 
-        validatePasswordStrength(
-                email,
-                request.newPassword()
-        );
+        passwordPolicyService
+                .validatePasswordStrength(
+                        email,
+                        request.newPassword()
+                );
 
         user.setPassword(
                 encoder.encode(
@@ -305,114 +320,6 @@ public class AuthService {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Account is not active"
-            );
-        }
-    }
-
-    private void validateRegistrationPassword(
-            String email,
-            String password,
-            String confirmPassword
-    ) {
-        if (!password.equals(confirmPassword)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Passwords do not match"
-            );
-        }
-
-        validatePasswordStrength(
-                email,
-                password
-        );
-    }
-
-    private void validatePasswordStrength(
-            String email,
-            String password
-    ) {
-        if (password == null
-                || password.length() < 12) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password must contain at least 12 characters"
-            );
-        }
-
-        if (password.length() > 64) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password is too long"
-            );
-        }
-
-        if (password
-                .getBytes(StandardCharsets.UTF_8)
-                .length > 72) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password is too long for the current password encoder"
-            );
-        }
-
-        boolean hasLowercase =
-                password.chars()
-                        .anyMatch(
-                                Character::isLowerCase
-                        );
-
-        boolean hasUppercase =
-                password.chars()
-                        .anyMatch(
-                                Character::isUpperCase
-                        );
-
-        boolean hasDigit =
-                password.chars()
-                        .anyMatch(
-                                Character::isDigit
-                        );
-
-        boolean hasSpecial =
-                password.chars()
-                        .anyMatch(
-                                character ->
-                                        !Character.isLetterOrDigit(
-                                                character
-                                        )
-                        );
-
-        if (!hasLowercase
-                || !hasUppercase
-                || !hasDigit
-                || !hasSpecial) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password must contain lowercase and uppercase letters, a digit and a special character"
-            );
-        }
-
-        if (password.equalsIgnoreCase(email)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password must not be the same as email"
-            );
-        }
-
-        String normalizedPassword =
-                password.toLowerCase(
-                        Locale.ROOT
-                );
-
-        if (COMMON_PASSWORDS.contains(
-                normalizedPassword
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Password is too common"
             );
         }
     }
