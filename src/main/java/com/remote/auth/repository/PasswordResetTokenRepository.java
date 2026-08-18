@@ -15,12 +15,22 @@ public interface PasswordResetTokenRepository
         extends JpaRepository<PasswordResetToken, Long> {
 
     /*
-     * При фактическом использовании reset-токена строка
-     * блокируется до завершения транзакции.
+     * Предварительное чтение нужно только для определения
+     * владельца token перед получением user-level lock.
      *
-     * Это не позволяет двум параллельным запросам
-     * одновременно успешно применить один токен.
+     * После блокировки пользователя token обязательно
+     * перечитывается уже через PESSIMISTIC_WRITE.
      */
+    @Query("""
+            select token
+            from PasswordResetToken token
+            join fetch token.user
+            where token.tokenHash = :tokenHash
+            """)
+    Optional<PasswordResetToken> findByTokenHash(
+            @Param("tokenHash") String tokenHash
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select token

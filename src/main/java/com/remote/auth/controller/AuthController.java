@@ -3,11 +3,15 @@ package com.remote.auth.controller;
 import com.remote.auth.dto.AuthMessageResponse;
 import com.remote.auth.dto.AuthTokenResponse;
 import com.remote.auth.dto.ChangePasswordRequest;
+import com.remote.auth.dto.ForgotPasswordRequest;
+import com.remote.auth.dto.ForgotPasswordResponse;
 import com.remote.auth.dto.LoginRequest;
 import com.remote.auth.dto.RegisterRequest;
 import com.remote.auth.dto.RegisterResponse;
+import com.remote.auth.dto.ResetPasswordRequest;
 import com.remote.auth.dto.VerifyEmailRequest;
 import com.remote.auth.service.AuthService;
+import com.remote.auth.service.PasswordResetService;
 import com.remote.core.service.ClientIpService;
 import com.remote.history.model.ConnectionLog;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +27,7 @@ import java.util.List;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
     private final ClientIpService clientIpService;
 
     @PostMapping("/register")
@@ -58,6 +63,26 @@ public class AuthController {
                         httpRequest
                 )
         );
+    }
+
+    @PostMapping("/forgot-password")
+    public ForgotPasswordResponse forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        return passwordResetService
+                .requestReset(
+                        request
+                );
+    }
+
+    @PostMapping("/reset-password")
+    public AuthMessageResponse resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        return passwordResetService
+                .resetPassword(
+                        request
+                );
     }
 
     @PostMapping("/change-password")
