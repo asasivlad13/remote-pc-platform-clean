@@ -22,6 +22,11 @@ import java.util.UUID;
 @Service
 public class AgentSessionService {
 
+    private static final int MAX_DEVICE_NAME_LENGTH = 255;
+    private static final int MAX_OS_NAME_LENGTH = 100;
+    private static final int MAX_OS_VERSION_LENGTH = 100;
+    private static final int MAX_AGENT_VERSION_LENGTH = 50;
+
     private final JwtUtil jwtUtil;
     private final PcRepository pcRepository;
     private final UserRepository userRepository;
@@ -47,6 +52,30 @@ public class AgentSessionService {
             JsonNode json
     ) throws IOException {
 
+        if (!hasRequiredText(json, "token")) {
+            rejectRegistration(
+                    session,
+                    "Token is missing"
+            );
+            return;
+        }
+
+        if (!hasRequiredText(json, "pcName")) {
+            rejectRegistration(
+                    session,
+                    "PC name is missing"
+            );
+            return;
+        }
+
+        if (!hasRequiredText(json, "mac")) {
+            rejectRegistration(
+                    session,
+                    "MAC address is missing"
+            );
+            return;
+        }
+
         String token =
                 json.get("token").asString();
 
@@ -64,10 +93,10 @@ public class AgentSessionService {
             return;
         }
 
-        if (!json.has("installationId")
-                || json.get("installationId") == null
-                || json.get("installationId").isNull()) {
-
+        if (!hasRequiredText(
+                json,
+                "installationId"
+        )) {
             rejectRegistration(
                     session,
                     "Installation id is missing"
@@ -75,22 +104,81 @@ public class AgentSessionService {
             return;
         }
 
-        String installationIdValue =
-                json.get("installationId")
-                        .asString();
-
         UUID installationId;
 
         try {
             installationId =
                     UUID.fromString(
-                            installationIdValue
+                            json.get("installationId")
+                                    .asString()
                     );
 
         } catch (IllegalArgumentException e) {
             rejectRegistration(
                     session,
                     "Invalid installation id"
+            );
+            return;
+        }
+
+        String deviceName =
+                readRequiredText(
+                        json,
+                        "deviceName",
+                        MAX_DEVICE_NAME_LENGTH
+                );
+
+        String osName =
+                readRequiredText(
+                        json,
+                        "osName",
+                        MAX_OS_NAME_LENGTH
+                );
+
+        String osVersion =
+                readRequiredText(
+                        json,
+                        "osVersion",
+                        MAX_OS_VERSION_LENGTH
+                );
+
+        String agentVersion =
+                readRequiredText(
+                        json,
+                        "agentVersion",
+                        MAX_AGENT_VERSION_LENGTH
+                );
+
+        if (deviceName == null
+                || osName == null
+                || osVersion == null
+                || agentVersion == null) {
+
+            rejectRegistration(
+                    session,
+                    "Invalid device metadata"
+            );
+            return;
+        }
+
+        if (!json.has("protocolVersion")
+                || !json.get("protocolVersion").canConvertToInt()) {
+
+            rejectRegistration(
+                    session,
+                    "Protocol version is missing or invalid"
+            );
+            return;
+        }
+
+        int protocolVersion =
+                json.get("protocolVersion")
+                        .asInt();
+
+        if (protocolVersion <= 0) {
+            rejectRegistration(
+                    session,
+                    "Protocol version is invalid"
             );
             return;
         }
@@ -185,6 +273,12 @@ public class AgentSessionService {
             }
         }
 
+        pc.setDeviceName(deviceName);
+        pc.setOsName(osName);
+        pc.setOsVersion(osVersion);
+        pc.setAgentVersion(agentVersion);
+        pc.setProtocolVersion(protocolVersion);
+
         if (json.has("screenWidth")
                 && json.has("screenHeight")) {
 
@@ -230,23 +324,12 @@ public class AgentSessionService {
                     json.get("webrtcUrl")
                             .asString()
             );
-
-            log.debug(
-                    "WebRTC URL updated: installationId={}",
-                    installationId
-            );
         }
 
         if (json.has("streamName")) {
             pc.setStreamName(
                     json.get("streamName")
                             .asString()
-            );
-
-            log.debug(
-                    "Stream name updated: installationId={}, streamName={}",
-                    installationId,
-                    pc.getStreamName()
             );
         }
 
@@ -274,11 +357,12 @@ public class AgentSessionService {
         );
 
         log.info(
-                "Agent registered: pcId={}, pcName={}, installationId={}, mac={}, email={}",
+                "Agent registered: pcId={}, pcName={}, installationId={}, agentVersion={}, protocolVersion={}, email={}",
                 savedPc.getId(),
                 pcName,
                 installationId,
-                mac,
+                agentVersion,
+                protocolVersion,
                 email
         );
     }
@@ -354,6 +438,42 @@ public class AgentSessionService {
 
         agentSessionRegistry
                 .removeBySession(session);
+    }
+
+    private boolean hasRequiredText(
+            JsonNode json,
+            String fieldName
+    ) {
+        return json.has(fieldName)
+                && json.get(fieldName) != null
+                && !json.get(fieldName).isNull()
+                && !json.get(fieldName)
+                .asString()
+                .isBlank();
+    }
+
+    private String readRequiredText(
+            JsonNode json,
+            String fieldName,
+            int maxLength
+    ) {
+        if (!hasRequiredText(
+                json,
+                fieldName
+        )) {
+            return null;
+        }
+
+        String value =
+                json.get(fieldName)
+                        .asString()
+                        .strip();
+
+        if (value.length() > maxLength) {
+            return null;
+        }
+
+        return value;
     }
 
     private void rejectRegistration(

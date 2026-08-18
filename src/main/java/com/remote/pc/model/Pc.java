@@ -59,6 +59,10 @@ public class Pc {
     )
     private UUID installationId;
 
+    /*
+     * Пользовательское имя ПК внутри платформы.
+     * Например: "Домашний компьютер".
+     */
     @NotBlank
     @Size(max = 100)
     @Column(
@@ -66,6 +70,19 @@ public class Pc {
             length = 100
     )
     private String name;
+
+    /*
+     * Имя устройства, которое сообщает операционная система.
+     * Например: DESKTOP-ABC123.
+     */
+    @NotBlank
+    @Size(max = 255)
+    @Column(
+            name = "device_name",
+            nullable = false,
+            length = 255
+    )
+    private String deviceName;
 
     /*
      * MAC является характеристикой устройства,
@@ -80,6 +97,41 @@ public class Pc {
     )
     private String macAddress;
 
+    @NotBlank
+    @Size(max = 100)
+    @Column(
+            name = "os_name",
+            nullable = false,
+            length = 100
+    )
+    private String osName;
+
+    @NotBlank
+    @Size(max = 100)
+    @Column(
+            name = "os_version",
+            nullable = false,
+            length = 100
+    )
+    private String osVersion;
+
+    @NotBlank
+    @Size(max = 50)
+    @Column(
+            name = "agent_version",
+            nullable = false,
+            length = 50
+    )
+    private String agentVersion;
+
+    @NotNull
+    @Min(1)
+    @Column(
+            name = "protocol_version",
+            nullable = false
+    )
+    private Integer protocolVersion;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(
@@ -89,13 +141,6 @@ public class Pc {
     private PcStatus status =
             PcStatus.OFFLINE;
 
-    /*
-     * Последний момент, когда backend получил
-     * регистрацию или heartbeat от агента.
-     *
-     * Instant позволяет хранить абсолютный момент времени
-     * независимо от часового пояса сервера.
-     */
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
 
@@ -109,9 +154,10 @@ public class Pc {
 
     /*
      * Пока остаются в Pc для совместимости
-     * с текущими Education/Support-сценариями.
+     * с Education/Support.
+     *
      * Позже параметры активного видеосеанса
-     * будут перенесены в модель remote session.
+     * будут вынесены в remote session.
      */
     @Size(max = 500)
     @Column(
@@ -156,17 +202,6 @@ public class Pc {
             nullable = false
     )
     private Instant updatedAt;
-
-    public Pc(
-            String name,
-            String macAddress,
-            User user
-    ) {
-        this.name = name;
-        this.macAddress = macAddress;
-        this.user = user;
-        this.status = PcStatus.OFFLINE;
-    }
 
     @PrePersist
     private void onCreate() {
