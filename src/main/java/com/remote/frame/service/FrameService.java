@@ -20,66 +20,113 @@ public class FrameService {
     private final UserRepository userRepository;
     private final WebSocketClientHandler webSocketClientHandler;
 
-    private final Map<String, String> lastFrames = new ConcurrentHashMap<>();
+    /*
+     * Кадры являются runtime-данными и не хранятся в БД.
+     *
+     * Ключом служит внутренний pcId, а не MAC.
+     */
+    private final Map<Long, String> lastFrames =
+            new ConcurrentHashMap<>();
 
-    public FrameService(PcRepository pcRepository,
-                        UserRepository userRepository,
-                        WebSocketClientHandler webSocketClientHandler) {
+    public FrameService(
+            PcRepository pcRepository,
+            UserRepository userRepository,
+            WebSocketClientHandler webSocketClientHandler
+    ) {
         this.pcRepository = pcRepository;
         this.userRepository = userRepository;
         this.webSocketClientHandler = webSocketClientHandler;
     }
 
-    public void uploadFrame(FrameUploadRequest request) {
-        String mac = request.mac();
-        String imageBase64 = request.image();
+    public void uploadFrame(
+            FrameUploadRequest request
+    ) {
+        Long pcId =
+                request.pcId();
 
-        if (mac == null || mac.isBlank()) {
-            throw new IllegalArgumentException("MAC address is missing");
+        String imageBase64 =
+                request.image();
+
+        if (imageBase64 == null
+                || imageBase64.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Frame image is missing"
+            );
         }
 
-        if (imageBase64 == null || imageBase64.isBlank()) {
-            throw new IllegalArgumentException("Frame image is missing");
-        }
+        Pc pc =
+                pcRepository.findById(pcId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "PC not found"
+                                )
+                        );
 
-        Pc pc = pcRepository.findByMacAddress(mac);
-
-        if (pc == null) {
-            throw new IllegalArgumentException("PC not found");
-        }
-
-        lastFrames.put(mac, imageBase64);
+        lastFrames.put(
+                pc.getId(),
+                imageBase64
+        );
 
         log.debug(
-                "Frame saved: mac={}, sizeChars={}",
-                mac,
+                "Frame saved: pcId={}, sizeChars={}",
+                pc.getId(),
                 imageBase64.length()
         );
 
-        webSocketClientHandler.broadcastFrame(pc.getId(), imageBase64);
+        webSocketClientHandler.broadcastFrame(
+                pc.getId(),
+                imageBase64
+        );
     }
 
-    public Map<String, String> getLatestFrame(String mac) {
-        String imageBase64 = lastFrames.get(mac);
+    public Map<String, String> getLatestFrame(
+            Long pcId
+    ) {
+        String imageBase64 =
+                lastFrames.get(pcId);
 
         if (imageBase64 == null) {
-            throw new IllegalArgumentException("Frame not found");
+            throw new IllegalArgumentException(
+                    "Frame not found"
+            );
         }
 
-        return Map.of("image", imageBase64);
+        return Map.of(
+                "image",
+                imageBase64
+        );
     }
 
-    public Map<String, String> getMyPcsFrames(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    public Map<Long, String> getMyPcsFrames(
+            String email
+    ) {
+        /*
+         * findByUsername пока является compatibility-методом
+         * и фактически выполняет поиск по User.email.
+         */
+        User user =
+                userRepository.findByUsername(email)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "Пользователь не найден"
+                                )
+                        );
 
-        Map<String, String> result = new ConcurrentHashMap<>();
+        Map<Long, String> result =
+                new ConcurrentHashMap<>();
 
         for (Pc pc : pcRepository.findByUser(user)) {
-            String frame = lastFrames.get(pc.getMacAddress());
+            String frame =
+                    lastFrames.get(
+                            pc.getId()
+                    );
 
             if (frame != null) {
-                result.put(pc.getMacAddress(), frame);
+                result.put(
+                        pc.getId(),
+                        frame
+                );
             }
         }
 

@@ -9,44 +9,83 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AgentSessionRegistry {
 
-    private final Map<String, WebSocketSession> sessionsByMac = new ConcurrentHashMap<>();
-    private final Map<Long, WebSocketSession> sessionsByPcId = new ConcurrentHashMap<>();
+    private final Map<Long, WebSocketSession> sessionsByPcId =
+            new ConcurrentHashMap<>();
 
-    public void register(String macAddress, Long pcId, WebSocketSession session) {
-        sessionsByMac.put(macAddress, session);
-        sessionsByPcId.put(pcId, session);
+    private final Map<String, Long> pcIdsBySessionId =
+            new ConcurrentHashMap<>();
+
+    public void register(
+            Long pcId,
+            WebSocketSession session
+    ) {
+        WebSocketSession previousSession =
+                sessionsByPcId.put(
+                        pcId,
+                        session
+                );
+
+        if (previousSession != null
+                && !previousSession.getId()
+                .equals(session.getId())) {
+
+            pcIdsBySessionId.remove(
+                    previousSession.getId(),
+                    pcId
+            );
+        }
+
+        Long previousPcId =
+                pcIdsBySessionId.put(
+                        session.getId(),
+                        pcId
+                );
+
+        if (previousPcId != null
+                && !previousPcId.equals(pcId)) {
+
+            sessionsByPcId.remove(
+                    previousPcId,
+                    session
+            );
+        }
     }
 
-    public WebSocketSession getByMac(String macAddress) {
-        return sessionsByMac.get(macAddress);
-    }
-
-    public WebSocketSession getByPcId(Long pcId) {
+    public WebSocketSession getByPcId(
+            Long pcId
+    ) {
         return sessionsByPcId.get(pcId);
     }
 
-    public Long getPcIdBySession(WebSocketSession session) {
-        for (Map.Entry<Long, WebSocketSession> entry : sessionsByPcId.entrySet()) {
-            if (entry.getValue().getId().equals(session.getId())) {
-                return entry.getKey();
-            }
+    public Long getPcIdBySession(
+            WebSocketSession session
+    ) {
+        if (session == null) {
+            return null;
         }
 
-        return null;
+        return pcIdsBySessionId.get(
+                session.getId()
+        );
     }
 
-    public String getMacBySession(WebSocketSession session) {
-        for (Map.Entry<String, WebSocketSession> entry : sessionsByMac.entrySet()) {
-            if (entry.getValue().equals(session)) {
-                return entry.getKey();
-            }
+    public void removeBySession(
+            WebSocketSession session
+    ) {
+        if (session == null) {
+            return;
         }
 
-        return null;
-    }
+        Long pcId =
+                pcIdsBySessionId.remove(
+                        session.getId()
+                );
 
-    public void removeBySession(WebSocketSession session) {
-        sessionsByMac.entrySet().removeIf(entry -> entry.getValue().equals(session));
-        sessionsByPcId.entrySet().removeIf(entry -> entry.getValue().equals(session));
+        if (pcId != null) {
+            sessionsByPcId.remove(
+                    pcId,
+                    session
+            );
+        }
     }
 }

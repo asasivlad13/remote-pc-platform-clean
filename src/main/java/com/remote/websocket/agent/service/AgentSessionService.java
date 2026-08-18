@@ -15,6 +15,8 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -26,11 +28,13 @@ public class AgentSessionService {
     private final AgentSessionRegistry agentSessionRegistry;
     private final WebSocketMessageSender webSocketMessageSender;
 
-    public AgentSessionService(JwtUtil jwtUtil,
-                               PcRepository pcRepository,
-                               UserRepository userRepository,
-                               AgentSessionRegistry agentSessionRegistry,
-                               WebSocketMessageSender webSocketMessageSender) {
+    public AgentSessionService(
+            JwtUtil jwtUtil,
+            PcRepository pcRepository,
+            UserRepository userRepository,
+            AgentSessionRegistry agentSessionRegistry,
+            WebSocketMessageSender webSocketMessageSender
+    ) {
         this.jwtUtil = jwtUtil;
         this.pcRepository = pcRepository;
         this.userRepository = userRepository;
@@ -38,8 +42,11 @@ public class AgentSessionService {
         this.webSocketMessageSender = webSocketMessageSender;
     }
 
-    public void register(WebSocketSession session,
-                         JsonNode json) throws IOException {
+    public void register(
+            WebSocketSession session,
+            JsonNode json
+    ) throws IOException {
+
         String token =
                 json.get("token").asString();
 
@@ -50,70 +57,130 @@ public class AgentSessionService {
                 json.get("mac").asString();
 
         if (!jwtUtil.validateToken(token)) {
-            webSocketMessageSender.send(
+            rejectRegistration(
                     session,
-                    new TextMessage(
-                            "{\"error\":\"Invalid token\"}"
-                    )
+                    "Invalid token"
             );
-
-            session.close();
             return;
         }
 
-        String username =
+        if (!json.has("installationId")
+                || json.get("installationId") == null
+                || json.get("installationId").isNull()) {
+
+            rejectRegistration(
+                    session,
+                    "Installation id is missing"
+            );
+            return;
+        }
+
+        String installationIdValue =
+                json.get("installationId")
+                        .asString();
+
+        UUID installationId;
+
+        try {
+            installationId =
+                    UUID.fromString(
+                            installationIdValue
+                    );
+
+        } catch (IllegalArgumentException e) {
+            rejectRegistration(
+                    session,
+                    "Invalid installation id"
+            );
+            return;
+        }
+
+        String email =
                 jwtUtil.extractUsername(token);
 
-        User user = userRepository.findByUsername(username)
-                .orElse(null);
+        User user =
+                userRepository.findByEmail(email)
+                        .orElse(null);
 
         if (user == null) {
-            webSocketMessageSender.send(
+            rejectRegistration(
                     session,
-                    new TextMessage(
-                            "{\"error\":\"User not found\"}"
-                    )
+                    "User not found"
             );
-
-            session.close();
             return;
         }
 
         Pc pc =
-                pcRepository.findByMacAddress(mac);
+                pcRepository
+                        .findByInstallationId(
+                                installationId
+                        )
+                        .orElse(null);
 
         if (pc == null) {
             pc = new Pc();
+
+            pc.setInstallationId(
+                    installationId
+            );
 
             pc.setName(pcName);
             pc.setMacAddress(mac);
             pc.setUser(user);
 
             log.info(
-                    "Creating new PC record: mac={}, username={}",
+                    "Creating new PC record: installationId={}, mac={}, email={}",
+                    installationId,
                     mac,
-                    username
+                    email
             );
+
         } else {
-            if (!pc.getName().equals(pcName)) {
+            if (pc.getUser() == null
+                    || !pc.getUser()
+                    .getId()
+                    .equals(user.getId())) {
+
+                log.warn(
+                        "Agent registration rejected because installation belongs to another user: installationId={}, requestedEmail={}",
+                        installationId,
+                        email
+                );
+
+                rejectRegistration(
+                        session,
+                        "Installation belongs to another user"
+                );
+                return;
+            }
+
+            if (!Objects.equals(
+                    pc.getName(),
+                    pcName
+            )) {
                 pc.setName(pcName);
 
                 log.info(
-                        "PC name updated: mac={}, pcName={}",
-                        mac,
+                        "PC name updated: installationId={}, pcName={}",
+                        installationId,
                         pcName
                 );
             }
 
-            if (pc.getUser() == null
-                    || !pc.getUser().getId().equals(user.getId())) {
+            if (!Objects.equals(
+                    pc.getMacAddress(),
+                    mac
+            )) {
+                String previousMac =
+                        pc.getMacAddress();
 
-                pc.setUser(user);
+                pc.setMacAddress(mac);
 
                 log.info(
-                        "PC reassigned to user: mac={}, username={}",
-                        mac,
-                        username
+                        "PC MAC address updated: installationId={}, oldMac={}, newMac={}",
+                        installationId,
+                        previousMac,
+                        mac
                 );
             }
         }
@@ -122,16 +189,18 @@ public class AgentSessionService {
                 && json.has("screenHeight")) {
 
             pc.setScreenWidth(
-                    json.get("screenWidth").asInt()
+                    json.get("screenWidth")
+                            .asInt()
             );
 
             pc.setScreenHeight(
-                    json.get("screenHeight").asInt()
+                    json.get("screenHeight")
+                            .asInt()
             );
 
             log.debug(
-                    "PC screen size updated: mac={}, width={}, height={}",
-                    mac,
+                    "PC screen size updated: installationId={}, width={}, height={}",
+                    installationId,
                     pc.getScreenWidth(),
                     pc.getScreenHeight()
             );
@@ -141,14 +210,16 @@ public class AgentSessionService {
                 && json.has("scaleY")) {
 
             double scaleX =
-                    json.get("scaleX").asDouble();
+                    json.get("scaleX")
+                            .asDouble();
 
             double scaleY =
-                    json.get("scaleY").asDouble();
+                    json.get("scaleY")
+                            .asDouble();
 
             log.debug(
-                    "Agent scale factors received: mac={}, scaleX={}, scaleY={}",
-                    mac,
+                    "Agent scale factors received: installationId={}, scaleX={}, scaleY={}",
+                    installationId,
                     scaleX,
                     scaleY
             );
@@ -156,35 +227,41 @@ public class AgentSessionService {
 
         if (json.has("webrtcUrl")) {
             pc.setWebrtcUrl(
-                    json.get("webrtcUrl").asString()
+                    json.get("webrtcUrl")
+                            .asString()
             );
 
             log.debug(
-                    "WebRTC URL updated: mac={}",
-                    mac
+                    "WebRTC URL updated: installationId={}",
+                    installationId
             );
         }
 
         if (json.has("streamName")) {
             pc.setStreamName(
-                    json.get("streamName").asString()
+                    json.get("streamName")
+                            .asString()
             );
 
             log.debug(
-                    "Stream name updated: mac={}, streamName={}",
-                    mac,
+                    "Stream name updated: installationId={}, streamName={}",
+                    installationId,
                     pc.getStreamName()
             );
         }
 
-        pc.setStatus(PcStatus.ONLINE);
-        pc.setLastConnection(LocalDateTime.now());
+        pc.setStatus(
+                PcStatus.ONLINE
+        );
+
+        pc.setLastConnection(
+                LocalDateTime.now()
+        );
 
         Pc savedPc =
                 pcRepository.save(pc);
 
         agentSessionRegistry.register(
-                mac,
                 savedPc.getId(),
                 session
         );
@@ -197,66 +274,102 @@ public class AgentSessionService {
         );
 
         log.info(
-                "Agent registered: pcId={}, pcName={}, mac={}, username={}",
+                "Agent registered: pcId={}, pcName={}, installationId={}, mac={}, email={}",
                 savedPc.getId(),
                 pcName,
+                installationId,
                 mac,
-                username
+                email
         );
     }
 
-    public void handleHeartbeat(WebSocketSession session) {
-        String mac =
-                agentSessionRegistry.getMacBySession(session);
+    public void handleHeartbeat(
+            WebSocketSession session
+    ) {
+        Long pcId =
+                agentSessionRegistry
+                        .getPcIdBySession(session);
 
-        if (mac == null) {
+        if (pcId == null) {
             return;
         }
 
         Pc pc =
-                pcRepository.findByMacAddress(mac);
+                pcRepository
+                        .findById(pcId)
+                        .orElse(null);
 
         if (pc == null) {
             return;
         }
 
-        pc.setLastConnection(LocalDateTime.now());
+        pc.setLastConnection(
+                LocalDateTime.now()
+        );
 
-        if (pc.getStatus() != PcStatus.SLEEP) {
-            pc.setStatus(PcStatus.ONLINE);
+        if (pc.getStatus()
+                != PcStatus.SLEEP) {
+
+            pc.setStatus(
+                    PcStatus.ONLINE
+            );
         }
 
         pcRepository.save(pc);
 
         log.debug(
-                "Agent heartbeat processed: mac={}, status={}",
-                mac,
+                "Agent heartbeat processed: pcId={}, status={}",
+                pc.getId(),
                 pc.getStatus()
         );
     }
 
-    public void closeSession(WebSocketSession session) {
-        String mac =
-                agentSessionRegistry.getMacBySession(session);
+    public void closeSession(
+            WebSocketSession session
+    ) {
+        Long pcId =
+                agentSessionRegistry
+                        .getPcIdBySession(session);
 
-        if (mac != null) {
+        if (pcId != null) {
             Pc pc =
-                    pcRepository.findByMacAddress(mac);
+                    pcRepository
+                            .findById(pcId)
+                            .orElse(null);
 
             if (pc != null) {
-                pc.setStatus(PcStatus.OFFLINE);
+                pc.setStatus(
+                        PcStatus.OFFLINE
+                );
 
                 pcRepository.save(pc);
 
                 log.info(
-                        "PC set to OFFLINE: pcId={}, pcName={}, mac={}",
+                        "PC set to OFFLINE: pcId={}, pcName={}",
                         pc.getId(),
-                        pc.getName(),
-                        mac
+                        pc.getName()
                 );
             }
         }
 
-        agentSessionRegistry.removeBySession(session);
+        agentSessionRegistry
+                .removeBySession(session);
+    }
+
+    private void rejectRegistration(
+            WebSocketSession session,
+            String message
+    ) throws IOException {
+
+        webSocketMessageSender.send(
+                session,
+                new TextMessage(
+                        "{\"error\":\""
+                                + message
+                                + "\"}"
+                )
+        );
+
+        session.close();
     }
 }

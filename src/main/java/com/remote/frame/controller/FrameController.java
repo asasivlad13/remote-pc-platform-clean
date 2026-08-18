@@ -20,19 +20,32 @@ public class FrameController {
     private final CurrentUserService currentUserService;
 
     @PostMapping("/upload")
-    public ResponseEntity<Void> uploadFrame(@Valid @RequestBody FrameUploadRequest request) {
+    public ResponseEntity<Void> uploadFrame(
+            @Valid @RequestBody FrameUploadRequest request
+    ) {
         frameService.uploadFrame(request);
+
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/latest/{mac}")
-    public ResponseEntity<Map<String, String>> getLatestFrame(@PathVariable String mac) {
-        return ResponseEntity.ok(frameService.getLatestFrame(mac));
+    @GetMapping("/latest/{pcId}")
+    public ResponseEntity<Map<String, String>> getLatestFrame(
+            @PathVariable Long pcId
+    ) {
+        return ResponseEntity.ok(
+                frameService.getLatestFrame(pcId)
+        );
     }
 
     @GetMapping("/my-pcs-frames")
-    public ResponseEntity<Map<String, String>> getMyPcsFrames(HttpServletRequest request) {
-        String username = currentUserService.extractUsername(request);
-        return ResponseEntity.ok(frameService.getMyPcsFrames(username));
+    public ResponseEntity<Map<Long, String>> getMyPcsFrames(
+            HttpServletRequest request
+    ) {
+        String email =
+                currentUserService.extractUsername(request);
+
+        return ResponseEntity.ok(
+                frameService.getMyPcsFrames(email)
+        );
     }
 }
