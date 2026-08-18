@@ -1,7 +1,7 @@
 package com.remote.pc.service;
 
 import com.remote.pc.model.Pc;
-import com.remote.pc.model.PcStatus;
+import com.remote.pc.model.PcConnectionStatus;
 import com.remote.pc.repository.PcRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -37,13 +37,16 @@ public class PcOnlineStatusMonitorService {
                 pcRepository.findAll();
 
         for (Pc pc : pcs) {
-            if (pc.getStatus() == PcStatus.ONLINE
+            if (pc.getConnectionStatus()
+                    == PcConnectionStatus.ONLINE
+
                     && pc.getLastSeenAt() != null
+
                     && pc.getLastSeenAt()
                     .isBefore(threshold)) {
 
-                pc.setStatus(
-                        PcStatus.OFFLINE
+                pc.setConnectionStatus(
+                        PcConnectionStatus.OFFLINE
                 );
 
                 pcRepository.save(pc);

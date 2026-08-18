@@ -31,8 +31,8 @@ import java.util.UUID;
                         columnList = "user_id"
                 ),
                 @Index(
-                        name = "idx_pcs_status",
-                        columnList = "status"
+                        name = "idx_pcs_connection_status",
+                        columnList = "connection_status"
                 ),
                 @Index(
                         name = "idx_pcs_last_seen_at",
@@ -61,7 +61,6 @@ public class Pc {
 
     /*
      * Пользовательское имя ПК внутри платформы.
-     * Например: "Домашний компьютер".
      */
     @NotBlank
     @Size(max = 100)
@@ -72,8 +71,7 @@ public class Pc {
     private String name;
 
     /*
-     * Имя устройства, которое сообщает операционная система.
-     * Например: DESKTOP-ABC123.
+     * Системное имя устройства.
      */
     @NotBlank
     @Size(max = 255)
@@ -132,14 +130,36 @@ public class Pc {
     )
     private Integer protocolVersion;
 
+    /*
+     * Состояние соединения агента с backend.
+     *
+     * Не связано с программным режимом сна.
+     */
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(
+            name = "connection_status",
             nullable = false,
             length = 30
     )
-    private PcStatus status =
-            PcStatus.OFFLINE;
+    private PcConnectionStatus connectionStatus =
+            PcConnectionStatus.OFFLINE;
+
+    /*
+     * Локальное состояние питания/режима работы ПК.
+     *
+     * Сейчас здесь отражается именно реализованный
+     * программный SOFT_SLEEP.
+     */
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "power_state",
+            nullable = false,
+            length = 30
+    )
+    private PcPowerState powerState =
+            PcPowerState.AWAKE;
 
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
@@ -203,9 +223,59 @@ public class Pc {
     )
     private Instant updatedAt;
 
+    /*
+     * Временная compatibility-проекция для существующего API.
+     *
+     * Поля status в таблице pcs больше нет.
+     */
+    @Transient
+    public PcStatus getStatus() {
+        if (connectionStatus != PcConnectionStatus.ONLINE) {
+            return PcStatus.OFFLINE;
+        }
+
+        if (powerState == PcPowerState.SOFT_SLEEP) {
+            return PcStatus.SLEEP;
+        }
+
+        return PcStatus.ONLINE;
+    }
+
+    /*
+     * Временный compatibility-setter.
+     *
+     * Новый backend-код должен использовать
+     * connectionStatus и powerState напрямую.
+     */
+    @Transient
+    public void setStatus(PcStatus status) {
+        if (status == null) {
+            return;
+        }
+
+        switch (status) {
+            case ONLINE -> {
+                connectionStatus =
+                        PcConnectionStatus.ONLINE;
+
+                powerState =
+                        PcPowerState.AWAKE;
+            }
+
+            case OFFLINE ->
+                    connectionStatus =
+                            PcConnectionStatus.OFFLINE;
+
+            case SLEEP ->
+                    powerState =
+                            PcPowerState.SOFT_SLEEP;
+        }
+    }
+
     @PrePersist
     private void onCreate() {
-        Instant now = Instant.now();
+        Instant now =
+                Instant.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -215,13 +285,20 @@ public class Pc {
             updatedAt = now;
         }
 
-        if (status == null) {
-            status = PcStatus.OFFLINE;
+        if (connectionStatus == null) {
+            connectionStatus =
+                    PcConnectionStatus.OFFLINE;
+        }
+
+        if (powerState == null) {
+            powerState =
+                    PcPowerState.AWAKE;
         }
     }
 
     @PreUpdate
     private void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt =
+                Instant.now();
     }
 }

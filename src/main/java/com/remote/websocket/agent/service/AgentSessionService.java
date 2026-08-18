@@ -5,7 +5,7 @@ import com.remote.auth.security.JwtUtil;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
-import com.remote.pc.model.PcStatus;
+import com.remote.pc.model.PcConnectionStatus;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.common.WebSocketMessageSender;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +22,17 @@ import java.util.UUID;
 @Service
 public class AgentSessionService {
 
-    private static final int MAX_DEVICE_NAME_LENGTH = 255;
-    private static final int MAX_OS_NAME_LENGTH = 100;
-    private static final int MAX_OS_VERSION_LENGTH = 100;
-    private static final int MAX_AGENT_VERSION_LENGTH = 50;
+    private static final int MAX_DEVICE_NAME_LENGTH =
+            255;
+
+    private static final int MAX_OS_NAME_LENGTH =
+            100;
+
+    private static final int MAX_OS_VERSION_LENGTH =
+            100;
+
+    private static final int MAX_AGENT_VERSION_LENGTH =
+            50;
 
     private final JwtUtil jwtUtil;
     private final PcRepository pcRepository;
@@ -52,7 +59,10 @@ public class AgentSessionService {
             JsonNode json
     ) throws IOException {
 
-        if (!hasRequiredText(json, "token")) {
+        if (!hasRequiredText(
+                json,
+                "token"
+        )) {
             rejectRegistration(
                     session,
                     "Token is missing"
@@ -60,7 +70,10 @@ public class AgentSessionService {
             return;
         }
 
-        if (!hasRequiredText(json, "pcName")) {
+        if (!hasRequiredText(
+                json,
+                "pcName"
+        )) {
             rejectRegistration(
                     session,
                     "PC name is missing"
@@ -68,7 +81,10 @@ public class AgentSessionService {
             return;
         }
 
-        if (!hasRequiredText(json, "mac")) {
+        if (!hasRequiredText(
+                json,
+                "mac"
+        )) {
             rejectRegistration(
                     session,
                     "MAC address is missing"
@@ -77,13 +93,16 @@ public class AgentSessionService {
         }
 
         String token =
-                json.get("token").asString();
+                json.get("token")
+                        .asString();
 
         String pcName =
-                json.get("pcName").asString();
+                json.get("pcName")
+                        .asString();
 
         String mac =
-                json.get("mac").asString();
+                json.get("mac")
+                        .asString();
 
         if (!jwtUtil.validateToken(token)) {
             rejectRegistration(
@@ -162,7 +181,8 @@ public class AgentSessionService {
         }
 
         if (!json.has("protocolVersion")
-                || !json.get("protocolVersion").canConvertToInt()) {
+                || !json.get("protocolVersion")
+                .canConvertToInt()) {
 
             rejectRegistration(
                     session,
@@ -333,8 +353,14 @@ public class AgentSessionService {
             );
         }
 
-        pc.setStatus(
-                PcStatus.ONLINE
+        /*
+         * WebSocket-регистрация сообщает только о том,
+         * что агент сейчас подключён.
+         *
+         * powerState здесь намеренно не изменяется.
+         */
+        pc.setConnectionStatus(
+                PcConnectionStatus.ONLINE
         );
 
         pc.setLastSeenAt(
@@ -391,20 +417,21 @@ public class AgentSessionService {
                 Instant.now()
         );
 
-        if (pc.getStatus()
-                != PcStatus.SLEEP) {
-
-            pc.setStatus(
-                    PcStatus.ONLINE
-            );
-        }
+        /*
+         * Heartbeat означает, что агент подключён,
+         * даже если ПК находится в SOFT_SLEEP.
+         */
+        pc.setConnectionStatus(
+                PcConnectionStatus.ONLINE
+        );
 
         pcRepository.save(pc);
 
         log.debug(
-                "Agent heartbeat processed: pcId={}, status={}",
+                "Agent heartbeat processed: pcId={}, connectionStatus={}, powerState={}",
                 pc.getId(),
-                pc.getStatus()
+                pc.getConnectionStatus(),
+                pc.getPowerState()
         );
     }
 
@@ -422,8 +449,12 @@ public class AgentSessionService {
                             .orElse(null);
 
             if (pc != null) {
-                pc.setStatus(
-                        PcStatus.OFFLINE
+                /*
+                 * Отключение WebSocket не меняет
+                 * последнее известное powerState.
+                 */
+                pc.setConnectionStatus(
+                        PcConnectionStatus.OFFLINE
                 );
 
                 pcRepository.save(pc);
@@ -446,7 +477,8 @@ public class AgentSessionService {
     ) {
         return json.has(fieldName)
                 && json.get(fieldName) != null
-                && !json.get(fieldName).isNull()
+                && !json.get(fieldName)
+                .isNull()
                 && !json.get(fieldName)
                 .asString()
                 .isBlank();
