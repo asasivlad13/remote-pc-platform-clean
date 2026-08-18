@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,8 +35,8 @@ import java.util.UUID;
                         columnList = "status"
                 ),
                 @Index(
-                        name = "idx_pcs_last_connection",
-                        columnList = "last_connection"
+                        name = "idx_pcs_last_seen_at",
+                        columnList = "last_seen_at"
                 )
         },
         uniqueConstraints = {
@@ -52,12 +52,6 @@ public class Pc {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /*
-     * Постоянный идентификатор установки агента.
-     *
-     * Именно installationId определяет идентичность
-     * зарегистрированного устройства.
-     */
     @NotNull
     @Column(
             name = "installation_id",
@@ -74,10 +68,8 @@ public class Pc {
     private String name;
 
     /*
-     * MAC является характеристикой устройства.
-     *
-     * Он может изменяться и не является уникальным
-     * идентификатором записи Pc.
+     * MAC является характеристикой устройства,
+     * а не идентификатором установки.
      */
     @NotBlank
     @Size(max = 50)
@@ -97,8 +89,15 @@ public class Pc {
     private PcStatus status =
             PcStatus.OFFLINE;
 
-    @Column(name = "last_connection")
-    private LocalDateTime lastConnection;
+    /*
+     * Последний момент, когда backend получил
+     * регистрацию или heartbeat от агента.
+     *
+     * Instant позволяет хранить абсолютный момент времени
+     * независимо от часового пояса сервера.
+     */
+    @Column(name = "last_seen_at")
+    private Instant lastSeenAt;
 
     @Min(1)
     @Column(name = "screen_width")
@@ -108,6 +107,12 @@ public class Pc {
     @Column(name = "screen_height")
     private Integer screenHeight;
 
+    /*
+     * Пока остаются в Pc для совместимости
+     * с текущими Education/Support-сценариями.
+     * Позже параметры активного видеосеанса
+     * будут перенесены в модель remote session.
+     */
     @Size(max = 500)
     @Column(
             name = "webrtc_url",
@@ -139,6 +144,19 @@ public class Pc {
     )
     private List<ConnectionLog> connectionLogs;
 
+    @Column(
+            name = "created_at",
+            nullable = false,
+            updatable = false
+    )
+    private Instant createdAt;
+
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
+    private Instant updatedAt;
+
     public Pc(
             String name,
             String macAddress,
@@ -148,5 +166,27 @@ public class Pc {
         this.macAddress = macAddress;
         this.user = user;
         this.status = PcStatus.OFFLINE;
+    }
+
+    @PrePersist
+    private void onCreate() {
+        Instant now = Instant.now();
+
+        if (createdAt == null) {
+            createdAt = now;
+        }
+
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+
+        if (status == null) {
+            status = PcStatus.OFFLINE;
+        }
+    }
+
+    @PreUpdate
+    private void onUpdate() {
+        updatedAt = Instant.now();
     }
 }

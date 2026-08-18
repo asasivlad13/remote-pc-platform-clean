@@ -17,15 +17,20 @@ public class PcService {
     private final PcRepository pcRepository;
     private final UserRepository userRepository;
 
-    public PcService(PcRepository pcRepository,
-                     UserRepository userRepository) {
+    public PcService(
+            PcRepository pcRepository,
+            UserRepository userRepository
+    ) {
         this.pcRepository = pcRepository;
         this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<PcResponseDto> getMyPcs(String username) {
-        User user = findUser(username);
+    public List<PcResponseDto> getMyPcs(
+            String username
+    ) {
+        User user =
+                findUser(username);
 
         return pcRepository.findByUser(user)
                 .stream()
@@ -34,43 +39,73 @@ public class PcService {
     }
 
     @Transactional(readOnly = true)
-    public PcDetailsResponse getMyPcById(Long pcId, String username) {
-        User user = findUser(username);
+    public PcDetailsResponse getMyPcById(
+            Long pcId,
+            String username
+    ) {
+        User user =
+                findUser(username);
 
-        Pc pc = pcRepository.findById(pcId)
-                .orElseThrow(() -> new IllegalArgumentException("ПК не найден"));
+        Pc pc =
+                pcRepository.findById(pcId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "ПК не найден"
+                                )
+                        );
 
-        if (pc.getUser() == null || !pc.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Доступ запрещён");
+        if (pc.getUser() == null
+                || !pc.getUser()
+                .getId()
+                .equals(user.getId())) {
+
+            throw new IllegalArgumentException(
+                    "Доступ запрещён"
+            );
         }
 
         return toDetailsResponse(pc);
     }
 
-    private User findUser(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    private User findUser(
+            String username
+    ) {
+        return userRepository
+                .findByUsername(username)
+                .orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "Пользователь не найден"
+                        )
+                );
     }
 
-    private PcResponseDto toPcResponseDto(Pc pc) {
+    private PcResponseDto toPcResponseDto(
+            Pc pc
+    ) {
         return new PcResponseDto(
                 pc.getId(),
                 pc.getName(),
                 pc.getMacAddress(),
                 pc.getStatus(),
-                pc.getLastConnection()
+                pc.getLastSeenAt()
         );
     }
 
-    private PcDetailsResponse toDetailsResponse(Pc pc) {
+    private PcDetailsResponse toDetailsResponse(
+            Pc pc
+    ) {
         return new PcDetailsResponse(
                 pc.getId(),
                 pc.getName(),
                 pc.getMacAddress(),
                 pc.getStatus(),
-                pc.getLastConnection(),
-                pc.getScreenWidth() != null ? pc.getScreenWidth() : 1920,
-                pc.getScreenHeight() != null ? pc.getScreenHeight() : 1080,
+                pc.getLastSeenAt(),
+                pc.getScreenWidth() != null
+                        ? pc.getScreenWidth()
+                        : 1920,
+                pc.getScreenHeight() != null
+                        ? pc.getScreenHeight()
+                        : 1080,
                 pc.getWebrtcUrl(),
                 pc.getStreamName()
         );

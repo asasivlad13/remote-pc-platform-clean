@@ -14,7 +14,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -254,8 +254,8 @@ public class AgentSessionService {
                 PcStatus.ONLINE
         );
 
-        pc.setLastConnection(
-                LocalDateTime.now()
+        pc.setLastSeenAt(
+                Instant.now()
         );
 
         Pc savedPc =
@@ -303,8 +303,8 @@ public class AgentSessionService {
             return;
         }
 
-        pc.setLastConnection(
-                LocalDateTime.now()
+        pc.setLastSeenAt(
+                Instant.now()
         );
 
         if (pc.getStatus()
