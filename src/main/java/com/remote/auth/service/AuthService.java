@@ -158,8 +158,33 @@ public class AuthService {
         );
     }
 
-    @Transactional
+    @Transactional(
+            noRollbackFor = ResponseStatusException.class
+    )
     public AuthTokenResponse login(
+            LoginRequest request,
+            String ipAddress
+    ) {
+        User user =
+                authenticateCredentials(
+                        request,
+                        ipAddress
+                );
+
+        String token =
+                jwtUtil.generateToken(
+                        user.getEmail()
+                );
+
+        return new AuthTokenResponse(
+                token
+        );
+    }
+
+    @Transactional(
+            noRollbackFor = ResponseStatusException.class
+    )
+    public User authenticateCredentials(
             LoginRequest request,
             String ipAddress
     ) {
@@ -193,22 +218,19 @@ public class AuthService {
             );
         }
 
-        checkAccountCanLogin(user);
+        checkAccountCanLogin(
+                user
+        );
 
         loginAttemptRepository
-                .findByIpAddress(ipAddress)
+                .findByIpAddress(
+                        ipAddress
+                )
                 .ifPresent(
                         loginAttemptRepository::delete
                 );
 
-        String token =
-                jwtUtil.generateToken(
-                        user.getEmail()
-                );
-
-        return new AuthTokenResponse(
-                token
-        );
+        return user;
     }
 
     @Transactional
