@@ -1,5 +1,6 @@
 package com.remote.auth.security;
 
+import com.remote.auth.service.AuthSessionSecurityService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
 import jakarta.servlet.FilterChain;
@@ -18,15 +19,18 @@ import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
+    private final AuthSessionSecurityService authSessionSecurityService;
     private final UserRepository userRepository;
 
     public JwtFilter(
-            JwtUtil jwtUtil,
+            AuthSessionSecurityService authSessionSecurityService,
             UserRepository userRepository
     ) {
-        this.jwtUtil = jwtUtil;
-        this.userRepository = userRepository;
+        this.authSessionSecurityService =
+                authSessionSecurityService;
+
+        this.userRepository =
+                userRepository;
     }
 
     @Override
@@ -37,31 +41,32 @@ public class JwtFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String authHeader =
-                request.getHeader("Authorization");
+                request.getHeader(
+                        "Authorization"
+                );
 
         if (authHeader != null
                 && authHeader.startsWith(
                 AUTH_BEARER_PREFIX
         )) {
-
             String token =
                     authHeader.substring(
                             AUTH_BEARER_PREFIX.length()
                     );
 
-            if (jwtUtil.validateToken(token)) {
+            String email =
+                    authSessionSecurityService
+                            .validateAndExtractEmail(
+                                    token
+                            )
+                            .orElse(null);
 
-                /*
-                 * JWT subject теперь содержит email.
-                 *
-                 * Метод JwtUtil пока называется extractUsername()
-                 * только ради совместимости с остальным backend.
-                 */
-                String email =
-                        jwtUtil.extractUsername(token);
-
+            if (email != null) {
                 User user =
-                        userRepository.findByEmail(email)
+                        userRepository
+                                .findByEmail(
+                                        email
+                                )
                                 .orElse(null);
 
                 if (user != null
@@ -79,7 +84,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder
                             .getContext()
-                            .setAuthentication(authentication);
+                            .setAuthentication(
+                                    authentication
+                            );
                 }
             }
         }

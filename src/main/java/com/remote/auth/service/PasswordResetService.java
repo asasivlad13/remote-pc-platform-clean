@@ -4,6 +4,7 @@ import com.remote.auth.dto.AuthMessageResponse;
 import com.remote.auth.dto.ForgotPasswordRequest;
 import com.remote.auth.dto.ForgotPasswordResponse;
 import com.remote.auth.dto.ResetPasswordRequest;
+import com.remote.auth.model.AuthSessionRevokeReason;
 import com.remote.auth.model.PasswordResetToken;
 import com.remote.auth.repository.PasswordResetTokenRepository;
 import com.remote.core.model.AccountStatus;
@@ -38,6 +39,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final SecureTokenService secureTokenService;
     private final PasswordPolicyService passwordPolicyService;
+    private final AuthSessionSecurityService authSessionSecurityService;
 
     private final boolean exposeResetToken;
 
@@ -49,6 +51,7 @@ public class PasswordResetService {
             PasswordResetTokenRepository tokenRepository,
             SecureTokenService secureTokenService,
             PasswordPolicyService passwordPolicyService,
+            AuthSessionSecurityService authSessionSecurityService,
             @Value("${auth.dev.expose-reset-token:false}")
             boolean exposeResetToken
     ) {
@@ -63,6 +66,9 @@ public class PasswordResetService {
 
         this.passwordPolicyService =
                 passwordPolicyService;
+
+        this.authSessionSecurityService =
+                authSessionSecurityService;
 
         this.exposeResetToken =
                 exposeResetToken;
@@ -263,6 +269,20 @@ public class PasswordResetService {
         token.setUsedAt(
                 now
         );
+
+        /*
+         * После успешного сброса пароля все пользовательские
+         * auth-сессии становятся недействительными.
+         *
+         * Это выполняется в той же транзакции,
+         * что и изменение password_hash.
+         */
+        authSessionSecurityService
+                .revokeAllForUser(
+                        user,
+                        AuthSessionRevokeReason.PASSWORD_RESET,
+                        now
+                );
 
         for (PasswordResetToken activeToken
                 : activeTokens) {

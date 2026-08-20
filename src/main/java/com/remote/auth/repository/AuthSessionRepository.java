@@ -16,28 +16,23 @@ public interface AuthSessionRepository
         extends JpaRepository<AuthSession, UUID> {
 
     /*
-     * Refresh-token rotation выполняется
-     * под блокировкой строки сессии.
+     * Блокируем именно строку auth_sessions.
      *
-     * Поэтому два параллельных refresh-запроса
-     * не смогут одновременно успешно
-     * использовать одну версию токена.
+     * User здесь намеренно не join-fetch'ится:
+     * security-flow использует единый порядок
+     * блокировок и не должен дополнительно
+     * блокировать users через этот запрос.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select s
             from AuthSession s
-            join fetch s.user
             where s.id = :sessionId
             """)
     Optional<AuthSession> findByIdForUpdate(
             @Param("sessionId") UUID sessionId
     );
 
-    /*
-     * Используется для logout-all,
-     * смены/сброса пароля и security revocation.
-     */
     List<AuthSession>
     findByUserAndRevokedAtIsNullOrderByCreatedAtDesc(
             User user

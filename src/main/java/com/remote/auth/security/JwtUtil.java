@@ -15,18 +15,23 @@ import java.util.UUID;
 @Component
 public class JwtUtil {
 
+    public static final String SESSION_ACCESS_TOKEN_TYPE =
+            "session_access";
+
+    private static final String SESSION_ID_CLAIM =
+            "sid";
+
+    private static final String TOKEN_TYPE_CLAIM =
+            "token_type";
+
     /*
      * Legacy lifetime.
-     *
-     * Пока используется старым /auth/login,
-     * в том числе агентом.
      */
     @Value("${jwt.expiration.ms}")
     private Long expirationMs;
 
     /*
-     * Короткий access token пользовательской auth-session.
-     *
+     * Новый короткий session access JWT.
      * По умолчанию 15 минут.
      */
     @Value("${jwt.session.access.expiration.ms:900000}")
@@ -45,10 +50,7 @@ public class JwtUtil {
     }
 
     /*
-     * Legacy JWT.
-     *
-     * Метод сохраняется для совместимости
-     * старого frontend и агента.
+     * Legacy JWT для старого frontend и агента.
      */
     public String generateToken(
             String username
@@ -73,13 +75,6 @@ public class JwtUtil {
                 .compact();
     }
 
-    /*
-     * Короткий access JWT пользовательской auth-session.
-     *
-     * sid не является секретом.
-     * Он связывает JWT с серверной auth-session
-     * и пригодится при дальнейшей проверке/revocation.
-     */
     public String generateSessionAccessToken(
             String email,
             UUID sessionId
@@ -90,12 +85,12 @@ public class JwtUtil {
         return Jwts.builder()
                 .setSubject(email)
                 .claim(
-                        "sid",
+                        SESSION_ID_CLAIM,
                         sessionId.toString()
                 )
                 .claim(
-                        "token_type",
-                        "session_access"
+                        TOKEN_TYPE_CLAIM,
+                        SESSION_ACCESS_TOKEN_TYPE
                 )
                 .setIssuedAt(
                         new Date(now)
@@ -119,6 +114,41 @@ public class JwtUtil {
         return getClaims(
                 token
         ).getSubject();
+    }
+
+    public String extractTokenType(
+            String token
+    ) {
+        return getClaims(
+                token
+        ).get(
+                TOKEN_TYPE_CLAIM,
+                String.class
+        );
+    }
+
+    public UUID extractSessionId(
+            String token
+    ) {
+        String sessionId =
+                getClaims(
+                        token
+                ).get(
+                        SESSION_ID_CLAIM,
+                        String.class
+                );
+
+        if (sessionId == null
+                || sessionId.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "JWT session id is missing"
+            );
+        }
+
+        return UUID.fromString(
+                sessionId
+        );
     }
 
     public boolean validateToken(

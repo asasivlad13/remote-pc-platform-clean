@@ -20,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.remote.auth.model.AuthSessionRevokeReason;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -40,6 +41,7 @@ public class AuthService {
     private final ConnectionLogRepository connectionLogRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordPolicyService passwordPolicyService;
+    private final AuthSessionSecurityService authSessionSecurityService;
 
     private final BCryptPasswordEncoder encoder =
             new BCryptPasswordEncoder();
@@ -50,7 +52,7 @@ public class AuthService {
             LoginAttemptRepository loginAttemptRepository,
             ConnectionLogRepository connectionLogRepository,
             EmailVerificationService emailVerificationService,
-            PasswordPolicyService passwordPolicyService
+            PasswordPolicyService passwordPolicyService, AuthSessionSecurityService authSessionSecurityService
     ) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
@@ -62,6 +64,7 @@ public class AuthService {
                 emailVerificationService;
         this.passwordPolicyService =
                 passwordPolicyService;
+        this.authSessionSecurityService = authSessionSecurityService;
     }
 
     @Transactional
@@ -200,7 +203,7 @@ public class AuthService {
 
         User user =
                 userRepository
-                        .findByEmail(email)
+                        .findByEmailForUpdate(email)
                         .orElse(null);
 
         if (user == null
@@ -245,7 +248,7 @@ public class AuthService {
 
         User user =
                 userRepository
-                        .findByEmail(email)
+                        .findByEmailForUpdate(email)
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(
@@ -270,6 +273,9 @@ public class AuthService {
                         request.newPassword()
                 );
 
+        Instant now =
+                Instant.now();
+
         user.setPassword(
                 encoder.encode(
                         request.newPassword()
@@ -277,10 +283,19 @@ public class AuthService {
         );
 
         user.setPasswordChangedAt(
-                Instant.now()
+                now
         );
 
-        userRepository.save(user);
+        authSessionSecurityService
+                .revokeAllForUser(
+                        user,
+                        AuthSessionRevokeReason.PASSWORD_CHANGED,
+                        now
+                );
+
+        userRepository.save(
+                user
+        );
 
         return new AuthMessageResponse(
                 "Password changed successfully"
@@ -493,15 +508,21 @@ public class AuthService {
                         AUTH_BEARER_PREFIX.length()
                 );
 
-        if (!jwtUtil.validateToken(token)) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Invalid token"
-            );
-        }
+        String email =
+                authSessionSecurityService
+                        .validateAndExtractEmail(
+                                token
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "Invalid token"
+                                        )
+                        );
 
         return normalizeEmail(
-                jwtUtil.extractUsername(token)
+                email
         );
     }
 }
