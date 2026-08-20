@@ -7,8 +7,7 @@ import com.remote.auth.dto.LoginRequest;
 import com.remote.auth.dto.RegisterRequest;
 import com.remote.auth.dto.RegisterResponse;
 import com.remote.auth.dto.VerifyEmailRequest;
-import com.remote.auth.model.LoginAttempt;
-import com.remote.auth.repository.LoginAttemptRepository;
+import com.remote.auth.model.AuthSessionRevokeReason;
 import com.remote.auth.security.JwtUtil;
 import com.remote.core.model.AccountStatus;
 import com.remote.core.model.User;
@@ -20,10 +19,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.remote.auth.model.AuthSessionRevokeReason;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
@@ -32,12 +29,9 @@ import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
 @Service
 public class AuthService {
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final int BLOCK_MINUTES = 15;
-
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-    private final LoginAttemptRepository loginAttemptRepository;
+    private final LoginAttemptService loginAttemptService;
     private final ConnectionLogRepository connectionLogRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordPolicyService passwordPolicyService;
@@ -49,22 +43,32 @@ public class AuthService {
     public AuthService(
             UserRepository userRepository,
             JwtUtil jwtUtil,
-            LoginAttemptRepository loginAttemptRepository,
+            LoginAttemptService loginAttemptService,
             ConnectionLogRepository connectionLogRepository,
             EmailVerificationService emailVerificationService,
-            PasswordPolicyService passwordPolicyService, AuthSessionSecurityService authSessionSecurityService
+            PasswordPolicyService passwordPolicyService,
+            AuthSessionSecurityService authSessionSecurityService
     ) {
-        this.userRepository = userRepository;
-        this.jwtUtil = jwtUtil;
-        this.loginAttemptRepository =
-                loginAttemptRepository;
+        this.userRepository =
+                userRepository;
+
+        this.jwtUtil =
+                jwtUtil;
+
+        this.loginAttemptService =
+                loginAttemptService;
+
         this.connectionLogRepository =
                 connectionLogRepository;
+
         this.emailVerificationService =
                 emailVerificationService;
+
         this.passwordPolicyService =
                 passwordPolicyService;
-        this.authSessionSecurityService = authSessionSecurityService;
+
+        this.authSessionSecurityService =
+                authSessionSecurityService;
     }
 
     @Transactional
@@ -110,10 +114,17 @@ public class AuthService {
          * Пока остальной backend использует username,
          * туда записывается тот же нормализованный email.
          */
-        user.setUsername(email);
+        user.setUsername(
+                email
+        );
 
-        user.setEmail(email);
-        user.setDisplayName(displayName);
+        user.setEmail(
+                email
+        );
+
+        user.setDisplayName(
+                displayName
+        );
 
         user.setPassword(
                 encoder.encode(
@@ -130,12 +141,10 @@ public class AuthService {
         );
 
         User savedUser =
-                userRepository.save(user);
+                userRepository.save(
+                        user
+                );
 
-        /*
-         * Создание пользователя и verification token
-         * выполняются в одной транзакции.
-         */
         String verificationToken =
                 emailVerificationService
                         .createToken(
@@ -203,7 +212,9 @@ public class AuthService {
 
         User user =
                 userRepository
-                        .findByEmailForUpdate(email)
+                        .findByEmailForUpdate(
+                                email
+                        )
                         .orElse(null);
 
         if (user == null
@@ -211,9 +222,10 @@ public class AuthService {
                 request.password(),
                 user.getPassword()
         )) {
-            registerFailedAttempt(
-                    ipAddress
-            );
+            loginAttemptService
+                    .registerFailedAttempt(
+                            ipAddress
+                    );
 
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -225,12 +237,9 @@ public class AuthService {
                 user
         );
 
-        loginAttemptRepository
-                .findByIpAddress(
+        loginAttemptService
+                .clearFailures(
                         ipAddress
-                )
-                .ifPresent(
-                        loginAttemptRepository::delete
                 );
 
         return user;
@@ -248,7 +257,9 @@ public class AuthService {
 
         User user =
                 userRepository
-                        .findByEmailForUpdate(email)
+                        .findByEmailForUpdate(
+                                email
+                        )
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(
@@ -422,72 +433,16 @@ public class AuthService {
             String ipAddress,
             String message
     ) {
-        if (isBlocked(ipAddress)) {
+        if (loginAttemptService
+                .isBlocked(
+                        ipAddress
+                )) {
+
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     message
             );
         }
-    }
-
-    private boolean isBlocked(
-            String ipAddress
-    ) {
-        return loginAttemptRepository
-                .findByIpAddress(ipAddress)
-                .filter(
-                        attempt ->
-                                attempt.getBlockUntil()
-                                        != null
-                )
-                .filter(
-                        attempt ->
-                                LocalDateTime.now()
-                                        .isBefore(
-                                                attempt.getBlockUntil()
-                                        )
-                )
-                .isPresent();
-    }
-
-    private void registerFailedAttempt(
-            String ipAddress
-    ) {
-        LoginAttempt attempt =
-                loginAttemptRepository
-                        .findByIpAddress(
-                                ipAddress
-                        )
-                        .orElse(
-                                new LoginAttempt(
-                                        ipAddress
-                                )
-                        );
-
-        attempt.setAttempts(
-                attempt.getAttempts() + 1
-        );
-
-        attempt.setLastAttempt(
-                LocalDateTime.now()
-        );
-
-        if (attempt.getAttempts()
-                >= MAX_FAILED_ATTEMPTS) {
-
-            attempt.setBlockUntil(
-                    LocalDateTime.now()
-                            .plusMinutes(
-                                    BLOCK_MINUTES
-                            )
-            );
-
-            attempt.setAttempts(0);
-        }
-
-        loginAttemptRepository.save(
-                attempt
-        );
     }
 
     private String extractEmailFromAuthHeader(

@@ -3,11 +3,13 @@ package com.remote.auth.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -15,8 +17,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "login_attempts",
-        indexes = {
-                @Index(name = "idx_login_attempts_ip_address", columnList = "ip_address")
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_login_attempts_ip_address",
+                        columnNames = "ip_address"
+                )
         }
 )
 public class LoginAttempt {
@@ -26,22 +31,49 @@ public class LoginAttempt {
     private Long id;
 
     @NotBlank
-    @Column(name = "ip_address", nullable = false, length = 45, unique = true)
+    @Size(max = 45)
+    @Column(
+            name = "ip_address",
+            nullable = false,
+            length = 45
+    )
     private String ipAddress;
 
     @Min(0)
-    @Column(nullable = false)
+    @Column(
+            name = "attempts",
+            nullable = false
+    )
     private int attempts;
 
     @Column(name = "block_until")
-    private LocalDateTime blockUntil;
+    private Instant blockUntil;
 
-    @Column(name = "last_attempt", nullable = false)
-    private LocalDateTime lastAttempt;
+    @NotNull
+    @Column(
+            name = "last_attempt",
+            nullable = false
+    )
+    private Instant lastAttempt;
 
-    public LoginAttempt(String ipAddress) {
-        this.ipAddress = ipAddress;
-        this.attempts = 0;
-        this.lastAttempt = LocalDateTime.now();
+    public LoginAttempt(
+            String ipAddress
+    ) {
+        this.ipAddress =
+                ipAddress;
+
+        this.attempts =
+                0;
+
+        this.lastAttempt =
+                Instant.now();
+    }
+
+    @PrePersist
+    private void onCreate() {
+        if (lastAttempt == null) {
+            lastAttempt =
+                    Instant.now();
+        }
     }
 }
