@@ -1,9 +1,7 @@
 package com.remote.websocket.agent.service;
 
 import tools.jackson.databind.JsonNode;
-import com.remote.auth.security.JwtUtil;
 import com.remote.core.model.User;
-import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.model.PcConnectionStatus;
 import com.remote.pc.repository.PcRepository;
@@ -34,41 +32,34 @@ public class AgentSessionService {
     private static final int MAX_AGENT_VERSION_LENGTH =
             50;
 
-    private final JwtUtil jwtUtil;
+    private final AgentAuthenticationService agentAuthenticationService;
     private final PcRepository pcRepository;
-    private final UserRepository userRepository;
     private final AgentSessionRegistry agentSessionRegistry;
     private final WebSocketMessageSender webSocketMessageSender;
 
     public AgentSessionService(
-            JwtUtil jwtUtil,
+            AgentAuthenticationService agentAuthenticationService,
             PcRepository pcRepository,
-            UserRepository userRepository,
             AgentSessionRegistry agentSessionRegistry,
             WebSocketMessageSender webSocketMessageSender
     ) {
-        this.jwtUtil = jwtUtil;
-        this.pcRepository = pcRepository;
-        this.userRepository = userRepository;
-        this.agentSessionRegistry = agentSessionRegistry;
-        this.webSocketMessageSender = webSocketMessageSender;
+        this.agentAuthenticationService =
+                agentAuthenticationService;
+
+        this.pcRepository =
+                pcRepository;
+
+        this.agentSessionRegistry =
+                agentSessionRegistry;
+
+        this.webSocketMessageSender =
+                webSocketMessageSender;
     }
 
     public void register(
             WebSocketSession session,
             JsonNode json
     ) throws IOException {
-
-        if (!hasRequiredText(
-                json,
-                "token"
-        )) {
-            rejectRegistration(
-                    session,
-                    "Token is missing"
-            );
-            return;
-        }
 
         if (!hasRequiredText(
                 json,
@@ -92,26 +83,6 @@ public class AgentSessionService {
             return;
         }
 
-        String token =
-                json.get("token")
-                        .asString();
-
-        String pcName =
-                json.get("pcName")
-                        .asString();
-
-        String mac =
-                json.get("mac")
-                        .asString();
-
-        if (!jwtUtil.validateToken(token)) {
-            rejectRegistration(
-                    session,
-                    "Invalid token"
-            );
-            return;
-        }
-
         if (!hasRequiredText(
                 json,
                 "installationId"
@@ -122,6 +93,14 @@ public class AgentSessionService {
             );
             return;
         }
+
+        String pcName =
+                json.get("pcName")
+                        .asString();
+
+        String mac =
+                json.get("mac")
+                        .asString();
 
         UUID installationId;
 
@@ -203,20 +182,35 @@ public class AgentSessionService {
             return;
         }
 
-        String email =
-                jwtUtil.extractUsername(token);
-
-        User user =
-                userRepository.findByEmail(email)
+        /*
+         * Все структурные поля registration-message
+         * проверены до security-auth.
+         *
+         * Благодаря этому malformed registration
+         * не обновляет last_used_at device credential.
+         */
+        AgentAuthenticationService.AuthenticatedAgent
+                authenticatedAgent =
+                agentAuthenticationService
+                        .authenticate(
+                                json,
+                                installationId
+                        )
                         .orElse(null);
 
-        if (user == null) {
+        if (authenticatedAgent == null) {
             rejectRegistration(
                     session,
-                    "User not found"
+                    "Invalid agent credentials"
             );
             return;
         }
+
+        User user =
+                authenticatedAgent.user();
+
+        String email =
+                user.getEmail();
 
         Pc pc =
                 pcRepository
@@ -226,33 +220,73 @@ public class AgentSessionService {
                         .orElse(null);
 
         if (pc == null) {
-            pc = new Pc();
+            /*
+             * Device credential существует только
+             * для уже известного Pc.
+             *
+             * Создавать новую установку по одному
+             * device credential нельзя.
+             */
+            if (authenticatedAgent.authMode()
+                    == AgentAuthenticationService
+                    .AgentAuthMode
+                    .DEVICE_CREDENTIAL) {
+
+                rejectRegistration(
+                        session,
+                        "Device installation not found"
+                );
+                return;
+            }
+
+            /*
+             * Legacy bootstrap временно сохраняется.
+             *
+             * Старый агент после пользовательского login
+             * всё ещё может создать первоначальную запись Pc.
+             */
+            pc =
+                    new Pc();
 
             pc.setInstallationId(
                     installationId
             );
 
-            pc.setName(pcName);
-            pc.setMacAddress(mac);
-            pc.setUser(user);
+            pc.setName(
+                    pcName
+            );
+
+            pc.setMacAddress(
+                    mac
+            );
+
+            pc.setUser(
+                    user
+            );
 
             log.info(
-                    "Creating new PC record: installationId={}, mac={}, email={}",
+                    "Creating new PC record: installationId={}, mac={}, email={}, authMode={}",
                     installationId,
                     mac,
-                    email
+                    email,
+                    authenticatedAgent.authMode()
             );
 
         } else {
             if (pc.getUser() == null
-                    || !pc.getUser()
-                    .getId()
-                    .equals(user.getId())) {
+                    || pc.getUser()
+                    .getId() == null
+                    || user.getId() == null
+                    || !Objects.equals(
+                    pc.getUser().getId(),
+                    user.getId()
+            )) {
 
                 log.warn(
-                        "Agent registration rejected because installation belongs to another user: installationId={}, requestedEmail={}",
+                        "Agent registration rejected because installation belongs to another user: installationId={}, requestedEmail={}, authMode={}",
                         installationId,
-                        email
+                        email,
+                        authenticatedAgent.authMode()
                 );
 
                 rejectRegistration(
@@ -262,11 +296,42 @@ public class AgentSessionService {
                 return;
             }
 
+            /*
+             * Для device-auth дополнительно проверяем,
+             * что credential был выдан именно этой
+             * записи Pc, а не просто тому же пользователю.
+             */
+            if (authenticatedAgent.authMode()
+                    == AgentAuthenticationService
+                    .AgentAuthMode
+                    .DEVICE_CREDENTIAL
+
+                    && !Objects.equals(
+                    pc.getId(),
+                    authenticatedAgent.pcId()
+            )) {
+
+                log.warn(
+                        "Agent registration rejected because device credential does not match PC: installationId={}, pcId={}, credentialPcId={}",
+                        installationId,
+                        pc.getId(),
+                        authenticatedAgent.pcId()
+                );
+
+                rejectRegistration(
+                        session,
+                        "Device credential does not match installation"
+                );
+                return;
+            }
+
             if (!Objects.equals(
                     pc.getName(),
                     pcName
             )) {
-                pc.setName(pcName);
+                pc.setName(
+                        pcName
+                );
 
                 log.info(
                         "PC name updated: installationId={}, pcName={}",
@@ -282,7 +347,9 @@ public class AgentSessionService {
                 String previousMac =
                         pc.getMacAddress();
 
-                pc.setMacAddress(mac);
+                pc.setMacAddress(
+                        mac
+                );
 
                 log.info(
                         "PC MAC address updated: installationId={}, oldMac={}, newMac={}",
@@ -293,11 +360,25 @@ public class AgentSessionService {
             }
         }
 
-        pc.setDeviceName(deviceName);
-        pc.setOsName(osName);
-        pc.setOsVersion(osVersion);
-        pc.setAgentVersion(agentVersion);
-        pc.setProtocolVersion(protocolVersion);
+        pc.setDeviceName(
+                deviceName
+        );
+
+        pc.setOsName(
+                osName
+        );
+
+        pc.setOsVersion(
+                osVersion
+        );
+
+        pc.setAgentVersion(
+                agentVersion
+        );
+
+        pc.setProtocolVersion(
+                protocolVersion
+        );
 
         if (json.has("screenWidth")
                 && json.has("screenHeight")) {
@@ -368,7 +449,9 @@ public class AgentSessionService {
         );
 
         Pc savedPc =
-                pcRepository.save(pc);
+                pcRepository.save(
+                        pc
+                );
 
         agentSessionRegistry.register(
                 savedPc.getId(),
@@ -383,13 +466,14 @@ public class AgentSessionService {
         );
 
         log.info(
-                "Agent registered: pcId={}, pcName={}, installationId={}, agentVersion={}, protocolVersion={}, email={}",
+                "Agent registered: pcId={}, pcName={}, installationId={}, agentVersion={}, protocolVersion={}, email={}, authMode={}",
                 savedPc.getId(),
                 pcName,
                 installationId,
                 agentVersion,
                 protocolVersion,
-                email
+                email,
+                authenticatedAgent.authMode()
         );
     }
 
@@ -398,7 +482,9 @@ public class AgentSessionService {
     ) {
         Long pcId =
                 agentSessionRegistry
-                        .getPcIdBySession(session);
+                        .getPcIdBySession(
+                                session
+                        );
 
         if (pcId == null) {
             return;
@@ -406,7 +492,9 @@ public class AgentSessionService {
 
         Pc pc =
                 pcRepository
-                        .findById(pcId)
+                        .findById(
+                                pcId
+                        )
                         .orElse(null);
 
         if (pc == null) {
@@ -425,7 +513,9 @@ public class AgentSessionService {
                 PcConnectionStatus.ONLINE
         );
 
-        pcRepository.save(pc);
+        pcRepository.save(
+                pc
+        );
 
         log.debug(
                 "Agent heartbeat processed: pcId={}, connectionStatus={}, powerState={}",
@@ -440,12 +530,16 @@ public class AgentSessionService {
     ) {
         Long pcId =
                 agentSessionRegistry
-                        .getPcIdBySession(session);
+                        .getPcIdBySession(
+                                session
+                        );
 
         if (pcId != null) {
             Pc pc =
                     pcRepository
-                            .findById(pcId)
+                            .findById(
+                                    pcId
+                            )
                             .orElse(null);
 
             if (pc != null) {
@@ -457,7 +551,9 @@ public class AgentSessionService {
                         PcConnectionStatus.OFFLINE
                 );
 
-                pcRepository.save(pc);
+                pcRepository.save(
+                        pc
+                );
 
                 log.info(
                         "PC set to OFFLINE: pcId={}, pcName={}",
@@ -468,7 +564,9 @@ public class AgentSessionService {
         }
 
         agentSessionRegistry
-                .removeBySession(session);
+                .removeBySession(
+                        session
+                );
     }
 
     private boolean hasRequiredText(
@@ -501,7 +599,9 @@ public class AgentSessionService {
                         .asString()
                         .strip();
 
-        if (value.length() > maxLength) {
+        if (value.length()
+                > maxLength) {
+
             return null;
         }
 
