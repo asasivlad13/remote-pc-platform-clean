@@ -461,7 +461,9 @@ public class AgentSessionService {
         webSocketMessageSender.send(
                 session,
                 new TextMessage(
-                        "{\"status\":\"registered\"}"
+                        "{\"status\":\"registered\",\"pcId\":"
+                                + savedPc.getId()
+                                + "}"
                 )
         );
 
