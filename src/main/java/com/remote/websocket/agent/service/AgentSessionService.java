@@ -13,7 +13,6 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -33,18 +32,23 @@ public class AgentSessionService {
             50;
 
     private final AgentAuthenticationService agentAuthenticationService;
+    private final AgentPcRegistrationService agentPcRegistrationService;
     private final PcRepository pcRepository;
     private final AgentSessionRegistry agentSessionRegistry;
     private final WebSocketMessageSender webSocketMessageSender;
 
     public AgentSessionService(
             AgentAuthenticationService agentAuthenticationService,
+            AgentPcRegistrationService agentPcRegistrationService,
             PcRepository pcRepository,
             AgentSessionRegistry agentSessionRegistry,
             WebSocketMessageSender webSocketMessageSender
     ) {
         this.agentAuthenticationService =
                 agentAuthenticationService;
+
+        this.agentPcRegistrationService =
+                agentPcRegistrationService;
 
         this.pcRepository =
                 pcRepository;
@@ -212,192 +216,28 @@ public class AgentSessionService {
         String email =
                 user.getEmail();
 
-        Pc pc =
-                pcRepository
-                        .findByInstallationId(
-                                installationId
-                        )
-                        .orElse(null);
+        Integer screenWidth =
+                null;
 
-        if (pc == null) {
-            /*
-             * Device credential существует только
-             * для уже известного Pc.
-             *
-             * Создавать новую установку по одному
-             * device credential нельзя.
-             */
-            if (authenticatedAgent.authMode()
-                    == AgentAuthenticationService
-                    .AgentAuthMode
-                    .DEVICE_CREDENTIAL) {
-
-                rejectRegistration(
-                        session,
-                        "Device installation not found"
-                );
-                return;
-            }
-
-            /*
-             * Legacy bootstrap временно сохраняется.
-             *
-             * Старый агент после пользовательского login
-             * всё ещё может создать первоначальную запись Pc.
-             */
-            pc =
-                    new Pc();
-
-            pc.setInstallationId(
-                    installationId
-            );
-
-            pc.setName(
-                    pcName
-            );
-
-            pc.setMacAddress(
-                    mac
-            );
-
-            pc.setUser(
-                    user
-            );
-
-            log.info(
-                    "Creating new PC record: installationId={}, mac={}, email={}, authMode={}",
-                    installationId,
-                    mac,
-                    email,
-                    authenticatedAgent.authMode()
-            );
-
-        } else {
-            if (pc.getUser() == null
-                    || pc.getUser()
-                    .getId() == null
-                    || user.getId() == null
-                    || !Objects.equals(
-                    pc.getUser().getId(),
-                    user.getId()
-            )) {
-
-                log.warn(
-                        "Agent registration rejected because installation belongs to another user: installationId={}, requestedEmail={}, authMode={}",
-                        installationId,
-                        email,
-                        authenticatedAgent.authMode()
-                );
-
-                rejectRegistration(
-                        session,
-                        "Installation belongs to another user"
-                );
-                return;
-            }
-
-            /*
-             * Для device-auth дополнительно проверяем,
-             * что credential был выдан именно этой
-             * записи Pc, а не просто тому же пользователю.
-             */
-            if (authenticatedAgent.authMode()
-                    == AgentAuthenticationService
-                    .AgentAuthMode
-                    .DEVICE_CREDENTIAL
-
-                    && !Objects.equals(
-                    pc.getId(),
-                    authenticatedAgent.pcId()
-            )) {
-
-                log.warn(
-                        "Agent registration rejected because device credential does not match PC: installationId={}, pcId={}, credentialPcId={}",
-                        installationId,
-                        pc.getId(),
-                        authenticatedAgent.pcId()
-                );
-
-                rejectRegistration(
-                        session,
-                        "Device credential does not match installation"
-                );
-                return;
-            }
-
-            if (!Objects.equals(
-                    pc.getName(),
-                    pcName
-            )) {
-                pc.setName(
-                        pcName
-                );
-
-                log.info(
-                        "PC name updated: installationId={}, pcName={}",
-                        installationId,
-                        pcName
-                );
-            }
-
-            if (!Objects.equals(
-                    pc.getMacAddress(),
-                    mac
-            )) {
-                String previousMac =
-                        pc.getMacAddress();
-
-                pc.setMacAddress(
-                        mac
-                );
-
-                log.info(
-                        "PC MAC address updated: installationId={}, oldMac={}, newMac={}",
-                        installationId,
-                        previousMac,
-                        mac
-                );
-            }
-        }
-
-        pc.setDeviceName(
-                deviceName
-        );
-
-        pc.setOsName(
-                osName
-        );
-
-        pc.setOsVersion(
-                osVersion
-        );
-
-        pc.setAgentVersion(
-                agentVersion
-        );
-
-        pc.setProtocolVersion(
-                protocolVersion
-        );
+        Integer screenHeight =
+                null;
 
         if (json.has("screenWidth")
                 && json.has("screenHeight")) {
 
-            pc.setScreenWidth(
+            screenWidth =
                     json.get("screenWidth")
-                            .asInt()
-            );
+                            .asInt();
 
-            pc.setScreenHeight(
+            screenHeight =
                     json.get("screenHeight")
-                            .asInt()
-            );
+                            .asInt();
 
             log.debug(
-                    "PC screen size updated: installationId={}, width={}, height={}",
+                    "PC screen size received: installationId={}, width={}, height={}",
                     installationId,
-                    pc.getScreenWidth(),
-                    pc.getScreenHeight()
+                    screenWidth,
+                    screenHeight
             );
         }
 
@@ -420,41 +260,72 @@ public class AgentSessionService {
             );
         }
 
-        if (json.has("webrtcUrl")) {
-            pc.setWebrtcUrl(
-                    json.get("webrtcUrl")
-                            .asString()
-            );
-        }
-
-        if (json.has("streamName")) {
-            pc.setStreamName(
-                    json.get("streamName")
-                            .asString()
-            );
-        }
-
-        /*
-         * WebSocket-регистрация сообщает только о том,
-         * что агент сейчас подключён.
-         *
-         * powerState здесь намеренно не изменяется.
-         */
-        pc.setConnectionStatus(
-                PcConnectionStatus.ONLINE
-        );
-
-        pc.setLastSeenAt(
-                Instant.now()
-        );
-
-        Pc savedPc =
-                pcRepository.save(
-                        pc
+        boolean webrtcUrlPresent =
+                json.has(
+                        "webrtcUrl"
                 );
 
+        String webrtcUrl =
+                webrtcUrlPresent
+                        ? json.get("webrtcUrl")
+                        .asString()
+                        : null;
+
+        boolean streamNamePresent =
+                json.has(
+                        "streamName"
+                );
+
+        String streamName =
+                streamNamePresent
+                        ? json.get("streamName")
+                        .asString()
+                        : null;
+
+        AgentPcRegistrationService.RegistrationResult
+                registrationResult =
+                agentPcRegistrationService
+                        .register(
+                                authenticatedAgent,
+                                new AgentPcRegistrationService
+                                        .RegistrationData(
+                                        installationId,
+                                        pcName,
+                                        mac,
+                                        deviceName,
+                                        osName,
+                                        osVersion,
+                                        agentVersion,
+                                        protocolVersion,
+                                        screenWidth,
+                                        screenHeight,
+                                        webrtcUrlPresent,
+                                        webrtcUrl,
+                                        streamNamePresent,
+                                        streamName
+                                )
+                        );
+
+        if (!registrationResult.isAccepted()) {
+            rejectRegistration(
+                    session,
+                    registrationResult
+                            .rejectionMessage()
+            );
+            return;
+        }
+
+        Long pcId =
+                registrationResult.pcId();
+
+        /*
+         * DB transaction уже успешно завершена.
+         *
+         * Только теперь публикуем WebSocket-session
+         * и сообщаем агенту, что регистрация завершена.
+         */
         agentSessionRegistry.register(
-                savedPc.getId(),
+                pcId,
                 session
         );
 
@@ -462,14 +333,14 @@ public class AgentSessionService {
                 session,
                 new TextMessage(
                         "{\"status\":\"registered\",\"pcId\":"
-                                + savedPc.getId()
+                                + pcId
                                 + "}"
                 )
         );
 
         log.info(
                 "Agent registered: pcId={}, pcName={}, installationId={}, agentVersion={}, protocolVersion={}, email={}, authMode={}",
-                savedPc.getId(),
+                pcId,
                 pcName,
                 installationId,
                 agentVersion,
