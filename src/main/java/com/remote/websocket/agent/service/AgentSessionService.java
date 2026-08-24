@@ -19,6 +19,9 @@ import java.util.UUID;
 @Service
 public class AgentSessionService {
 
+    private static final int MAX_MAC_ADDRESS_LENGTH =
+            50;
+
     private static final int MAX_DEVICE_NAME_LENGTH =
             255;
 
@@ -78,17 +81,6 @@ public class AgentSessionService {
 
         if (!hasRequiredText(
                 json,
-                "mac"
-        )) {
-            rejectRegistration(
-                    session,
-                    "MAC address is missing"
-            );
-            return;
-        }
-
-        if (!hasRequiredText(
-                json,
                 "installationId"
         )) {
             rejectRegistration(
@@ -102,9 +94,41 @@ public class AgentSessionService {
                 json.get("pcName")
                         .asString();
 
+        /*
+         * MAC является optional metadata.
+         *
+         * Старые агенты продолжают присылать "mac".
+         * Новые агенты смогут не передавать поле,
+         * передавать null или пустую строку.
+         */
         String mac =
-                json.get("mac")
-                        .asString();
+                null;
+
+        if (json.has("mac")
+                && json.get("mac") != null
+                && !json.get("mac")
+                .isNull()) {
+
+            String rawMac =
+                    json.get("mac")
+                            .asString()
+                            .strip();
+
+            if (!rawMac.isBlank()) {
+                if (rawMac.length()
+                        > MAX_MAC_ADDRESS_LENGTH) {
+
+                    rejectRegistration(
+                            session,
+                            "MAC address is invalid"
+                    );
+                    return;
+                }
+
+                mac =
+                        rawMac;
+            }
+        }
 
         UUID installationId;
 

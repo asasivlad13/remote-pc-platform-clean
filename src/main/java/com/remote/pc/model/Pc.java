@@ -23,10 +23,6 @@ import java.util.UUID;
         name = "pcs",
         indexes = {
                 @Index(
-                        name = "idx_pcs_mac_address",
-                        columnList = "mac_address"
-                ),
-                @Index(
                         name = "idx_pcs_user_id",
                         columnList = "user_id"
                 ),
@@ -83,14 +79,17 @@ public class Pc {
     private String deviceName;
 
     /*
-     * MAC является характеристикой устройства,
-     * а не идентификатором установки.
+     * MAC является необязательной характеристикой
+     * сетевого интерфейса, а не идентификатором
+     * установки агента.
+     *
+     * Идентичность установки определяется
+     * installationId.
      */
-    @NotBlank
     @Size(max = 50)
     @Column(
             name = "mac_address",
-            nullable = false,
+            nullable = true,
             length = 50
     )
     private String macAddress;

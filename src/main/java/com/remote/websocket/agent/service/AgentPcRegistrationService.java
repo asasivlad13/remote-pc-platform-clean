@@ -78,6 +78,9 @@ public class AgentPcRegistrationService {
          *
          * После этого оба запроса работают
          * с одной строкой Pc.
+         *
+         * MAC может отсутствовать: идентичность
+         * установки определяется installationId.
          */
         if (authenticatedAgent.authMode()
                 == AgentAuthenticationService
@@ -221,7 +224,15 @@ public class AgentPcRegistrationService {
             );
         }
 
-        if (!Objects.equals(
+        /*
+         * Отсутствующий MAC не стирает последнее
+         * известное значение у существующего Pc.
+         *
+         * Если агент смог определить новый MAC,
+         * характеристика устройства обновляется.
+         */
+        if (registrationData.mac() != null
+                && !Objects.equals(
                 pc.getMacAddress(),
                 registrationData.mac()
         )) {
