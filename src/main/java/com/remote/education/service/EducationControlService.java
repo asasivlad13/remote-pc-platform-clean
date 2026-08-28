@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.remote.education.dto.EducationParticipantResponse;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Service
 public class EducationControlService {
@@ -50,8 +50,8 @@ public class EducationControlService {
         }
 
         participant.setControlRequested(true);
-        participant.setControlRequestedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setControlRequestedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -87,14 +87,14 @@ public class EducationControlService {
         for (EducationSessionParticipant active : participantRepository.findByEducationSessionAndHasControlTrue(session)) {
             active.setHasControl(false);
             active.setControlRequested(false);
-            active.setLastActivityAt(LocalDateTime.now());
+            active.setLastActivityAt(Instant.now());
             participantRepository.save(active);
         }
 
         participant.setHasControl(true);
         participant.setControlRequested(false);
-        participant.setControlGrantedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setControlGrantedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -121,7 +121,7 @@ public class EducationControlService {
 
         participant.setControlRequested(false);
         participant.setHasControl(false);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -148,7 +148,7 @@ public class EducationControlService {
 
         participant.setHasControl(false);
         participant.setControlRequested(false);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 

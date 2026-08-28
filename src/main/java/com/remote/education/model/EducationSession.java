@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @NoArgsConstructor
 @Getter
@@ -84,13 +84,13 @@ public class EducationSession {
 
     @NotNull
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Instant createdAt = Instant.now();
 
     @Column(name = "finished_at")
-    private LocalDateTime finishedAt;
+    private Instant finishedAt;
 
     public void finish() {
         this.status = EducationSessionStatus.FINISHED;
-        this.finishedAt = LocalDateTime.now();
+        this.finishedAt = Instant.now();
     }
 }

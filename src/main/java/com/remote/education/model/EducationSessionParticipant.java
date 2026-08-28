@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -57,10 +57,10 @@ public class EducationSessionParticipant {
 
     @NotNull
     @Column(name = "joined_at", nullable = false)
-    private LocalDateTime joinedAt = LocalDateTime.now();
+    private Instant joinedAt = Instant.now();
 
     @Column(name = "approved_at")
-    private LocalDateTime approvedAt;
+    private Instant approvedAt;
 
     @Column(name = "control_requested", nullable = false)
     private boolean controlRequested = false;
@@ -69,13 +69,13 @@ public class EducationSessionParticipant {
     private boolean hasControl = false;
 
     @Column(name = "last_activity_at")
-    private LocalDateTime lastActivityAt;
+    private Instant lastActivityAt;
 
     @Column(name = "control_requested_at")
-    private LocalDateTime controlRequestedAt;
+    private Instant controlRequestedAt;
 
     @Column(name = "control_granted_at")
-    private LocalDateTime controlGrantedAt;
+    private Instant controlGrantedAt;
 
     @Column(name = "screen_share_requested", nullable = false)
     private boolean screenShareRequested = false;
@@ -84,8 +84,8 @@ public class EducationSessionParticipant {
     private boolean screenShareActive = false;
 
     @Column(name = "screen_share_requested_at")
-    private LocalDateTime screenShareRequestedAt;
+    private Instant screenShareRequestedAt;
 
     @Column(name = "screen_share_started_at")
-    private LocalDateTime screenShareStartedAt;
+    private Instant screenShareStartedAt;
 }

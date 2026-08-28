@@ -1,6 +1,6 @@
 package com.remote.education.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record EducationParticipantResponse(
         Long id,
@@ -9,16 +9,16 @@ public record EducationParticipantResponse(
         Long studentId,
         String username,
         String status,
-        LocalDateTime joinedAt,
-        LocalDateTime approvedAt,
+        Instant joinedAt,
+        Instant approvedAt,
         Boolean controlRequested,
         Boolean hasControl,
-        LocalDateTime controlRequestedAt,
-        LocalDateTime controlGrantedAt,
-        LocalDateTime lastActivityAt,
+        Instant controlRequestedAt,
+        Instant controlGrantedAt,
+        Instant lastActivityAt,
         Boolean screenShareRequested,
         Boolean screenShareActive,
-        LocalDateTime screenShareRequestedAt,
-        LocalDateTime screenShareStartedAt
+        Instant screenShareRequestedAt,
+        Instant screenShareStartedAt
 ) {
 }

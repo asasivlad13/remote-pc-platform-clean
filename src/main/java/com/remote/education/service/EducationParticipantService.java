@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.remote.education.dto.EducationParticipantResponse;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +44,7 @@ public class EducationParticipantService {
         EducationSession session = findSessionById(sessionId);
         EducationSessionParticipant participant = findParticipant(session, student);
 
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         return participantRepository.save(participant);
     }
@@ -90,8 +90,8 @@ public class EducationParticipantService {
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
         participant.setApprovedAt(null);
-        participant.setJoinedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setJoinedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -120,8 +120,8 @@ public class EducationParticipantService {
         participant.setControlRequested(false);
         participant.setScreenShareRequested(false);
         participant.setScreenShareActive(false);
-        participant.setJoinedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setJoinedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -156,8 +156,8 @@ public class EducationParticipantService {
         }
 
         participant.setStatus(EducationParticipantStatus.APPROVED);
-        participant.setApprovedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setApprovedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -187,7 +187,7 @@ public class EducationParticipantService {
         participant.setScreenShareActive(false);
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -207,7 +207,7 @@ public class EducationParticipantService {
         EducationSession session = findSessionByCode(sessionCode);
         EducationSessionParticipant participant = findParticipant(session, student);
 
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         return participantRepository.save(participant);
     }
@@ -227,7 +227,7 @@ public class EducationParticipantService {
         participant.setScreenShareActive(false);
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 

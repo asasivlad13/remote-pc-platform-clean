@@ -1,6 +1,6 @@
 package com.remote.education.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record EducationSessionResponse(
         Long id,
@@ -19,7 +19,7 @@ public record EducationSessionResponse(
         Boolean allowStudentControl,
         Boolean allowFileTransfer,
         Boolean allowStudentScreenShare,
-        LocalDateTime createdAt,
-        LocalDateTime finishedAt
+        Instant createdAt,
+        Instant finishedAt
 ) {
 }

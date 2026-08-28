@@ -16,7 +16,7 @@ import com.remote.pc.repository.PcRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Service
 public class EducationScreenShareService {
@@ -117,9 +117,9 @@ public class EducationScreenShareService {
 
         participant.setScreenShareRequested(true);
         participant.setScreenShareActive(false);
-        participant.setScreenShareRequestedAt(LocalDateTime.now());
+        participant.setScreenShareRequestedAt(Instant.now());
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -157,15 +157,15 @@ public class EducationScreenShareService {
                 active.setScreenShareActive(false);
                 active.setScreenShareRequested(false);
                 active.setScreenShareStartedAt(null);
-                active.setLastActivityAt(LocalDateTime.now());
+                active.setLastActivityAt(Instant.now());
                 participantRepository.save(active);
             }
         }
 
         participant.setScreenShareRequested(false);
         participant.setScreenShareActive(true);
-        participant.setScreenShareStartedAt(LocalDateTime.now());
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setScreenShareStartedAt(Instant.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -194,7 +194,7 @@ public class EducationScreenShareService {
         participant.setScreenShareActive(false);
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -223,7 +223,7 @@ public class EducationScreenShareService {
         participant.setScreenShareActive(false);
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 
@@ -250,7 +250,7 @@ public class EducationScreenShareService {
         participant.setScreenShareActive(false);
         participant.setScreenShareRequestedAt(null);
         participant.setScreenShareStartedAt(null);
-        participant.setLastActivityAt(LocalDateTime.now());
+        participant.setLastActivityAt(Instant.now());
 
         EducationSessionParticipant saved = participantRepository.save(participant);
 

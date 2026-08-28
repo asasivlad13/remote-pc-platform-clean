@@ -1,6 +1,6 @@
 package com.remote.education.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record EducationFileResponse(
         Long id,
@@ -12,6 +12,6 @@ public record EducationFileResponse(
         Long recipientId,
         String recipientUsername,
         String status,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
 }
