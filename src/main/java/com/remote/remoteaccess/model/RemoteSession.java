@@ -65,18 +65,15 @@ public class RemoteSession {
     private UUID sessionId;
 
     /*
-     * Удалённый сеанс всегда относится
+     * При создании удалённый сеанс относится
      * к конкретной установке ПК.
+     *
+     * В истории связь может стать null,
+     * если запись ПК удалена. Имя устройства
+     * сохраняется отдельно в pcName.
      */
-    @NotNull
-    @ManyToOne(
-            fetch = FetchType.LAZY,
-            optional = false
-    )
-    @JoinColumn(
-            name = "pc_id",
-            nullable = false
-    )
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pc_id")
     private Pc pc;
 
     /*
