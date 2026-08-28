@@ -92,10 +92,7 @@ public class User implements UserDetails {
     )
     private Instant updatedAt;
 
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL
-    )
+    @OneToMany(mappedBy = "user")
     private List<Pc> pcs;
 
     /*
