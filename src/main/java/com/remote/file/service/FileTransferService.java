@@ -2,7 +2,6 @@ package com.remote.file.service;
 
 import tools.jackson.databind.ObjectMapper;
 import com.remote.file.dto.StoredFileInfo;
-import com.remote.history.service.ConnectionLogActivityService;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
@@ -31,7 +30,6 @@ public class FileTransferService {
 
     private final FileStorageService fileStorageService;
     private final AgentWebSocketHandler agentWebSocketHandler;
-    private final ConnectionLogActivityService connectionLogActivityService;
     private final PcRepository pcRepository;
 
     private final ObjectMapper objectMapper;
@@ -64,20 +62,6 @@ public class FileTransferService {
                 pcId,
                 objectMapper.valueToTree(command)
         );
-
-        try {
-            connectionLogActivityService.incrementFilesSent(
-                    pc.getUser().getUsername(),
-                    pc.getName()
-            );
-        } catch (RuntimeException e) {
-            log.warn(
-                    "Failed to update files sent counter, but file command was already sent: pcId={}, fileId={}",
-                    pcId,
-                    storedFileInfo.getFileId(),
-                    e
-            );
-        }
 
         log.info(
                 "Encrypted file uploaded and download command sent: pcId={}, fileName={}, fileId={}, fileSize={}",

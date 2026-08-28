@@ -13,7 +13,6 @@ import com.remote.education.model.EducationSessionStatus;
 import com.remote.education.repository.EducationFileTransferRepository;
 import com.remote.education.repository.EducationSessionParticipantRepository;
 import com.remote.education.repository.EducationSessionRepository;
-import com.remote.history.service.ConnectionLogActivityService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -39,7 +38,6 @@ public class EducationFileTransferService {
     private static final Path STORAGE_DIR = Path.of("uploads", "education");
     private static final long MAX_FILE_SIZE = 100L * 1024L * 1024L;
 
-    private final ConnectionLogActivityService connectionLogActivityService;
     private final EducationFileTransferRepository fileRepository;
     private final EducationSessionRepository sessionRepository;
     private final EducationSessionParticipantRepository participantRepository;
@@ -48,7 +46,6 @@ public class EducationFileTransferService {
     private final SharedCryptoService cryptoService;
 
     public EducationFileTransferService(
-            ConnectionLogActivityService connectionLogActivityService,
             EducationFileTransferRepository fileRepository,
             EducationSessionRepository sessionRepository,
             EducationSessionParticipantRepository participantRepository,
@@ -56,7 +53,6 @@ public class EducationFileTransferService {
             EducationSessionEventService eventService,
             SharedCryptoService cryptoService
     ) {
-        this.connectionLogActivityService = connectionLogActivityService;
         this.fileRepository = fileRepository;
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
@@ -163,15 +159,6 @@ public class EducationFileTransferService {
 
             EducationFileTransfer saved =
                     fileRepository.save(transfer);
-
-            String pcName = session.getTeacherPc() != null
-                    ? session.getTeacherPc().getName()
-                    : null;
-
-            connectionLogActivityService.incrementFilesSent(
-                    sender.getUsername(),
-                    pcName
-            );
 
             String recipientText = recipient == null
                     ? "всем участникам"

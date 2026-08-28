@@ -13,7 +13,9 @@ import com.remote.auth.dto.VerifyEmailRequest;
 import com.remote.auth.service.AuthService;
 import com.remote.auth.service.PasswordResetService;
 import com.remote.core.service.ClientIpService;
-import com.remote.history.model.ConnectionLog;
+import com.remote.core.service.CurrentUserService;
+import com.remote.history.dto.HistoryResponse;
+import com.remote.history.service.HistoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class AuthController {
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
     private final ClientIpService clientIpService;
+    private final CurrentUserService currentUserService;
+    private final HistoryService historyService;
 
     @PostMapping("/register")
     public RegisterResponse register(
@@ -96,12 +100,25 @@ public class AuthController {
         );
     }
 
+    /*
+     * Compatibility endpoint.
+     *
+     * Источником истории уже является RemoteSession,
+     * как и для /api/history.
+     */
     @GetMapping("/logs")
-    public List<ConnectionLog> getLogs(
-            @RequestHeader("Authorization") String authHeader
+    public List<HistoryResponse> getLogs(
+            HttpServletRequest request
     ) {
-        return authService.getLogs(
-                authHeader
-        );
+        String email =
+                currentUserService
+                        .extractUsername(
+                                request
+                        );
+
+        return historyService
+                .getHistory(
+                        email
+                );
     }
 }

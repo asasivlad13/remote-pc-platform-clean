@@ -12,8 +12,6 @@ import com.remote.auth.security.JwtUtil;
 import com.remote.core.model.AccountStatus;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
-import com.remote.history.model.ConnectionLog;
-import com.remote.history.repository.ConnectionLogRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 
 import static com.remote.common.ServerConstants.AUTH_BEARER_PREFIX;
@@ -32,7 +29,6 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final LoginAttemptService loginAttemptService;
-    private final ConnectionLogRepository connectionLogRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordPolicyService passwordPolicyService;
     private final AuthSessionSecurityService authSessionSecurityService;
@@ -44,7 +40,6 @@ public class AuthService {
             UserRepository userRepository,
             JwtUtil jwtUtil,
             LoginAttemptService loginAttemptService,
-            ConnectionLogRepository connectionLogRepository,
             EmailVerificationService emailVerificationService,
             PasswordPolicyService passwordPolicyService,
             AuthSessionSecurityService authSessionSecurityService
@@ -57,9 +52,6 @@ public class AuthService {
 
         this.loginAttemptService =
                 loginAttemptService;
-
-        this.connectionLogRepository =
-                connectionLogRepository;
 
         this.emailVerificationService =
                 emailVerificationService;
@@ -311,25 +303,6 @@ public class AuthService {
         return new AuthMessageResponse(
                 "Password changed successfully"
         );
-    }
-
-    @Transactional(readOnly = true)
-    public List<ConnectionLog> getLogs(
-            String authHeader
-    ) {
-        String email =
-                extractEmailFromAuthHeader(
-                        authHeader
-                );
-
-        /*
-         * ConnectionLog пока является legacy-моделью.
-         * В колонке username временно хранится email.
-         */
-        return connectionLogRepository
-                .findByUsernameOrderByTimestampDesc(
-                        email
-                );
     }
 
     private void checkAccountCanLogin(

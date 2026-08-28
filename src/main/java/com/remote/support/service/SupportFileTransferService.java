@@ -3,7 +3,6 @@ package com.remote.support.service;
 import com.remote.common.crypto.SharedCryptoService;
 import com.remote.core.model.User;
 import com.remote.core.repository.UserRepository;
-import com.remote.history.service.ConnectionLogActivityService;
 import com.remote.support.dto.SupportFileTransferResponse;
 import com.remote.support.model.SupportFileTransfer;
 import com.remote.support.model.SupportFileTransferStatus;
@@ -48,14 +47,12 @@ public class SupportFileTransferService {
     private final SupportSessionRepository supportSessionRepository;
     private final UserRepository userRepository;
     private final SharedCryptoService cryptoService;
-    private final ConnectionLogActivityService connectionLogActivityService;
 
     public SupportFileTransferService(
             SupportFileTransferRepository supportFileTransferRepository,
             SupportSessionRepository supportSessionRepository,
             UserRepository userRepository,
-            SharedCryptoService cryptoService,
-            ConnectionLogActivityService connectionLogActivityService
+            SharedCryptoService cryptoService
     ) {
         this.supportFileTransferRepository =
                 supportFileTransferRepository;
@@ -68,9 +65,6 @@ public class SupportFileTransferService {
 
         this.cryptoService =
                 cryptoService;
-
-        this.connectionLogActivityService =
-                connectionLogActivityService;
     }
 
     @Transactional(readOnly = true)
@@ -161,16 +155,6 @@ public class SupportFileTransferService {
                     supportFileTransferRepository.save(
                             fileTransfer
                     );
-
-            String pcName =
-                    session.getClientPc() != null
-                            ? session.getClientPc().getName()
-                            : null;
-
-            connectionLogActivityService.incrementFilesSent(
-                    operator.getUsername(),
-                    pcName
-            );
 
             return toResponse(savedFile);
 

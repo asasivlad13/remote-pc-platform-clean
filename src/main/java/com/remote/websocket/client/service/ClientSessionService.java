@@ -1,11 +1,12 @@
 package com.remote.websocket.client.service;
 
-import tools.jackson.databind.JsonNode;
 import com.remote.auth.service.AuthSessionSecurityService;
-import com.remote.history.model.ConnectionLog;
-import com.remote.history.repository.ConnectionLogRepository;
+import com.remote.core.model.User;
+import com.remote.core.repository.UserRepository;
 import com.remote.pc.model.Pc;
 import com.remote.pc.repository.PcRepository;
+import com.remote.remoteaccess.model.RemoteSession;
+import com.remote.remoteaccess.repository.RemoteSessionRepository;
 import com.remote.websocket.agent.AgentWebSocketHandler;
 import com.remote.websocket.common.WebSocketMessageSender;
 import lombok.extern.slf4j.Slf4j;
@@ -13,11 +14,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,15 +29,26 @@ import static com.remote.common.ServerConstants.PROFILE_PERSONAL;
 @Service
 public class ClientSessionService {
 
+    private static final String UNKNOWN_USER =
+            "unknown";
+
     private final PcRepository pcRepository;
-    private final ConnectionLogRepository connectionLogRepository;
+    private final UserRepository userRepository;
+    private final RemoteSessionRepository remoteSessionRepository;
     private final AgentWebSocketHandler agentWebSocketHandler;
     private final AuthSessionSecurityService authSessionSecurityService;
     private final ClientViewerRegistry clientViewerRegistry;
     private final LastFrameCache lastFrameCache;
     private final WebSocketMessageSender webSocketMessageSender;
 
-    private final Map<String, Long> sessionLogIds =
+    /*
+     * WebSocketSession id является только runtime-
+     * идентификатором соединения.
+     *
+     * Здесь он связывается с постоянной строкой
+     * RemoteSession в БД.
+     */
+    private final Map<String, Long> remoteSessionIds =
             new ConcurrentHashMap<>();
 
     private final Map<String, String> sessionProfiles =
@@ -55,7 +68,8 @@ public class ClientSessionService {
 
     public ClientSessionService(
             PcRepository pcRepository,
-            ConnectionLogRepository connectionLogRepository,
+            UserRepository userRepository,
+            RemoteSessionRepository remoteSessionRepository,
             @Lazy AgentWebSocketHandler agentWebSocketHandler,
             AuthSessionSecurityService authSessionSecurityService,
             ClientViewerRegistry clientViewerRegistry,
@@ -65,8 +79,11 @@ public class ClientSessionService {
         this.pcRepository =
                 pcRepository;
 
-        this.connectionLogRepository =
-                connectionLogRepository;
+        this.userRepository =
+                userRepository;
+
+        this.remoteSessionRepository =
+                remoteSessionRepository;
 
         this.agentWebSocketHandler =
                 agentWebSocketHandler;
@@ -138,49 +155,23 @@ public class ClientSessionService {
                         .orElse(null);
 
         if (pc != null) {
-            ConnectionLog connectionLog =
-                    new ConnectionLog(
+            RemoteSession remoteSession =
+                    createRemoteSession(
+                            pc,
                             username,
-                            pc.getName(),
-                            "CONNECT",
-                            clientIp
+                            profile,
+                            mode,
+                            clientIp,
+                            clientInfo
                     );
 
-            connectionLog.setPc(
-                    pc
-            );
-
-            connectionLog.setClientInfo(
-                    clientInfo
-            );
-
-            connectionLog.setMode(
-                    mode
-            );
-
-            connectionLog.setAvgFps(
-                    0.0
-            );
-
-            connectionLog.setAvgLatency(
-                    0.0
-            );
-
-            connectionLog.setFilesSent(
-                    0
-            );
-
-            connectionLog.setIssues(
-                    "profile=" + profile
-            );
-
-            ConnectionLog saved =
-                    connectionLogRepository
+            RemoteSession saved =
+                    remoteSessionRepository
                             .save(
-                                    connectionLog
+                                    remoteSession
                             );
 
-            sessionLogIds.put(
+            remoteSessionIds.put(
                     session.getId(),
                     saved.getId()
             );
@@ -219,22 +210,11 @@ public class ClientSessionService {
                     );
 
             log.info(
-                    "Connection logged: username={}, pcId={}, pcName={}",
+                    "Remote session started: remoteSessionId={}, sessionId={}, username={}, pcId={}, profile={}",
+                    saved.getId(),
+                    saved.getSessionId(),
                     username,
                     pcId,
-                    pc.getName()
-            );
-
-            log.info(
-                    "Connection profile: sessionId={}, profile={}",
-                    session.getId(),
-                    profile
-            );
-
-            log.info(
-                    "Agent notification sent: pcId={}, username={}, profile={}",
-                    pcId,
-                    username,
                     profile
             );
         }
@@ -260,12 +240,12 @@ public class ClientSessionService {
             WebSocketSession session,
             JsonNode json
     ) {
-        Long logId =
-                sessionLogIds.get(
+        Long remoteSessionId =
+                remoteSessionIds.get(
                         session.getId()
                 );
 
-        if (logId == null) {
+        if (remoteSessionId == null) {
             return;
         }
 
@@ -327,26 +307,26 @@ public class ClientSessionService {
                         0.0
                 ) / count;
 
-        connectionLogRepository
+        remoteSessionRepository
                 .findById(
-                        logId
+                        remoteSessionId
                 )
                 .ifPresent(
-                        connectionLog -> {
-                            connectionLog.setAvgFps(
+                        remoteSession -> {
+                            remoteSession.setAvgFps(
                                     round(avgFps)
                             );
 
-                            connectionLog.setAvgLatency(
+                            remoteSession.setAvgLatency(
                                     round(avgLatency)
                             );
 
-                            connectionLog.setMode(
+                            remoteSession.setMode(
                                     mode
                             );
 
-                            connectionLogRepository.save(
-                                    connectionLog
+                            remoteSessionRepository.save(
+                                    remoteSession
                             );
                         }
                 );
@@ -355,8 +335,8 @@ public class ClientSessionService {
     public void closeSession(
             WebSocketSession session
     ) {
-        Long logId =
-                sessionLogIds.remove(
+        Long remoteSessionId =
+                remoteSessionIds.remove(
                         session.getId()
                 );
 
@@ -385,48 +365,48 @@ public class ClientSessionService {
                 session.getId()
         );
 
-        if (logId == null) {
+        if (remoteSessionId == null) {
             return;
         }
 
-        connectionLogRepository
+        remoteSessionRepository
                 .findById(
-                        logId
+                        remoteSessionId
                 )
                 .ifPresent(
-                        connectionLog -> {
-                            LocalDateTime disconnectedAt =
-                                    LocalDateTime.now();
+                        remoteSession -> {
+                            Instant endedAt =
+                                    Instant.now();
 
-                            connectionLog.setDisconnectedAt(
-                                    disconnectedAt
+                            remoteSession.setEndedAt(
+                                    endedAt
                             );
 
-                            if (connectionLog.getTimestamp()
+                            if (remoteSession.getStartedAt()
                                     != null) {
 
                                 long seconds =
                                         Duration.between(
-                                                connectionLog.getTimestamp(),
-                                                disconnectedAt
+                                                remoteSession.getStartedAt(),
+                                                endedAt
                                         ).getSeconds();
 
-                                connectionLog.setDurationSeconds(
-                                        (int) Math.max(
-                                                seconds,
-                                                0
+                                remoteSession.setDurationSeconds(
+                                        safeDurationSeconds(
+                                                seconds
                                         )
                                 );
                             }
 
-                            connectionLogRepository.save(
-                                    connectionLog
+                            remoteSessionRepository.save(
+                                    remoteSession
                             );
 
                             log.info(
-                                    "Session closed: logId={}, durationSeconds={}",
-                                    logId,
-                                    connectionLog.getDurationSeconds()
+                                    "Remote session closed: remoteSessionId={}, sessionId={}, durationSeconds={}",
+                                    remoteSession.getId(),
+                                    remoteSession.getSessionId(),
+                                    remoteSession.getDurationSeconds()
                             );
                         }
                 );
@@ -448,15 +428,86 @@ public class ClientSessionService {
         return sessionUsernames
                 .getOrDefault(
                         sessionId,
-                        "unknown"
+                        UNKNOWN_USER
                 );
+    }
+
+    private RemoteSession createRemoteSession(
+            Pc pc,
+            String username,
+            String profile,
+            String mode,
+            String clientIp,
+            String clientInfo
+    ) {
+        RemoteSession remoteSession =
+                new RemoteSession();
+
+        remoteSession.setPc(
+                pc
+        );
+
+        remoteSession.setPcName(
+                pc.getName()
+        );
+
+        remoteSession.setProfile(
+                profile
+        );
+
+        remoteSession.setMode(
+                normalizeMode(
+                        mode
+                )
+        );
+
+        remoteSession.setClientIp(
+                clientIp
+        );
+
+        remoteSession.setClientInfo(
+                clientInfo
+        );
+
+        remoteSession.setAvgFps(
+                0.0
+        );
+
+        remoteSession.setAvgLatency(
+                0.0
+        );
+
+        remoteSession.setFilesSent(
+                0
+        );
+
+        if (!UNKNOWN_USER.equals(
+                username
+        )) {
+            remoteSession.setUserEmail(
+                    username
+            );
+
+            User user =
+                    userRepository
+                            .findByEmail(
+                                    username
+                            )
+                            .orElse(null);
+
+            remoteSession.setUser(
+                    user
+            );
+        }
+
+        return remoteSession;
     }
 
     private String extractUsernameFromJson(
             JsonNode json
     ) {
         if (!json.has("token")) {
-            return "unknown";
+            return UNKNOWN_USER;
         }
 
         String token =
@@ -466,7 +517,7 @@ public class ClientSessionService {
         if (token == null
                 || token.isBlank()) {
 
-            return "unknown";
+            return UNKNOWN_USER;
         }
 
         return authSessionSecurityService
@@ -474,7 +525,7 @@ public class ClientSessionService {
                         token
                 )
                 .orElse(
-                        "unknown"
+                        UNKNOWN_USER
                 );
     }
 
@@ -512,6 +563,33 @@ public class ClientSessionService {
         return platform
                 + ", "
                 + browser;
+    }
+
+    private String normalizeMode(
+            String mode
+    ) {
+        if (mode == null
+                || mode.isBlank()) {
+
+            return "Control";
+        }
+
+        return mode;
+    }
+
+    private int safeDurationSeconds(
+            long seconds
+    ) {
+        long normalizedSeconds =
+                Math.max(
+                        seconds,
+                        0
+                );
+
+        return normalizedSeconds
+                > Integer.MAX_VALUE
+                ? Integer.MAX_VALUE
+                : (int) normalizedSeconds;
     }
 
     private double round(

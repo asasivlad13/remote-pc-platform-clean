@@ -1,7 +1,6 @@
 package com.remote.pc.model;
 
 import com.remote.core.model.User;
-import com.remote.history.model.ConnectionLog;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -12,7 +11,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @NoArgsConstructor
@@ -176,7 +174,7 @@ public class Pc {
      * с Education/Support.
      *
      * Позже параметры активного видеосеанса
-     * будут вынесены в remote session.
+     * будут вынесены в отдельное runtime-состояние.
      */
     @Size(max = 500)
     @Column(
@@ -202,12 +200,6 @@ public class Pc {
             nullable = false
     )
     private User user;
-
-    @OneToMany(
-            mappedBy = "pc",
-            cascade = CascadeType.ALL
-    )
-    private List<ConnectionLog> connectionLogs;
 
     @Column(
             name = "created_at",
