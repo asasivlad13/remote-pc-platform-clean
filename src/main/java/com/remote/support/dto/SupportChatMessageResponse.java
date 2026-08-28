@@ -1,12 +1,12 @@
 package com.remote.support.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record SupportChatMessageResponse(
         Long id,
         Long senderId,
         String senderUsername,
         String message,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
 }

@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @NoArgsConstructor
 @Getter
@@ -70,23 +70,23 @@ public class SupportSession {
 
     @NotNull
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Instant createdAt = Instant.now();
 
     @Column(name = "started_at")
-    private LocalDateTime startedAt;
+    private Instant startedAt;
 
     @Column(name = "finished_at")
-    private LocalDateTime finishedAt;
+    private Instant finishedAt;
 
     @Column(name = "control_requested_at")
-    private LocalDateTime controlRequestedAt;
+    private Instant controlRequestedAt;
 
     @Column(name = "control_allowed_at")
-    private LocalDateTime controlAllowedAt;
+    private Instant controlAllowedAt;
 
     public void finish() {
         this.status = SupportSessionStatus.FINISHED;
-        this.finishedAt = LocalDateTime.now();
+        this.finishedAt = Instant.now();
         this.controlRequested = false;
         this.controlAllowed = false;
         this.controlRequestedAt = null;
@@ -95,7 +95,7 @@ public class SupportSession {
 
     public void cancel() {
         this.status = SupportSessionStatus.CANCELLED;
-        this.finishedAt = LocalDateTime.now();
+        this.finishedAt = Instant.now();
         this.controlRequested = false;
         this.controlAllowed = false;
         this.controlRequestedAt = null;

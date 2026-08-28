@@ -1,6 +1,6 @@
 package com.remote.support.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record SupportFileTransferResponse(
         Long id,
@@ -13,7 +13,7 @@ public record SupportFileTransferResponse(
         String contentType,
         Long sizeBytes,
         String status,
-        LocalDateTime createdAt,
-        LocalDateTime decidedAt
+        Instant createdAt,
+        Instant decidedAt
 ) {
 }

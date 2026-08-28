@@ -12,7 +12,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @NoArgsConstructor
 @Getter
@@ -75,18 +75,18 @@ public class SupportFileTransfer {
 
     @NotNull
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Instant createdAt = Instant.now();
 
     @Column(name = "decided_at")
-    private LocalDateTime decidedAt;
+    private Instant decidedAt;
 
     public void accept() {
         this.status = SupportFileTransferStatus.ACCEPTED;
-        this.decidedAt = LocalDateTime.now();
+        this.decidedAt = Instant.now();
     }
 
     public void reject() {
         this.status = SupportFileTransferStatus.REJECTED;
-        this.decidedAt = LocalDateTime.now();
+        this.decidedAt = Instant.now();
     }
 }

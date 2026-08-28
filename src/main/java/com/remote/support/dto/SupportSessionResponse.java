@@ -2,16 +2,16 @@ package com.remote.support.dto;
 
 import com.remote.support.model.SupportSessionStatus;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record SupportSessionResponse(
         Long id,
         String sessionCode,
         String title,
         SupportSessionStatus status,
-        LocalDateTime createdAt,
-        LocalDateTime startedAt,
-        LocalDateTime finishedAt,
+        Instant createdAt,
+        Instant startedAt,
+        Instant finishedAt,
 
         Long operatorId,
         String operatorUsername,
@@ -31,7 +31,7 @@ public record SupportSessionResponse(
 
         Boolean controlRequested,
         Boolean controlAllowed,
-        LocalDateTime controlRequestedAt,
-        LocalDateTime controlAllowedAt
+        Instant controlRequestedAt,
+        Instant controlAllowedAt
 ) {
 }

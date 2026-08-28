@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Service
 public class SupportSessionService {
@@ -84,7 +84,7 @@ public class SupportSessionService {
         session.setClient(client);
         session.setClientPc(clientPc);
         session.setStatus(SupportSessionStatus.ACTIVE);
-        session.setStartedAt(LocalDateTime.now());
+        session.setStartedAt(Instant.now());
 
         return toResponse(supportSessionRepository.save(session));
     }
@@ -122,7 +122,7 @@ public class SupportSessionService {
 
         session.setControlRequested(true);
         session.setControlAllowed(false);
-        session.setControlRequestedAt(LocalDateTime.now());
+        session.setControlRequestedAt(Instant.now());
         session.setControlAllowedAt(null);
 
         return toResponse(supportSessionRepository.save(session));
@@ -141,7 +141,7 @@ public class SupportSessionService {
         }
 
         session.setControlAllowed(true);
-        session.setControlAllowedAt(LocalDateTime.now());
+        session.setControlAllowedAt(Instant.now());
 
         return toResponse(supportSessionRepository.save(session));
     }
