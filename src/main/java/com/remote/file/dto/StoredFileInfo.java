@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class StoredFileInfo {
 
@@ -32,9 +32,9 @@ public class StoredFileInfo {
     private boolean downloaded;
 
     @NotNull
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime downloadedAt;
+    private Instant downloadedAt;
 
     public StoredFileInfo(String fileId,
                           String fileName,
@@ -49,7 +49,7 @@ public class StoredFileInfo {
         this.encryptionKey = encryptionKey;
         this.iv = iv;
         this.downloaded = false;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     public String getFileId() {
@@ -80,16 +80,16 @@ public class StoredFileInfo {
         return downloaded;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getDownloadedAt() {
+    public Instant getDownloadedAt() {
         return downloadedAt;
     }
 
     public void markDownloaded() {
         this.downloaded = true;
-        this.downloadedAt = LocalDateTime.now();
+        this.downloadedAt = Instant.now();
     }
 }
