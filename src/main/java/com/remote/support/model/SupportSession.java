@@ -20,7 +20,6 @@ import java.time.Instant;
 @Table(
         name = "support_sessions",
         indexes = {
-                @Index(name = "idx_support_sessions_session_code", columnList = "session_code"),
                 @Index(name = "idx_support_sessions_operator", columnList = "operator_id"),
                 @Index(name = "idx_support_sessions_client", columnList = "client_id"),
                 @Index(name = "idx_support_sessions_client_pc", columnList = "client_pc_id"),

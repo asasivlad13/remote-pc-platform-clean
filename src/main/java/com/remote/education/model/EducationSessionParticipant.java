@@ -16,7 +16,6 @@ import java.time.Instant;
 @Table(
         name = "education_session_participants",
         indexes = {
-                @Index(name = "idx_education_participants_session", columnList = "education_session_id"),
                 @Index(name = "idx_education_participants_student", columnList = "student_id"),
                 @Index(name = "idx_education_participants_status", columnList = "status"),
                 @Index(name = "idx_education_participants_joined_at", columnList = "joined_at"),
